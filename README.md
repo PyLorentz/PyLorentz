@@ -1,13 +1,13 @@
-# PyLo-Ren
+# PyLorentz
 Python code for managing Lorentz Transmission Electron Microscopy (LTEM) data. 
 There will are three primary components: 
 - PyTIE  -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
-- Simulations -- Simulating phase shift and LTEM images from a given magnetization 
-- Alignment -- Aligning raw LTEM images so they can be reconstructed
+- SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
+- Align -- Aligning raw LTEM images so they can be reconstructed
 - GUI -- In progress, a GUI for aligning and reconstructing data all in one place. 
 
-Pylo-Ren has the following DOI (through Zenodo):  
-[![DOI](https://zenodo.org/badge/259449841.svg)](https://zenodo.org/badge/latestdoi/259449841)
+PyLorentz a DOI through Zenodo:  
+[![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
 
 
 ## Getting started
@@ -20,11 +20,11 @@ conda env create -f environment.yml
 ```
 Activate with either 
 ```
-source activate Pylo-Ren
+source activate Pylorentz
 ```
 or
 ```
-conda activate Pylo-Ren
+conda activate Pylorentz
 ```
 depending on operating system before opening a notebook
 ```
@@ -74,4 +74,4 @@ However if you have just one stack (no flip stack) then your data should be in a
 
 ## License
 
-This project is licensed under the BSD License - see the [LICENSE.md](https://github.com/Pylo-Ren/Pylo-Ren/blob/master/LICENSE) file for details. 
+This project is licensed under the BSD License - see the [LICENSE.md](https://github.com/PyLorentz/PyLorentz/blob/master/LICENSE) file for details. 
