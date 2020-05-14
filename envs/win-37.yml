@@ -1,0 +1,42 @@
+name: PyLo-Ren
+channels:
+  - conda-forge
+  - anaconda-fusion
+  - defaults
+dependencies:
+  - h5py
+  - hdf5 
+  - hyperspy
+  - hyperspy-base
+  - hyperspy-gui-ipywidgets
+  - hyperspy-gui-traitsui
+  - ipykernel
+  - ipyparallel
+  - ipython
+  - ipython_genutils
+  - ipywidgets
+  - jpeg
+  - json5
+  - jsonschema
+  - jupyter
+  - jupyterlab
+  - matplotlib
+  - nbconvert
+  - nodejs 
+  - notebook
+  - numpy
+  - pandas
+  - pillow
+  - pip
+  - pyimagej
+  - pyqt
+  - pysimplegui
+  - python=3.7
+  - scikit-image
+  - scikit-learn
+  - scipy
+  - setuptools
+  - widgetsnbextension
+  - yaml
+  - pip:
+    
