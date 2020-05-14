@@ -2,8 +2,8 @@
 Python code for managing Lorentz Transmission Electron Microscopy (LTEM) data. 
 There will are three primary components: 
 - PyTIE  -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
-- Simulations -- Simulating phase shift and LTEM images from a given magnetization 
-- Alignment -- Aligning raw LTEM images so they can be reconstructed
+- SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
+- Align -- Aligning raw LTEM images so they can be reconstructed
 - GUI -- In progress, a GUI for aligning and reconstructing data all in one place. 
 
 PyLorentz has the following DOI (through Zenodo):  
