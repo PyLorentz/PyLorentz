@@ -30,7 +30,7 @@
 #       'phase_m' : magnetic phase shift (radians),
 #       'phase_e' : electrostatic phase shift (if using flip stack) (radians),
 #       'dIdZ_m' : intensity derivative for calculating phase_m,
-#       'dIdZ_e' : intensity derivative for calculating phase_m (if using flip stack), 
+#       'dIdZ_e' : intensity derivative for calculating phase_e (if using flip stack), 
 #       'color_b' : RGB image of magnetization,
 #       'inf_im' : the in-focus image
 #
@@ -75,7 +75,7 @@ def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, 
         'phase_m' : magnetic phase shift (radians),
         'phase_e' : electrostatic phase shift (if using flip stack) (radians),
         'dIdZ_m' : intensity derivative for calculating phase_m,
-        'dIdZ_e' : intensity derivative for calculating phase_m (if using flip stack), 
+        'dIdZ_e' : intensity derivative for calculating phase_e (if using flip stack), 
         'color_b' : RGB image of magnetization,
         'inf_im' : the in-focus image}
 
@@ -205,27 +205,24 @@ def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, 
             dIdZ_m = scaled_tifs[2] - scaled_tifs[0]
 
     
-    dIdZ_m *= mask 
-    if ptie.flip:
-        dIdZ_e += (1-mask) * np.mean(dIdZ_e)
-
     # Set derivatives to have 0 total "energy" 
+    dIdZ_m *= mask 
     totm = np.sum(dIdZ_m)/np.sum(mask)
     dIdZ_m -= totm
+    dIdZ_m *= mask 
     results['dIdZ_m'] = dIdZ_m
+
     if ptie.flip:
+        dIdZ_e *= mask
         tote = np.sum(dIdZ_e)/np.sum(mask)
         dIdZ_e -= tote
+        dIdZ_e *= mask 
         results['dIdZ_e'] = dIdZ_e
 
     if sym:
         dIdZ_m = symmetrize(dIdZ_m)
         if ptie.flip:
             dIdZ_e = symmetrize(dIdZ_e)
-
-    dIdZ_m *= mask 
-    if ptie.flip:
-        dIdZ_e *= mask 
 
     ### Now time to call phase_reconstruct, first for E if we have a flipped tfs 
     print('Calling TIE solver\n')
@@ -423,7 +420,7 @@ def save_results(i, results, ptie, dataname, sym, qc, save, v, long_deriv=False)
         defval = ptie.defvals[i]
     print('Saving images')
     if save == 'b':
-        b_keys = ['bbt', 'color_b'] # add bxt and byt if you'd like
+        b_keys = ['bxt', 'byt', 'color_b']
     elif save == 'color': 
         b_keys = ['color_b']
 

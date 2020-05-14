@@ -410,6 +410,7 @@ def show_2D(mag_x, mag_y, a = 15, l = None, title = None):
     if l is None:
         l = mag_x.shape[0]/(10*bmax*a)
 
+
     dim = mag_x.shape[0]
     X = np.arange(0, dim, 1)
     Y = np.arange(0, dim, 1)

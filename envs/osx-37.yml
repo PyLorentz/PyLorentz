@@ -1,4 +1,4 @@
-name: PyLo-Ren
+name: PyLorentz
 channels:
   - conda-forge
   - anaconda-fusion

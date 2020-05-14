@@ -1,4 +1,4 @@
-name: PyLo-Ren
+name: PyLorentz
 channels:
   - conda-forge
   - anaconda-fusion
@@ -31,8 +31,8 @@ dependencies:
   - pyimagej
   - pyqt
   - pysimplegui
-  - python=3.7
-  - scikit-image
+  - python
+  - scikit-image=0.15.0
   - scikit-learn
   - scipy
   - setuptools
