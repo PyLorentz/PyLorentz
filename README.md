@@ -6,8 +6,8 @@ There will are three primary components:
 - Align -- Aligning raw LTEM images so they can be reconstructed
 - GUI -- In progress, a GUI for aligning and reconstructing data all in one place. 
 
-PyLorentz has the following DOI (through Zenodo):  
-[![DOI](https://zenodo.org/badge/259449841.svg)](https://zenodo.org/badge/latestdoi/259449841)
+PyLorentz a DOI through Zenodo:  
+[![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
 
 
 ## Getting started
