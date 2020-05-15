@@ -1,0 +1,848 @@
+import PySimpleGUI as sg
+import sys
+from align import join
+from gui_styling import pad
+
+# "Perform the 'Linear Stack Alignment with SIFT' Fiji plugin. To understand the alignment parameters, go to: https://imagej.net/Feature_Extraction.")
+# """Perform the 'bUnwarpJ' Fiji plugin. """
+
+# ---------------- Element Keys ---------------- #
+button_keys = ["__Fiji_Browse__", "__Fiji_Set__", "__Fiji_Reset__", "__LS_Image_Dir_Browse__",
+               "__LS_Set_Img_Dir__", "__LS_Reset_Img_Dir__", "__LS_Run_Align__", "__LS_Adjust__",
+               "__LS_Load_Stack__", "__LS_View_Stack__",
+               "__BUJ_Image_Dir_Browse__", "__BUJ_Set_Img_Dir__", "__BUJ_Reset_Img_Dir__",
+               "__BUJ_Load_Unflip_Stack__", "__BUJ_Load_Flip_Stack__",
+               "__BUJ_Elastic_Align__", "__BUJ_Unflip_Align__", "__BUJ_Flip_Align__",
+               "__BUJ_Adjust__", "__BUJ_View_Stack__", "__BUJ_Make_Mask__", "__BUJ_Reset_Mask__",
+               "__BUJ_Load_Mask__", "__BUJ_Load_Stack__",
+               "__BUJ_Clear_Unflip_Mask__", "__BUJ_Clear_Flip_Mask__"]
+checkbox_keys = ["__LS_horizontal_flip__", "__LS_interp__",
+                 "__BUJ_horizontal_flip__", "__BUJ_LS_interp__", "__BUJ_filter__"]
+combo_keys = ["__LS_exp_transf__",
+              "__BUJ_reg_mode__", "__BUJ_init_def__", "__BUJ_final_def__",
+              "__BUJ_LS_exp_transf__", "__BUJ_exp_transf__", "__BUJ_Stack_Choice__", "__BUJ_Mask_View__"]
+column_keys = ["__BUJ_Load_Mask_Col__"]
+graph_keys = ["__LS_Graph__",
+              "__BUJ_Graph__",
+              "__invisible_graph__"]
+input_keys = ["__Fiji_Path__", "__LS_Image_Dir_Path__", "__LS_igb__",
+              "__LS_spso__", "__LS_min_im__", "__LS_max_im__", "__LS_fds__", "__LS_fdob__",
+              "__LS_cncr__", "__LS_max_al_err__", "__LS_inlier_rat__", "__LS_transform_x__",
+              "__LS_transform_y__", "__LS_transform_rot__",
+
+              "__LS_Image1__", "__LS_Image2__", "__LS_Stack__", "__LS_Staging_Load__",
+              "__BUJ_Stack_Stage_Load__", "__BUJ_Unflip_Stage_Load__", "__BUJ_Flip_Stage_Load__",
+
+              "__BUJ_LS_igb__", "__BUJ_LS_spso__", "__BUJ_LS_min_im__", "__BUJ_LS_max_im__",
+              "__BUJ_LS_fds__", "__BUJ_LS_fdob__", "__BUJ_LS_cncr__", "__BUJ_LS_max_al_err__",
+              "__BUJ_LS_inlier_rat__", "__BUJ_igb__", "__BUJ_spso__", "__BUJ_min_im__",
+              "__BUJ_max_im__", "__BUJ_fds__", "__BUJ_fdob__", "__BUJ_cncr__",
+              "__BUJ_max_al_err__", "__BUJ_inlier_rat__", "__BUJ_min_num_inlier__",
+              "__BUJ_Image_Dir_Path__", "__BUJ_div_w__", "__BUJ_curl_w__",
+              "__BUJ_land_w__", "__BUJ_img_w__", "__BUJ_cons_w__", "__BUJ_stop_thresh__",
+              "__BUJ_transform_x__", "__BUJ_transform_y__", "__BUJ_transform_rot__",
+              "__BUJ_Image1__", "__BUJ_Image2__", "__BUJ_Stack__",
+              "__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__", "__BUJ_Unflip_Mask_Inp__", "__BUJ_Flip_Mask_Inp__"]
+# multiline_keys = ["__LS_Log__", "__BUJ_Log__"]
+# output_keys = ["__LS_Log__", "__BUJ_Log__"]
+radio_keys = ["__LS_full_align__", "__LS_param_test__", '__LS_unflip_reference__', '__LS_flip_reference__',
+              "__BUJ_unflip_reference__", "__BUJ_flip_reference__"]
+slider_keys = ["__LS_Stack_Slider__",
+               "__BUJ_Stack_Slider__", "__BUJ_img_subsf__"]
+tab_keys = ["ls_tab", "bunwarpj_tab", "reconstruct_tab", "home_tab", "align_tab"]
+tabgroup_keys = ["align_tabgroup", "pages_tabgroup"]
+text_keys = ["home_title", "home_version", "home_authors", "home_readme", "home_contact"]
+keys = {'button': button_keys,
+    'checkbox': checkbox_keys,
+    'combo': combo_keys,
+    'colum': column_keys,
+    'graph': graph_keys,
+    'input': input_keys,
+    # 'multiline': multiline_keys,
+    # 'output': output_keys,
+    'radio': radio_keys,
+    'slider': slider_keys,
+    'tab': tab_keys,
+    'tabgroup': tabgroup_keys,
+    'text': text_keys}
+
+
+# ------------------------------------------------ Layout ------------------------------------------------ #
+# -------------------------------------------- (DON"T CHANGE) -------------------------------------------- #
+
+# ----------------------- Menubar ----------------------- #
+def menu_bar():
+    """Menu bar layout (kind of pointless at the moment)"""
+
+    menu_def = [['&File', ['&Open', '&Save', '&Exit', 'Properties']],
+                ['&Edit', ['Paste', ['Special', 'Normal', ], 'Undo'], ],
+                ['&Help', '&About...'], ]
+    return sg.Menu(menu_def)
+
+
+# ----------------------- Home Tab ----------------------- #
+def home_tab(style, DEFAULTS):
+    """The home tab layout.
+
+    Parameters
+    ----------
+    style : WindowStyle class
+        The class that holds all style data for the window.
+        Look at gui_styling.py for more info.
+    DEFAULTS : dict
+        The default values for certain style elements
+        such as font
+
+    Returns
+    -------
+    tab : list of list of PySimpleGUI Elements
+        The layout for the hometab.
+    """
+
+    title = '''PYTIE Phase Reconstruction'''
+    version = '''Version 0.7.0'''
+    authors = '''Authors: Tim Cote, Arthur McCray, CD Phatak'''
+    readme = '''
+    Welcome to this program! Here you can reconstruct
+    the magnetic phase of a material using through-focal
+    series of TEM images.
+
+    The layout of this program allows you to first align
+    any Digital Micrograph images of your object using a
+    Python <-> ImageJ interface. This can be done under
+    the 'Align Stacks' tab.
+
+    The phase reconstruction can be performed underneath
+    the 'Phase Reconstruction' tab.
+
+    You may visualize resulting reconstructions in the
+    'Visualize' tab.
+    '''
+    contact = 'Contact: tcote@anl.gov, ammcray@anl.gov'
+
+    if sys.platform in ['win32', 'Windows']:
+        fiji_button = sg.FolderBrowse("Browse", **style.styles('__Fiji_Browse__'))
+    else:
+        fiji_button = sg.FileBrowse("Browse", **style.styles('__Fiji_Browse__'))
+    fiji_install_text = sg.Text("Fiji Installation:", pad=pad(350, 0, 20, 0))
+    fiji_input = sg.Input(DEFAULTS['fiji_dir'], **style.styles('__Fiji_Path__'))
+    fiji_set = sg.Button('Set Fiji', **style.styles('__Fiji_Set__'))
+    fiji_reset = sg.Button('Reset Fiji', **style.styles('__Fiji_Reset__'))
+
+    layout = [[sg.T(title, **style.styles('home_title'))],
+              [sg.T(version, **style.styles('home_version'))],
+              [sg.T(authors, **style.styles('home_authors'))],
+              [sg.T(readme, **style.styles('home_readme'))],
+              [sg.T(contact, **style.styles('home_contact'))],
+              [fiji_install_text],
+              [fiji_button,  fiji_input, fiji_set, fiji_reset]]
+    metadata = {"parent_tabgroup": "pages_tabgroup",
+                "child_tabgroup": None}
+
+    # Set the size of all tabs here as well!
+    home_layout = [[sg.Col(layout, size=style.tab_size)]]
+    tab = sg.Tab('Home', home_layout, font=style.fonts['tab'], key="home_tab", metadata=metadata)
+    return tab
+
+
+# ----------------------- Align Tab ----------------------- #
+def align_tab(style, DEFAULTS):
+    """The align tab layout.
+
+    Parameters
+    ----------
+    style : WindowStyle class
+        The class that holds all style data for the window.
+        Look at gui_styling.py for more info.
+    DEFAULTS : dict
+        The default values for certain style elements
+        such as font
+
+    Returns
+    -------
+    tab : list of list of PySimpleGUI Elements
+        The layout for the align tab.
+    """
+
+    # ----- SIFT Tab ----- #
+    def lin_sift_tab():
+        """The linear sift tab layout.
+
+        Returns
+        -------
+        tab : list of list of PySimpleGUI Elements
+            The layout for the linear sift tab tab.
+        """
+
+        # --- SIFT Parameter Frame --- #
+        def ls_sift_p_frame():
+            """The linear sift parameter frame layout.
+
+            Returns
+            -------
+            ls_parameters : list of list of PySimpleGUI Elements
+                The layout for the linear sift parameter frame.
+            """
+            # Scale Invariant Interest Point Detector parameters
+            scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
+            init_gauss_blur = [sg.Text('initial gaussian blur:', pad=((95, 0), (0, 10))),
+                               sg.Input('1.60', **style.styles('__LS_igb__')),
+                               sg.Text('px', pad=((5, 0), (0, 10)))]
+            steps_per_so = [sg.Text('steps per scale octave:', pad=((83, 0), (0, 10))),
+                            sg.Input('3', **style.styles('__LS_spso__'))]
+            min_im_size = [sg.Text('minimum image size:', pad=((87, 0), (0, 10))),
+                           sg.Input('48', **style.styles('__LS_min_im__')),
+                           sg.Text('px', pad=((5, 0), (0, 10)))]
+            max_im_size = [sg.Text('maximum image size:', pad=((84, 0), (0, 10))),
+                           sg.Input('1200', **style.styles('__LS_max_im__')),
+                           sg.Text('px', pad=((5, 0), (0, 10)))]
+
+            # Feature Descriptor parameters
+            feature_desc = [sg.Text('Feature Descriptor:', pad=((20, 10), (2, 2)))]
+            fds = [sg.Text('feature descriptor size:', pad=((80, 0), (0, 10))),
+                   sg.Input('8', **style.styles('__LS_fds__'))]
+            fdob = [sg.Text('feature descriptor orientation bins:', pad=((5, 0), (0, 10))),
+                    sg.Input('8', **style.styles('__LS_fdob__'))]
+            cncr = [sg.Text('closest/next closest ratio:', pad=((65, 0), (0, 10))),
+                    sg.Input('0.95', **style.styles('__LS_cncr__'))]
+
+            # Geometric Consensus Filter parameters
+            geom_c_filter = [sg.Text('Geometric Consensus Filter:', pad=((20, 10), (2, 2)))]
+            max_align_err = [sg.Text('maximum alignment error:', pad=((54, 0), (0, 10))),
+                             sg.Input('5', **style.styles('__LS_max_al_err__')),
+                             sg.Text('px', font=style.fonts['body'], pad=((5, 0), (0, 6)))]
+            inlier_ratio = [sg.Text('inlier ratio:', pad=((155, 0), (0, 6))),
+                            sg.Input('0.05', **style.styles('__LS_inlier_rat__'))]
+            exp_transf = [sg.Text('expected transformation:', pad=((52, 0), (0, 0))),
+                          sg.Combo(('Rigid', 'Translation', 'Similarity', 'Affine'), **style.styles('__LS_exp_transf__'))]
+
+            # Output parameters
+            output = [sg.Text('Output:', pad=((20, 10), (2, 2)))]
+            interpolate = [sg.Checkbox('Interpolate', **style.styles('__LS_interp__'))]
+
+            # Layout
+            ls_parameters = [scale_inv_ipd,
+                             init_gauss_blur,
+                             steps_per_so,
+                             min_im_size,
+                             max_im_size,
+                             feature_desc,
+                             fds,
+                             fdob,
+                             cncr,
+                             geom_c_filter,
+                             max_align_err,
+                             inlier_ratio,
+                             exp_transf,
+                             output, interpolate]
+            return ls_parameters
+
+        # --- Alignment Frame --- #
+        def ls_al_frame():
+            """The linear sift alignment frame layout.
+
+            Returns
+            -------
+            align_frame : list of list of PySimpleGUI Elements
+                The layout for the linear alighnment frame.
+            """
+            spacer1 = sg.Text('_' * 33, font=('Times New Roman', 10, 'bold'))  # text_color='#101010'
+            spacer2 = sg.Text('_' * 120, pad=((5, 5), (0, 0)), font=('Times New Roman', 12), )  # text_color='#101010'
+            sift_test = [[sg.Text('Choose Reference Image', font=style.fonts['heading'], pad=((0, 0), (5, 10)))],
+                         [sg.Radio("Unflip", 'ReferenceRadio', **style.styles('__LS_unflip_reference__')),
+                          sg.Radio("Flip", 'ReferenceRadio', **style.styles('__LS_flip_reference__'))],
+                         [sg.Text('Image Transformation', font=style.fonts['heading'], pad=((0, 0), (10, 0)))],
+                         [sg.Text('Rotation:'),
+                          sg.Input('0', **style.styles('__LS_transform_rot__')),
+                          sg.Text(u'\N{DEGREE SIGN}')],
+                         [sg.Text('X shift:', pad=((11, 0), (0, 0))),
+                          sg.Input('0', **style.styles('__LS_transform_x__')),
+                          sg.Text('px')],
+                         [sg.Text('Y shift:', pad=((11, 0), (0, 0))),
+                          sg.Input('0', **style.styles('__LS_transform_y__')),
+                          sg.Text('px')],
+                         [sg.Checkbox('Horizontal Flip', **style.styles('__LS_horizontal_flip__'))],
+                         [sg.Button('Adjust Image', **style.styles('__LS_Adjust__'))],
+                         [sg.Text('Registration', pad=((43, 5), (200, 2)), font=style.fonts['heading'])],
+                         [sg.Radio('Full Align', 'AlignRadio', **style.styles('__LS_full_align__'))],
+                         [sg.Radio('Parameter Test', 'AlignRadio', **style.styles('__LS_param_test__'))],
+                         [spacer1],
+                         [sg.Button('Run Align', **style.styles('__LS_Run_Align__'))]]
+            image_column = [[sg.Text("Image Directory:", pad=((10, 0), (0, 0))),
+                             sg.Input(DEFAULTS['browser_dir'], **style.styles('__LS_Image_Dir_Path__')),
+                             sg.FolderBrowse("Browse", **style.styles('__LS_Image_Dir_Browse__')),
+                             sg.Button('Set', **style.styles('__LS_Set_Img_Dir__')),
+                             sg.Button('Reset', **style.styles('__LS_Reset_Img_Dir__'))],
+                            [sg.Graph((512, 512), (0, 0), (511, 511), **style.styles('__LS_Graph__'))]]
+
+            align_frame = [[sg.Column(image_column),
+                            sg.Column(sift_test)],
+                           [spacer2],
+                           [sg.Text('Image: 1.', pad=((10, 0), (0, 0))),
+                            sg.Input(**style.styles('__LS_Image1__')),
+                            sg.FileBrowse('Load Stack', **style.styles('__LS_Load_Stack__')),
+                            sg.Button('View Stack', **style.styles('__LS_View_Stack__'))],
+                           [sg.Text('2.', pad=((59, 0), (0, 0))),
+                            sg.Input(**style.styles('__LS_Image2__')),
+                            sg.Slider(**style.styles('__LS_Stack_Slider__'))],
+                           [sg.Text('Stack:', pad=((12, 0), (0, 5))),
+                            sg.Input(**style.styles('__LS_Stack__')),
+                            sg.Input(**style.styles('__LS_Staging_Load__'))]]
+            return align_frame
+
+        # --- Full Linear SIFT Layout --- #
+        def layout_ls_tab():
+            """The linear sift tab layout.
+
+            Returns
+            -------
+            lin_sift_layout : list of list of PySimpleGUI Elements
+                The layout for the linear sift tab.
+            """
+            # fiji_info = ls_intro()
+            sift_p_frame = sg.Frame(layout=ls_sift_p_frame(), title='Linear SIFT Parameters',  # title_color='purple'
+                                    relief=sg.RELIEF_SUNKEN, pad=((10, 0), (10, 0)), font=('Times New Roman', 19))
+            align_frame = sg.Frame(layout=ls_al_frame(), title='Alignment',
+                                   relief=sg.RELIEF_SUNKEN, pad=((10, 0), (10, 30)), font=('Times New Roman', 19))
+            # ls_log = sg.Multiline(**style.styles("__LS_Log__"))    #Output
+            # Layout
+            page_layout = [[sg.Column([[sift_p_frame]]), align_frame]] # , [ls_log]
+            lin_sift_layout = [[sg.Column(page_layout, size=style.small_tab_size)]]
+            return lin_sift_layout
+
+        tab = layout_ls_tab()
+        return tab
+
+    # ----- bUnwarpJ Tab ----- #
+    def bunwarp_tab():
+        """The bunwarpJ tab layout.
+
+        Returns
+        -------
+        tab : list of list of PySimpleGUI Elements
+            The layout for the bunwarpj tab.
+        """
+        # --- SIFT Parameter Frame --- #
+        def bunwarp_ls_sift_p_frame():
+            """The bunwarpJ linear sift parameter frame layout.
+
+            Returns
+            -------
+            ls_parameters : list of list of PySimpleGUI Elements
+                The layout for the bunwarpj ls_parameters.
+            """
+            # Scale Invariant Interest Point Detector parameters
+            scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
+            init_gauss_blur = [sg.Text('initial gaussian blur:', pad=((95, 0), (0, 10))),
+                               sg.Input('1.60', **style.styles('__BUJ_LS_igb__')),
+                               sg.Text('px', pad=((5, 0), (0, 10)))]
+            steps_per_so = [sg.Text('steps per scale octave:', pad=((83, 0), (0, 10))),
+                            sg.Input('3', **style.styles('__BUJ_LS_spso__'))]
+            min_im_size = [sg.Text('minimum image size:', pad=((87, 0), (0, 10))),
+                           sg.Input('48', **style.styles('__BUJ_LS_min_im__')),
+                           sg.Text('px', pad=((5, 0), (0, 10)))]
+            max_im_size = [sg.Text('maximum image size:', pad=((84, 0), (0, 10))),
+                           sg.Input('1200', **style.styles('__BUJ_LS_max_im__')),
+                           sg.Text('px', pad=((5, 0), (0, 10)))]
+
+            # Feature Descriptor parameters
+            feature_desc = [sg.Text('Feature Descriptor:', pad=((20, 10), (2, 2)))]
+            fds = [sg.Text('feature descriptor size:', pad=((80, 0), (0, 10))),
+                   sg.Input('8', **style.styles('__BUJ_LS_fds__'))]
+            fdob = [sg.Text('feature descriptor orientation bins:', pad=((5, 0), (0, 10))),
+                    sg.Input('8', **style.styles('__BUJ_LS_fdob__'))]
+            cncr = [sg.Text('closest/next closest ratio:', pad=((65, 0), (0, 10))),
+                    sg.Input('0.95', **style.styles('__BUJ_LS_cncr__'))]
+
+            # Geometric Consensus Filter parameters
+            geom_c_filter = [sg.Text('Geometric Consensus Filter:', pad=((20, 10), (2, 2)))]
+            max_align_err = [sg.Text('maximum alignment error:', pad=((53, 0), (0, 10))),
+                             sg.Input('5', **style.styles('__BUJ_LS_max_al_err__')),
+                             sg.Text('px', font=style.fonts['body'], pad=((5, 0), (0, 6)))]
+            inlier_ratio = [sg.Text('inlier ratio:', pad=((154, 0), (0, 6))),
+                            sg.Input('0.05', **style.styles('__BUJ_LS_inlier_rat__'))]
+            exp_transf = [sg.Text('expected transformation:', pad=((52, 0), (0, 0))),
+                          sg.Combo(('Rigid', 'Translation', 'Similarity', 'Affine'), **style.styles('__BUJ_LS_exp_transf__'))]
+
+            # Output parameters
+            output = [sg.Text('Output:', pad=((20, 10), (2, 2)))]
+            interpolate = [sg.Checkbox('Interpolate', **style.styles('__BUJ_LS_interp__'))]
+
+            # Layout
+            ls_parameters = [scale_inv_ipd,
+                             init_gauss_blur,
+                             steps_per_so,
+                             min_im_size,
+                             max_im_size,
+                             feature_desc,
+                             fds,
+                             fdob,
+                             cncr,
+                             geom_c_filter,
+                             max_align_err,
+                             inlier_ratio,
+                             exp_transf,
+                             output, interpolate]
+            return ls_parameters
+
+        # --- Bunwarpj SIFT Parameter Frame --- #
+        def buj_feat_ext_p_frame():
+            """The bunwarpJ linear sift feature extraction parameter
+             frame layout.
+
+            Returns
+            -------
+            feat_extr_parameters : list of list of PySimpleGUI Elements
+                The layout for the bunwarpj feat_extr_parameters.
+            """
+            # Scale Invariant Interest Point Detector parameters
+            scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
+            init_gauss_blur = [sg.Text('initial gaussian blur:', pad=((95, 0), (0, 10))),
+                               sg.Input('1.60', **style.styles('__BUJ_igb__')),
+                               sg.Text('px', pad=((5, 0), (0, 10)))]
+            steps_per_so = [sg.Text('steps per scale octave:', pad=((83, 0), (0, 10))),
+                            sg.Input('3', **style.styles('__BUJ_spso__'))]
+            min_im_size = [sg.Text('minimum image size:', pad=((87, 0), (0, 10))),
+                           sg.Input('48', **style.styles('__BUJ_min_im__')),
+                           sg.Text('px', pad=((5, 0), (0, 10)))]
+            max_im_size = [sg.Text('maximum image size:', pad=((84, 0), (0, 10))),
+                           sg.Input('1200', **style.styles('__BUJ_max_im__')),
+                           sg.Text('px', pad=((5, 0), (0, 10)))]
+
+            # Feature Descriptor parameters
+            feature_desc = [sg.Text('Feature Descriptor:', pad=((20, 10), (2, 2)))]
+            fds = [sg.Text('feature descriptor size:', pad=((80, 0), (0, 10))),
+                   sg.Input('8', **style.styles('__BUJ_fds__'))]
+            fdob = [sg.Text('feature descriptor orientation bins:', pad=((5, 0), (0, 10))),
+                    sg.Input('8', **style.styles('__BUJ_fdob__'))]
+            cncr = [sg.Text('closest/next closest ratio:', pad=((65, 0), (0, 10))),
+                    sg.Input('0.95', **style.styles('__BUJ_cncr__'))]
+
+            # Geometric Consensus Filter parameters
+            filter_p = [sg.Checkbox('Filter matches by geometric consensus', **style.styles('__BUJ_filter__'))]
+            geom_c_filter = [sg.Text('Geometric Consensus Filter:', pad=((20, 10), (2, 2)))]
+            max_align_err = [sg.Text('maximum alignment error:', pad=((53, 0), (0, 10))),
+                             sg.Input('5', **style.styles('__BUJ_max_al_err__')),
+                             sg.Text('px', font=style.fonts['body'], pad=((5, 0), (0, 6)))]
+            inlier_ratio = [sg.Text('minimal inlier ratio:', pad=((97, 0), (0, 6))),
+                            sg.Input('0.05', **style.styles('__BUJ_inlier_rat__'))]
+            min_num_inliers = [sg.Text('minimum number of inliers:', pad=((45, 0), (0, 6))),
+                               sg.Input('7', **style.styles('__BUJ_min_num_inlier__'))]
+            exp_transf = [sg.Text('expected transformation:', pad=((58, 0), (0, 0))),
+                          sg.Combo(('Rigid', 'Translation', 'Similarity', 'Affine', 'Perspective'), **style.styles('__BUJ_exp_transf__'))]
+
+            # Layout
+            feat_extr_parameters = [scale_inv_ipd,
+                                    init_gauss_blur,
+                                    steps_per_so,
+                                    min_im_size,
+                                    max_im_size,
+                                    feature_desc,
+                                    fds,
+                                    fdob,
+                                    cncr,
+                                    geom_c_filter,
+                                    filter_p,
+                                    max_align_err,
+                                    inlier_ratio,
+                                    min_num_inliers,
+                                    exp_transf]
+            return feat_extr_parameters
+
+        # --- bUnwarp Parameter Frame --- #
+        def bunwarp_p_frame():
+            """The bunwarpJ parameter frame layout.
+
+            Returns
+            -------
+            bunwarp_parameters : list of list of PySimpleGUI Elements
+                The layout for the bunwarpj parameter frame.
+            """
+            # bUnwarpJ parameters
+            reg_mode = [sg.Text('Registration mode:', pad=((41, 10), (15, 0))),
+                        sg.Combo(('Accurate', 'Fast', 'Mono'), **style.styles('__BUJ_reg_mode__'))]
+            img_sub_factor_txt = [sg.Text('Image Subsample Factor:', pad=((68, 0), (0, 0)))]
+            img_sub_factor = [sg.Slider(**style.styles('__BUJ_img_subsf__'))]
+
+            init_def = [sg.Text('Initial Deformation:', pad=((42, 0), (0, 0))),
+                        sg.Combo(('Very Coarse', 'Coarse', 'Fine', 'Very Fine'), **style.styles('__BUJ_init_def__'))]
+            final_def = [sg.Text('Final Deformation:', pad=((47, 0), (0, 0))),
+                         sg.Combo(('Very Coarse', 'Coarse', 'Fine', 'Very Fine', 'Super Fine'),
+                                  **style.styles('__BUJ_final_def__'))]
+
+            div_weight = [sg.Text('Divergence Weight:', pad=((43, 0), (0, 10))),
+                          sg.Input('0.1', **style.styles('__BUJ_div_w__'))]
+            curl_weight = [sg.Text('Curl Weight:', pad=((89, 0), (0, 10))),
+                           sg.Input('0.1', **style.styles('__BUJ_curl_w__'))]
+
+            landmark_weight = [sg.Text('Landmark Weight:', pad=((51, 0), (0, 10))),
+                               sg.Input('0', **style.styles('__BUJ_land_w__'))]
+            img_weight = [sg.Text('Image Weight:', pad=((77, 0), (0, 10))),
+                          sg.Input('0.1', **style.styles('__BUJ_img_w__'))]
+            cons_weight = [sg.Text('Consistency Weight:', pad=((39, 0), (0, 10))),
+                           sg.Input('0.1', **style.styles('__BUJ_cons_w__'))]
+            stop_thresh = [sg.Text('Stop Threshold:', pad=((70, 0), (0, 10))),
+                           sg.Input('0.1', **style.styles('__BUJ_stop_thresh__'))]
+
+            # Layout
+            bunwarp_parameters = [reg_mode,
+                                  img_sub_factor_txt,
+                                  img_sub_factor,
+                                  init_def,
+                                  final_def,
+                                  div_weight,
+                                  curl_weight,
+                                  landmark_weight,
+                                  img_weight,
+                                  cons_weight,
+                                  stop_thresh]
+            return bunwarp_parameters
+
+        # --- Alignment Frame --- #
+        def bunwarp_al_frame():
+            """The bunwarpJ alignment frame layout.
+
+            Returns
+            -------
+            align_frame : list of list of PySimpleGUI Elements
+                The layout for the bunwarpj alignment frame.
+            """
+            spacer1a = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
+            spacer1b = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
+            spacer1c = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
+
+            spacer2 = sg.Graph((760, 1), (0, 0), (760, 1), pad=((10, 0), (3, 2)), background_color='black')
+            bunwarp_test = [[sg.Text('2b. Linear Stack SIFT Alignment', font=style.fonts['heading'], pad=(0, 5))],
+
+                            [sg.Text('Unflip:'),
+                             sg.Button('Create New', **style.styles('__BUJ_Unflip_Align__')),
+                             sg.Text(' |'),
+                             sg.FileBrowse('Load Stack', **style.styles('__BUJ_Load_Unflip_Stack__')),
+                             sg.Input(**style.styles('__BUJ_Unflip_Stage_Load__'))],
+                            [sg.Text('Flip:', pad=((16, 0), (5, 0))),
+                             sg.Button('Create New', **style.styles('__BUJ_Flip_Align__')),
+                             sg.Text(' |'),
+                             sg.FileBrowse('Load Stack', **style.styles('__BUJ_Load_Flip_Stack__')),
+                             sg.Input(**style.styles('__BUJ_Flip_Stage_Load__'))],
+
+                            [spacer1a],
+
+                            [sg.Text('3. Image Transformation', font=style.fonts['heading'], pad=((23, 0), (0, 0)))],
+                            [sg.Text('Choose reference image:', pad=((32, 5), (5, 5)))],
+                            [sg.Radio('Unflip', 'FlipRadio', **style.styles('__BUJ_unflip_reference__')),
+                             sg.Radio('Flip', 'FlipRadio', **style.styles('__BUJ_flip_reference__'))],
+                            [sg.Text('Rotation:', pad=((35, 0), (0, 0))),
+                             sg.Input('0', **style.styles('__BUJ_transform_rot__'), enable_events=True),
+                             sg.Text(u'\N{DEGREE SIGN}')],
+                            [sg.Text('X shift:', pad=((46, 0), (0, 0))),
+                             sg.Input('0', **style.styles('__BUJ_transform_x__'), enable_events=True),
+                             sg.Text('px')],
+                            [sg.Text('Y shift:', pad=((46, 0), (0, 0))),
+                             sg.Input('0', **style.styles('__BUJ_transform_y__'), enable_events=True),
+                             sg.Text('px')],
+                            [sg.Checkbox('Horizontal Flip', **style.styles('__BUJ_horizontal_flip__'))],
+                            [sg.Button('Adjust Image', **style.styles('__BUJ_Adjust__'))],
+                            [spacer1b],
+                            [sg.Input("", **style.styles('__BUJ_Mask_Stage_Load__'))],
+                            [sg.Text('4. Image Mask (opt.)', font=style.fonts['heading'], pad=((45, 5), (0, 2)))],
+                            [sg.Button('Create New', **style.styles('__BUJ_Make_Mask__')),
+                             sg.Text('|'),
+                             sg.Col([[sg.FileBrowse("Load Mask", **style.styles('__BUJ_Load_Mask__'))]],
+                                    key="__BUJ_Load_Mask_Col__"),
+                             sg.Button("Erase", **style.styles('__BUJ_Reset_Mask__'))],
+                            [sg.Text("Choose:", pad=((35, 0), (7, 0))),
+                             sg.Combo(('Unflip', 'Flip', 'Overlay'),  **style.styles('__BUJ_Mask_View__'))],
+
+                            [sg.Text('Unflip:', pad=((0, 0), (5, 0))),
+                             sg.Input(**style.styles("__BUJ_Unflip_Mask_Inp__")),
+                             sg.Button('Clear', pad=((4, 0), (5, 0)), key='__BUJ_Clear_Unflip_Mask__')],
+                            [sg.Text('Flip:', pad=((16, 0), (3, 0))),
+                             sg.Input(**style.styles("__BUJ_Flip_Mask_Inp__")),
+                             sg.Button('Clear', pad=((4, 0), (3, 0)), key='__BUJ_Clear_Flip_Mask__')],
+                            [spacer1c],
+                            [sg.Text('5c. Registration', pad=((54, 5), (0, 0)), font=style.fonts['heading'])],
+                            [sg.Button('bUnwarpJ Alignment', **style.styles('__BUJ_Elastic_Align__'))]]
+            bunwarp_graph = [[sg.Text("1. Image Directory:", pad=((5, 0), (0, 0))),
+                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__BUJ_Image_Dir_Path__')),
+                              sg.FolderBrowse("Browse", **style.styles('__BUJ_Image_Dir_Browse__')),
+                              sg.Button('Set', **style.styles('__BUJ_Set_Img_Dir__')),
+                              sg.Button('Reset', **style.styles('__BUJ_Reset_Img_Dir__'))],
+                             [sg.Graph((512, 512), (0, 0), (511, 511), **style.styles('__BUJ_Graph__'))]]
+
+            files_column = [[sg.Text('Image:  1.', pad=((5, 0), (0, 0))),
+                             sg.Input(**style.styles('__BUJ_Image1__'))],
+                            [sg.Text('2.', pad=((57, 0), (0, 0))),
+                             sg.Input(**style.styles('__BUJ_Image2__'))],
+                            [sg.Text('Stacks:', pad=((5, 0), (0, 0)))],
+                            [sg.Text('Unflip.', pad=((24, 0), (0, 0))),
+                             sg.Input(**style.styles('__BUJ_Unflip_Stack_Inp__'))],
+                            [sg.Text('Flip.', pad=((40, 0), (0, 0))),
+                             sg.Input(**style.styles('__BUJ_Flip_Stack_Inp__'))],
+                            [sg.Text('Gen.', pad=((39, 0), (0, 5))),
+                             sg.Input(**style.styles('__BUJ_Stack__'))]]
+
+            stack_view_column = [[sg.FileBrowse('Load Stack', **style.styles('__BUJ_Load_Stack__')),
+                                  sg.Input(**style.styles('__BUJ_Stack_Stage_Load__')),
+                                  sg.Button('View Stack', **style.styles('__BUJ_View_Stack__')),
+                                  sg.Text(':'),
+                                  sg.Combo(('Unflip LS', 'Flip LS', 'bUnwarpJ'), **style.styles('__BUJ_Stack_Choice__'))],
+                                 [sg.Text(" ", pad=((20, 0), (0, 0))), sg.Slider(**style.styles('__BUJ_Stack_Slider__'))]]
+            align_frame = [[sg.Column(bunwarp_graph), sg.Column(bunwarp_test)],
+                           [spacer2],
+                           [sg.Column(files_column), sg.Column(stack_view_column)]]
+            return align_frame
+
+        # --- Full bunwarpj Layout --- #
+        def layout_bunwarp_tab():
+            """The bunwarpJ tab layout.
+
+            Returns
+            -------
+            bunwarp_layout : list of list of PySimpleGUI Elements
+                The layout for the bunwarpj tab.
+            """
+            # readme = bunwarp_intro()
+            sift_par_tab = sg.Tab("2a. Linear SIFT", layout=bunwarp_ls_sift_p_frame(), font=style.fonts['tab'])
+            feat_ext_par_tab = sg.Tab("5a. Feature Extract", layout=buj_feat_ext_p_frame(), font=style.fonts['tab'])
+            bunwarp_par_tab = sg.Tab("5b. bUnwarpJ", layout=bunwarp_p_frame(), font=style.fonts['tab'])
+            # bunwarp_log = sg.Multiline(">> Starting Log\n", **style.styles("__BUJ_Log__"))
+            align_frame = sg.Frame(layout=bunwarp_al_frame(), title='Alignment',
+                                   relief=sg.RELIEF_SUNKEN, pad=((0, 5), (0, 2)), font=('Times New Roman', 19))
+            param_tabgroup = [[sg.TabGroup([[sift_par_tab, feat_ext_par_tab, bunwarp_par_tab]], tab_location='topleft',
+                                           theme=sg.THEME_CLASSIC, enable_events=True, key="param_tabgroup")]]
+            param_frame = sg.Frame(layout=param_tabgroup, title='Registration Parameters', pad=((4, 0), (0, 0)),
+                                   relief=sg.RELIEF_SUNKEN, font=('Times New Roman', 19))
+            # Layout
+            page_layout = [[sg.Column([[param_frame]]), align_frame]]  # [bunwarp_log]
+
+            bunwarp_layout = [[sg.Column(page_layout)]]
+            return bunwarp_layout
+
+        tab = layout_bunwarp_tab()
+        return tab
+
+    # ----- Overall Alignment Tab ----- #
+    def layout_align_tab():
+        """The overall alignment tab layout.
+
+        Returns
+        -------
+        align_layout : list of list of PySimpleGUI Elements
+            The layout for the overall alignment tab.
+        """
+        # Align sub-tabs
+        ls_metadata = {"parent_tabgroup": "align_tabgroup",
+                       "child_tabgroup": None}
+        ls_tab = sg.Tab('Linear Stack Alignment with SIFT', lin_sift_tab(), font=style.fonts['tab'],
+                        key="ls_tab", metadata=ls_metadata)
+        buj_metadata = {"parent_tabgroup": "align_tabgroup",
+                        "child_tabgroup": None}
+        bunwarpj_tab = sg.Tab('bUnwarpJ', bunwarp_tab(), font=style.fonts['tab'],
+                              key="bunwarpj_tab", metadata=buj_metadata)
+        align_layout = [[sg.TabGroup([[ls_tab, bunwarpj_tab]], tab_location='topleft', theme=sg.THEME_CLASSIC,
+                                     enable_events=True, key="align_tabgroup")]]
+        return align_layout
+
+    metadata = {"parent_tabgroup": "pages_tabgroup",
+                "child_tabgroup": "align_tabgroup"}
+    tab = sg.Tab('Registration', layout_align_tab(), disabled=True, font=style.fonts['tab'],
+                 key="align_tab", metadata=metadata)
+    return tab
+
+
+# ----------------------- Reconstruct Tab ----------------------- #
+def reconstruct_tab(style, DEFAULTS):
+    """The reconstruction tab layout.
+
+    Parameters
+    ----------
+    style : WindowStyle class
+        The class that holds all style data for the window.
+        Look at gui_styling.py for more info.
+    DEFAULTS : dict
+        The default values for certain style elements
+        such as font
+
+    Returns
+    -------
+    tab : list of list of PySimpleGUI Elements
+        The layout for the reconstruction tab.
+    """
+
+    def layout_reconstruct_tab():
+        """The overall reconstructuion tab layout.
+
+        Returns
+        -------
+        align_layout : list of list of PySimpleGUI Elements
+            The layout for the overall alignment tab.
+        """
+
+        file_mask_col = [[sg.Text("Image Directory:", pad=((5, 0), (0, 0))),
+                          sg.Input(DEFAULTS['browser_dir'], **style.styles('__REC_Image_Dir_Path__')),
+                          sg.FolderBrowse("Browse", **style.styles('__REC_Image_Dir_Browse__')),
+                          sg.Button('Set', **style.styles('__REC_Set_Img_Dir__')),
+                          sg.Button('Reset', **style.styles('__REC_Reset_Img_Dir__'))],
+                         [sg.Text("FLS Files"),
+                          sg.Combo(['One', 'Two'], default_value='One')],
+                         [sg.Text("FLS 1:"),
+                          sg.Input("None", key='__REC_FLS1__'),
+                          sg.FileBrowse("Load", target='__REC_FLS1__')],
+                         [sg.Text("Stack 1:"),
+                          sg.Input("None", key='__REC_Stack1__'),
+                          sg.FileBrowse("Load", target='__REC_Stack1__')],
+                         [sg.Text("FLS 2:"),
+                          sg.Input("None", key='__REC_FLS2__'),
+                          sg.FileBrowse("Load", target='__REC_FLS2__')],
+                         [sg.Text("Stack 2:"),
+                          sg.Input("None", key='__REC_Stack2__'),
+                          sg.FileBrowse("Load", target='__REC_Stack2__')]
+                         ]
+
+        frame_layout = [[sg.Col(file_mask_col)]]
+
+        bunwarp_graph = [[sg.Graph((512, 512), (0, 0), (511, 511), **style.styles('__REC_Graph1__')),
+                          sg.Slider(range=(1, None),
+    default_value=None,
+    resolution=None,
+    tick_interval=None,
+    orientation=None,
+    disable_number_display=False,
+    border_width=None,
+    relief=None,
+    change_submits=False,
+    enable_events=False,
+    disabled=False,
+    size=(None, None),
+    font=None,
+    background_color=None,
+    text_color=None,
+    key=None,
+    pad=None,
+    tooltip=None,
+    visible=True,
+    metadata=None),
+                          sg.Graph((512, 512), (0, 0), (511, 511), **style.styles('__REC_Graph2__'))],
+                         [sg.Frame('Reconstruction', frame_layout)]]
+
+        return sg.Column(bunwarp_graph)
+
+    reconstruct_layout = [[layout_reconstruct_tab()]]
+    # reconstruct_layout = [[sg.Text('Coming soon')]]
+
+    metadata = {"parent_tabgroup": "pages_tabgroup",
+                "child_tabgroup": None}
+    tab = sg.Tab('Phase Reconstruction', reconstruct_layout, font=style.fonts['tab'], key="reconstruct_tab",
+                 metadata=metadata)
+    return tab
+
+
+# ------------------------  Windows  ------------------------ #
+def window_ly(style, DEFAULTS):
+    """The full window layout.
+
+    Parameters
+    ----------
+    style : WindowStyle class
+        The class that holds all style data for the window.
+        Look at gui_styling.py for more info.
+    DEFAULTS : dict
+        The default values for certain style elements
+        such as font
+
+    Returns
+    -------
+    window : list of list of PySimpleGUI Elements
+        The layout for the full window.
+    """
+    menu = menu_bar()
+    home_pg = home_tab(style, DEFAULTS)
+    align_pg = align_tab(style, DEFAULTS)
+    reconstruct_pg = reconstruct_tab(style, DEFAULTS)
+    pages = sg.TabGroup([[home_pg, align_pg, reconstruct_pg]], tab_location='topleft', theme=sg.THEME_CLASSIC,
+                        enable_events=True, key="pages_tabgroup")
+    invisible_graph = sg.Graph((0, 0), (0, 0), (0, 0), visible=True, key="__invisible_graph__")
+
+    window_layout = [[menu], [invisible_graph, pages]]
+    window = sg.Window('PyTIE Phase Reconstruction', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
+                       resizable=True, size=(style.window_width, style.window_height), use_default_focus=False)
+    return window
+
+
+def save_window_ly(event, image_dir, orientations):
+    """Initializes save window.
+
+    Parameters
+    ----------
+    im_type : str
+        The image extension (.bmp, .tiff)
+    file_paths : list of str
+        List containing the file paths that will be
+        checked whether they will be overwritten
+    orientations : list
+
+    Returns
+    -------
+    layout : list of list of PySimpleGUI Elements
+        The layout for the save window.
+    """
+
+    # Change parameters to suit what is being saved
+    if not orientations:
+        orientations = ['']
+    if event == '__BUJ_Make_Mask__':
+        im_type = 'mask'
+        names = [orientation + '_mask.bmp' for orientation in orientations]
+        file_paths = [join([image_dir, name], '/') for name in names]
+    elif event == '__BUJ_Flip_Align__' or event == '__BUJ_Unflip_Align__':
+        im_type = 'Linear Sift stack'
+        names = [orientations[0] + '_aligned_ls_stack.tif']
+        file_paths = [join([image_dir, name], '/') for name in names]
+    elif event == '__BUJ_Elastic_Align__':
+        im_type = 'bUnwarpJ transform and stack'
+        orientations = ['bunwarp transform', 'bunwarp stack']
+        names = ['buj_transform.txt', 'aligned_buj_stack.tif']
+        file_paths = [join([image_dir, name], '/') for name in names]
+    elif event == '__LS_Run_Align__':
+        im_type = 'Linear Sift stack'
+        names = ['aligned_ls_stack.tif']
+        file_paths = [join([image_dir, name], '/') for name in names]
+
+    # Define the layout for the save window
+    col1 = [[sg.Text(f'Choose your {im_type} filename(s): ', pad=((5, 0), (10, 0)))]]
+    col2 = [[sg.Text('Overwrite', pad=((0, 10), (10, 0)))]]
+
+    # Add extra padding for specific variables
+    for i in range(1, len(file_paths)+1):
+        orient = orientations[i-1]
+        if not orient:
+            orient = 'file'
+        if orient == 'file':
+            pad = ((10, 0), (10, 0))
+            x_pad = 47
+        elif orient == 'flip':
+            pad = ((21, 0), (10, 0))
+            x_pad = 59
+        elif orient == 'unflip':
+            pad = ((5, 0), (10, 0))
+            x_pad = 59
+        elif orient == 'bunwarp stack':
+            pad = ((34, 0), (10, 0))
+            x_pad = 143
+        elif orient == 'bunwarp transform':
+            pad = ((5, 0), (10, 0))
+            x_pad = 143
+        else:
+            x_pad = 49
+            pad = ((5, 0), (10, 0))
+        # Create on input fields based off of which files are being saved.
+        col1 += [[sg.Text(f'{orient}:', pad=pad),
+                  sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', size=(70, 1), pad=((5, 10), (10, 0)))]]
+        col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), enable_events=True)]]
+    # Create buttons to define whether to check if paths exists, exit, or save info
+    col1 += [[sg.Button('Exit', pad=((x_pad, 0), (10, 5))),
+              sg.Button('Save', key='__save_win_save__', pad=((5, 0), (10, 5)), disabled=True)],
+             [sg.Multiline('', visible=True, key='__save_win_log__', size=(70, 1), pad=((x_pad, 0), (0, 15)))]]
+    layout = [[sg.Col(col1), sg.Col(col2)]]
+    return layout, im_type, file_paths, orientations
+
