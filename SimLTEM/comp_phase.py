@@ -1,14 +1,14 @@
-#!/usr/bin/python
-#
-# This module consists of functions for simulating the phase shift of a given
-# object. 
-# It contained two functions:
-# 1) linsupPhi - using the linear supeposition principle for application in MBIR type
-#                3D reconstruction of magnetization (both magnetic and electrostatic)
-# 2) mansPhi - using the Mansuripur Algorithm to compute the phase shift (only magnetic)
-#
-# Written, CD Phatak, ANL, 08.May.2015.
-# Modified, CD Phatak, ANL, 22.May.2016.
+"""
+This module consists of functions for simulating the phase shift of a given
+object. 
+It contained two functions:
+1) linsupPhi - using the linear supeposition principle for application in MBIR type
+               3D reconstruction of magnetization (both magnetic and electrostatic)
+2) mansPhi - using the Mansuripur Algorithm to compute the phase shift (only magnetic)
+
+Written, CD Phatak, ANL, 08.May.2015.
+Modified, CD Phatak, ANL, 22.May.2016.
+"""
 
 #import necessary modules
 import numpy as np
@@ -180,8 +180,3 @@ def mansPhi(bx = 1.0,
 
     return ret_phi
 #done.
-
-
-
-
-

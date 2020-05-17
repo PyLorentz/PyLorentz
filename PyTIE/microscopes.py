@@ -1,15 +1,15 @@
-#!/usr/bin/python
-#
-#Python Class file for Microscope.
-#
-#Written by CD Phatak, ANL, 20.Feb.2015.
-#
+"""A class for microscope objects. 
+
+AUTHOR: CD Phatak, ANL, 20.Feb.2015.
+"""
+
 import numpy as np
 import scipy.constants as physcon
 import scipy.ndimage as ndimage
 
 
 class Microscope(object):
+    '''Class for Microscope objects.'''
 
     def __init__(self, E=200.0e3, Cs=1.0e6, Cc=5.0e6, theta_c=6.0e-4, Ca=0.0e6, phi_a=0, def_spr=120.0,verbose=False):
         
@@ -176,11 +176,3 @@ class Microscope(object):
         f_Img = np.abs(f_ImgWave)**2
 
         return f_Img
-
-
-## MAIN ##
-if __name__ == '__main__':
-    print( "Class definition for Microscope Class.")
-
-
-
