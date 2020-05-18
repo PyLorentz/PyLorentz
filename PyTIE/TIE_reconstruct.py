@@ -6,7 +6,6 @@ Known Bugs:
 - Longitudinal derivative gives a magnetization scaling error for some 
     experimental datasets. 
 
-PURPOSE:
 Routines for solving the transport of intensity equation; for use with Lorentz
 TEM throughfocal series to reconstruct B field magnetization of the sample. 
 

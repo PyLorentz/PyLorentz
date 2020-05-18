@@ -1,6 +1,5 @@
 """Helper functions for TIE. 
 
-PURPOSE:
 An assortment of helper functions broadly divided into two sections. First for 
 loading images, passing that data, and helping with the reconstruction; second
 a set of functions helpful for displaying images. 
@@ -18,13 +17,12 @@ from scipy.ndimage.filters import median_filter
 from ipywidgets import interact
 import hyperspy # just for checking type in show_stack. 
 from copy import deepcopy
-
 from TIE_params import TIE_params
 
 
-#######################################################
-# Functions used for loading and passing the TIE data # 
-#######################################################
+# ============================================================= #
+#      Functions used for loading and passing the TIE data      # 
+# ============================================================= #
 
 def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None, filtersize=3): 
     """Load files in a directory (from a .fls file) using hyperspy. 
@@ -280,9 +278,9 @@ def scale_stack(imstack):
 
 
 
-###################################################
+# =============================================== #
 #            Various display functions            # 
-###################################################
+# =============================================== #
 """ Not all of these are used in TIE_reconstruct, but I often find them useful
 to have handy when working in Jupyter notebooks."""
 

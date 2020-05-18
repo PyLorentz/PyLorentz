@@ -6,7 +6,6 @@ datasets, give a reconstructed phase shift that is an order of magnitude
 different. This does not seem to be the case for simulated datasets. 
 Additionally, using this derivative can affect ideal Thikonov filter values. 
 
-PURPOSE:
 This file contains routines for generating the longitudinal derivative through 
 a stack of images by fitting a quadratic polynomial to the intensity values for 
 each (y,x) pixel. 

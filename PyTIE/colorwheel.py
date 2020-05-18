@@ -1,6 +1,5 @@
 """Creates RGB images from vector fields. 
 
-PURPOSE:
 This file contains several routines for plotting colormaps from input 
 data consisting of 2D images of the vector field. The output image
 will be stored as a tiff color image. There are options to save it

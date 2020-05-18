@@ -1,6 +1,5 @@
 """Class for TIE reconstruction parameters. 
 
-PURPOSE:
 A class file for holding TIE images and reconstruction parameters.
 Also has several methods relating to doing the reconstruction, namely making
 masks and interactively cropping the image stacks. 
