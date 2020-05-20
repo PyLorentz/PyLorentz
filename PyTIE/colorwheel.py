@@ -11,7 +11,10 @@ Arthur McCray, C. Phatak, ANL, Summer 2019.
 """
 
 import numpy as np 
-from matplotlib import colors 
+from matplotlib import colors
+import textwrap
+import sys
+from TIE_helper import dist as dist
 
 
 def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
@@ -36,6 +39,7 @@ def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
 
     if rad is None:
         rad = Bx.shape[0]//16
+        rad = max(rad, 16)
 
     mmax = max(np.abs(Bx).max(), np.abs(By).max())
     Bx = Bx/mmax
@@ -62,10 +66,12 @@ def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
         elif background == 'black': # saturation is ones, magnitude -> values
             cb = np.dstack((hue, np.ones([dimy, dimx-2*rad-pad]), bmag/np.max(bmag)))
         else:
-            print("""Please choose background as 'black' or 'white.
+            print(textwrap.dedent("""
+                An improper argument was given in color_im(). 
+                Please choose background as 'black' or 'white.
                 'white' -> magnetization magnitude corresponds to saturation. 
-                'black' -> magnetization magnitude corresponds to value.""")
-            return 1
+                'black' -> magnetization magnitude corresponds to value."""))
+            sys.exit(1)
 
         if rad > 0: # add the colorhweel
             cimage[:,:-2*rad-pad,:] = cb
@@ -142,7 +148,7 @@ def colorwheel_HSV(rad, background):
     elif background == 'black':
         return np.dstack((h_col, val_col, rr))
     else:
-        return 1
+        sys.exit(1)
 
 
 def colorwheel_RGB(rad):
@@ -154,7 +160,7 @@ def colorwheel_RGB(rad):
     grad_y = grad_x.T
     
     # make the binary mask
-    tr = np.roll(np.roll(dist(dim), rad,axis = 0), rad,axis=1)
+    tr = dist(dim, dim, shift=True) * dim
     circ = np.where(tr > rad, 0, 1)
 
     # magnitude of RGB values (equiv to value in HSV)
@@ -192,18 +198,6 @@ def colorwheel_RGB(rad):
     cwheel[rad,rad] = [0,0,0]
     cwheel = np.array(cwheel/np.max(cwheel))
     return cwheel
-
-
-def dist(n):
-    """
-    Creates an array where each value is smallest distance to a 
-    corner (measured from upper left corner of pixel/array box). 
-    Used for creating the colorwheel gradient. 
-    """
-    axis = np.linspace(-n//2+1, n//2, n)
-    result = np.sqrt(axis**2 + axis[:,np.newaxis]**2)
-    return np.roll(result, n//2+1, axis=(0,1))
-
 
 
 def UniformBicone(Bx, By, ldim = None, style = 'four', w_cen = False):

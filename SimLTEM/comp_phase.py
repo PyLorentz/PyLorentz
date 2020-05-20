@@ -135,11 +135,6 @@ def mansPhi(bx = 1.0,by = 1.0,bz = 1.0,beam = [0.0,0.0,1.0],thick = 1.0,embed = 
     [1] Mansuripur, M. Computation of electron diffraction patterns in Lorentz 
         electron microscopy of thin magnetic films. J. Appl. Phys. 69, 5890 (1991).
     """
-
-# Function for using Mansuripur Algorithm. The input given is assumed to be 2D array for Bx,By,Bz.
-#embedding the array into bigger array for F-space comp.
-
-
     #Normalize the beam direction
     beam = np.array(beam)
     beam /= np.sqrt(np.sum(beam**2))

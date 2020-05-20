@@ -14,6 +14,8 @@ from scipy import constants, ndimage
 import hyperspy #just to check signal type
 import hyperspy.api as hs
 import os
+import textwrap
+
 
 class TIE_params(object):
     """An object for holding the data and parameters for the reconstruction.
@@ -38,6 +40,7 @@ class TIE_params(object):
             Even if the flip stack exists the reconstruction will only use the 
             unflip stack if self.flip = False. 
         data_loc: String for location of data folder. 
+        sim: Bool. True if data is simulated, minimizes mask. 
         num_files: Equiv to len(self.dm3stack)
         axes: Hyperspy axes_manager from unflip infocus image. Contains useful 
             information such as scale if loaded from dm3. 
@@ -56,7 +59,7 @@ class TIE_params(object):
         mask: Binary mask made form all the images. 1 where all images have
             nonzero data, 0 where any do not. Made by self.make_mask()
     """
-    def __init__(self, dm3stack=None, flip_dm3stack=[], defvals=None, flip=None, data_loc=None):
+    def __init__(self, dm3stack=None, flip_dm3stack=[], defvals=None, flip=None, data_loc=None, sim=False):
         """Inits TIE_params object. dm3stack, defvals must be specified at minimum.
 
         Args: 
@@ -72,6 +75,7 @@ class TIE_params(object):
                 Even if the flip stack exists the reconstruction will only use 
                 the unflip stack if self.flip = False. 
             data_loc: String for location of data folder.
+            sim: Bool. True if data is simulated, minimizes mask. 
         """
         if type(dm3stack) == list:
             pass
@@ -105,8 +109,7 @@ class TIE_params(object):
                 for arr in flip_dm3stack:
                     nflipdm3stack.append(hs.signals.Signal2D(arr))
                 self.flip_dm3stack = nflipdm3stack
-            print("Data not given in hyperspy signal class.")
-            print("You likely need to set ptie.scale (nm/pix).")
+            print("Data not given in hyperspy signal class. You likely need to set ptie.scale (nm/pix).")
 
         infocus = self.dm3stack[self.num_files//2] # unflip infocus dm3
         self.axes = infocus.axes_manager # dm3 axes manager
@@ -115,7 +118,7 @@ class TIE_params(object):
         scale_x = self.axes[1].scale 
         assert scale_y == scale_x
         self.scale = scale_y
-        print('Given scale: {:.4f} nm/pix'.format(self.dm3stack[0].axes_manager[0].scale))
+        print('Given scale: {:.4f} nm/pix\n'.format(self.dm3stack[0].axes_manager[0].scale))
 
         if flip is not None:
             self.flip = flip
@@ -150,7 +153,11 @@ class TIE_params(object):
                      'bottom': self.shape[0],
                      'left'  : 0,
                      'right' : self.shape[1]}
-        self.make_mask()
+        if sim: 
+            self.mask = np.ones(self.shape)
+            self.mask[0,0] = 0 # doesnt deal well with all white mask
+        else:
+            self.make_mask()
 
 
     def pre_Lap(self, pscope, def_step=1):
@@ -201,8 +208,9 @@ class TIE_params(object):
                 mask *= im_mask
 
         # shrink mask slightly 
-        its = min(15, self.shape[0]//100, self.shape[1]//100)
-        mask = ndimage.morphology.binary_erosion(mask, iterations = its)
+        its = min(15, self.shape[0]//250, self.shape[1]//250)
+        if its >= 1: # binary_erosion fails if iterations=0
+            mask = ndimage.morphology.binary_erosion(mask, iterations = its)
         mask = mask.astype(float, copy = False)
         # apply a light filter to the edges
         mask = ndimage.gaussian_filter(mask,2)
@@ -253,7 +261,6 @@ class TIE_params(object):
         Crops the full dm3 + flip_dm3 stack to the specified shape as defined by
         roi (hyperspy region of interest). Adjusts other axes accordingly. 
         """
-        import textwrap
         if self.roi is None:
             print('No region previously selected, defaulting to central square.')
             dimy, dimx = self.shape

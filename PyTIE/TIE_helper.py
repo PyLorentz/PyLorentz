@@ -18,6 +18,7 @@ from ipywidgets import interact
 import hyperspy # just for checking type in show_stack. 
 from copy import deepcopy
 from TIE_params import TIE_params
+import textwrap
 
 
 # ============================================================= #
@@ -78,10 +79,11 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
     
     else: # there are 2 fls files given
         if not flip: 
-            print("""You probably made a mistake.
+            print(textwrap.dedent("""
+                You probably made a mistake.
                 You're defining a flip fls file but saying there is no full tfs for both unflip and flip.
-                If just one tfs use one fls file.\n""")
-            return 1
+                If just one tfs use one fls file.\n"""))
+            sys.exit(1)
         if not flip_fls_file.endswith('.fls'):
             flip_fls_file += '.fls'
 
@@ -140,7 +142,7 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
         else:
             print("Bad stack\n Or maybe the second axis is slice axis?")
             print('Loading failed.\n')
-            return 1
+            sys.exit(1)
         
         # then median filter to remove "hot pixels"
         im = median_filter(im, size= filtersize)
@@ -161,7 +163,7 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
 
     # Create a TIE_params object
     ptie = TIE_params(dm3stack, flip_dm3stack, defvals, flip, path)
-    print('Data loaded successfully.\n')
+    print('Data loaded successfully.')
     return (dm3stack, flip_dm3stack, ptie)
 
 
@@ -210,12 +212,12 @@ def select_tifs(i, ptie, long_deriv = False):
         flip_dm3stack = ptie.flip_dm3stack
         if ptie.flip:
             recon_tifs = [
-                dm3stack[under].data,           # +-
-                flip_dm3stack[under].data,      # --
+                dm3stack[under].data,                    # +-
+                flip_dm3stack[under].data,               # --
                 (dm3stack[num_files//2].data + 
-                 flip_dm3stack[num_files//2].data)/2,    # 0
-                dm3stack[over].data,            # ++
-                flip_dm3stack[over].data        # -+
+                 flip_dm3stack[num_files//2].data)/2,    # infocus
+                dm3stack[over].data,                     # ++
+                flip_dm3stack[over].data                 # -+
             ]
         else:
             recon_tifs = [
@@ -230,25 +232,26 @@ def select_tifs(i, ptie, long_deriv = False):
     return recon_tifs
 
 
-def dist(ny,nx):
-    """Implementation of the IDL DIST function. 
-
-    Returns a rectangular array in which the value of each element is 
-    proportional to its frequency. This is equivalent to an array where each 
-    value is smallest distance to a corner (measured from upper left corner of 
-    pixel). This is used for Fourier processing the inverse Laplacian operator. 
+def dist(ny, nx, shift=False):
+    """Create frequency array for Fourier processing. 
 
     Args: 
         ny: Int. Height of array 
         nx: Int. Width of array
+        shift: Bool. Whether to center the frequency spectrum. 
+            False: smallest values are at the corners. (Default)
+            True: smallest values at center of array. 
 
     Returns: 
         numpy array of shape (ny, nx). 
     """
-    axisy = np.linspace(-ny//2+1, ny//2, ny)
-    axisx = np.linspace(-nx//2+1, nx//2, nx)
-    result = np.sqrt(axisx**2 + axisy[:,np.newaxis]**2)
-    return np.roll(np.roll(result, ny//2+1, axis=0), nx//2+1, axis = 1)
+    ly = np.arange(ny)-ny/2
+    lx = np.arange(nx)-nx/2
+    [X,Y] = np.meshgrid(lx, ly)
+    q = np.sqrt(X**2 + Y**2) / np.sqrt(ny*nx)
+    if not shift:
+        q = np.fft.ifftshift(q)
+    return q
 
 
 def scale_stack(imstack):

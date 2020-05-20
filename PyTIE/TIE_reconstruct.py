@@ -68,7 +68,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
             symmetrizing the images before reconstructing (image reconstructed 
             is 4x as large). Default False.
         qc: Float. The Tikhonov frequency to use as filter, or "percent" to use 
-            15% of q, Default None. 
+            15% of q, Default None. If you use a Tikhonov filter the resulting 
+            magnetization is no longer quantitative!
         save: Bool or string. Whether you want to save the output. Default False. 
             save = True    ->  saves all images. 
             save = 'b'     ->  save just bx, by, and color_b
@@ -78,7 +79,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         long_deriv: Bool. Whether to use the longitudinal derivative (True) or 
             central difference method (False). Default False. 
         v: Int. Verbosity. 
-            0 : ##TODO no output
+            0 : no output
             1 : Default output
             2 : Extended output for debugging. 
 
@@ -106,19 +107,21 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         'color_b' : None,
         'inf_im' : None}
 
+    # turning off the print function if v=0
+    vprint = print if v>=1 else lambda *a, **k: None
     if long_deriv:
         unders = list(reversed([-1*ii for ii in ptie.defvals]))
         defval = unders + [0] + ptie.defvals
         if ptie.flip:
-            print('Aligning with complete longitudinal derivates:\n', defval, '\nwith both flip/unflip tfs.')
+            vprint('Aligning with complete longitudinal derivates:\n', defval, '\nwith both flip/unflip tfs.')
         else:
-            print('Aligning with complete longitudinal derivates:\n', defval, '\nwith only unflip tfs.')
+            vprint('Aligning with complete longitudinal derivates:\n', defval, '\nwith only unflip tfs.')
     else:
         defval = ptie.defvals[i]
         if ptie.flip:
-            print('Aligning for defocus value: ', defval, ' with both flip/unflip tfs.')
+            vprint('Aligning for defocus value: ', defval, ' with both flip/unflip tfs.')
         else:
-            print('Aligning for defocus value: ', defval, ' with only unflip tfs.')
+            vprint('Aligning for defocus value: ', defval, ' with only unflip tfs.')
 
     right, left = ptie.crop['right']  , ptie.crop['left']
     bottom, top = ptie.crop['bottom'] , ptie.crop['top']
@@ -136,24 +139,24 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         tifs[ii] *= mask
 
     if sym:
-        print("Reconstructing with symmetrized image.")
+        vprint("Reconstructing with symmetrized image.")
         dim_y *= 2
         dim_x *= 2
 
     # make the inverse laplacian, uses python implementation of IDL dist funct 
-    q = dist(dim_y,dim_x)/np.sqrt(dim_y*dim_x)
+    q = dist(dim_y,dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False:
         if qc == 'percent':
-            print("Reconstructing with Tikhonov percentage: 15%")
+            vprint("Reconstructing with Tikhonov percentage: 15%")
             qc = 0.15 * q * ptie.scale**2
         else:
             qc = qc 
-            print("Reconstructing with Tikhonov value: {:}".format(qc))
+            vprint("Reconstructing with Tikhonov value: {:}".format(qc))
 
         qi = q**2 / (q**2 + qc**2)**2
     else: # normal laplacian method
-        print("Reconstructing with normal Laplacian method")
+        vprint("Reconstructing with normal Laplacian method")
         qi = 1 / q**2
     qi[0, 0] = 0
     ptie.qi = qi # saves the freq dist
@@ -192,19 +195,19 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         flip_stack = tifs[ptie.num_files:]
 
         if long_deriv == 'multi': 
-            print('Computing the longitudinal derivative with Multiprocessing.')
+            vprint('Computing the longitudinal derivative with Multiprocessing.')
             unflip_deriv = polyfit_deriv_multiprocess(unflip_stack, defval)
         else:
-            print('Computing the longitudinal derivative normally.')
-            unflip_deriv = polyfit_deriv(unflip_stack, defval)
+            vprint('Computing the longitudinal derivative normally.')
+            unflip_deriv = polyfit_deriv(unflip_stack, defval, v)
 
         if ptie.flip:
             if long_deriv == 'multi':
-                print('Computing the flip stack longitudinal derivative with Multiprocessing.')
+                vprint('Computing the flip stack longitudinal derivative with Multiprocessing.')
                 flip_deriv = polyfit_deriv_multiprocess(flip_stack, defval)
             else:
-                print('Computing the flip stack longitudinal derivative normally.')
-                flip_deriv = polyfit_deriv(flip_stack, defval)
+                vprint('Computing the flip stack longitudinal derivative normally.')
+                flip_deriv = polyfit_deriv(flip_stack, defval, v)
 
             dIdZ_m = (unflip_deriv - flip_deriv)/2 
             dIdZ_e = (unflip_deriv + flip_deriv)/2 
@@ -235,7 +238,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         results['dIdZ_e'] = dIdZ_e
 
     ### Now time to call phase_reconstruct, first for E if we have a flipped tfs 
-    print('Calling TIE solver\n')
+    vprint('Calling TIE solver\n')
     if ptie.flip:
         resultsE = phase_reconstruct(ptie, inf_im, dIdZ_e, pscope, 
                                 defval, sym = sym, long_deriv = long_deriv)   
@@ -259,7 +262,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     if save: 
         save_results(defval, results, ptie, dataname, sym, qc, save, v, long_deriv = long_deriv)
 
-    print('Phase reconstruction completed.')
+    vprint('Phase reconstruction completed.')
     return results
 
 
@@ -317,9 +320,13 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
         'phase_m' : None,
         'color_b' : None}
 
+    # turning off the print function if v=0
+    vprint = print if v>=1 else lambda *a, **k: None
+
     # selecting the right defocus value for the image
-    if i >= 2*len(ptie.defvals)+1:
+    if i >= ptie.num_files:
         print("i given outside range.")
+        sys.exit(1)
     else:
         if ptie.num_files > 1: 
             unders = list(reversed([-1*i for i in ptie.defvals]))
@@ -327,22 +334,22 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             defval = defvals[i]
         else:
             defval = ptie.defvals[0]
-        print(f'SITIE defocus: {defval} nm')
+        vprint(f'SITIE defocus: {defval} nm')
 
     right, left = ptie.crop['right']  , ptie.crop['left']
     bottom, top = ptie.crop['bottom'] , ptie.crop['top']
     dim_y = bottom - top 
     dim_x = right - left 
 
-    if i > len(ptie.dm3stack):
-        print("You're selecting an image outside of the length of your stack.")
-        return 0 
+    # if i > len(ptie.dm3stack):
+    #     print("You're selecting an image outside of the length of your stack.")
+    #     sys.exit(1)
+    # else:
+    if flipstack:
+        print("Reconstructing with single flipped image.")
+        image = ptie.flip_dm3stack[i].data[top:bottom, left:right]
     else:
-        if flipstack:
-            print("Reconstructing with single flipped image.")
-            image = ptie.flip_dm3stack[i].data[top:bottom, left:right]
-        else:
-            image = ptie.dm3stack[i].data[top:bottom, left:right]
+        image = ptie.dm3stack[i].data[top:bottom, left:right]
 
     if sym:
         print("Reconstructing with symmetrized image.")
@@ -350,7 +357,7 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
         dim_x *= 2
 
     # setup the inverse frequency distribution
-    q = dist(dim_y,dim_x)/np.sqrt(dim_y*dim_x)
+    q = dist(dim_y,dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False: # add Tikhonov filter
         if qc == 'percent':
@@ -575,4 +582,10 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
         txt.write("Thikonov filter: {} \n".format(qc))
         txt.write("Longitudinal derivative: {} \n".format(long_deriv))
 
+    return
+
+def print2(v=1, *args):
+    """A helper print function to disable outputs if verbosity = 0"""
+    if v>=1:
+        print(args)
     return

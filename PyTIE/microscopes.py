@@ -9,7 +9,10 @@ import scipy.ndimage as ndimage
 
 
 class Microscope(object):
-    '''Class for Microscope objects.'''
+    '''Class for Microscope objects.
+    Unlike in TIE_reconstruct, here the qq frequency spectrum is expected to be 
+    shifted, i.e. rather than four dark corners it's a dark circle if you view it.
+    '''
 
     def __init__(self, E=200.0e3, Cs=1.0e6, Cc=5.0e6, theta_c=6.0e-4, Ca=0.0e6, phi_a=0, def_spr=120.0,verbose=False):
         
