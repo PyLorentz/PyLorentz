@@ -1,20 +1,36 @@
 # PyLorentz
 Python code for managing Lorentz Transmission Electron Microscopy (LTEM) data. 
-There will are three primary components: 
+There are three primary components: 
 - PyTIE  -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
 - SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
-- Align -- Aligning raw LTEM images so they can be reconstructed
-- GUI -- In progress, a GUI for aligning and reconstructing data all in one place. 
+- GUI/Align -- Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE
 
 PyLorentz a DOI through Zenodo:  
 [![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
 
+## Features
+### PyTIE 
+* Uses inverse Laplacian method for solving the TIE
+* Can reconstruct the magnetization from samples of variable thickness by using a through focal series (tfs) taken with the sample in an original orientation and another tfs with the sample flipped upside down. [1]
+* Samples of uniform thicknss can be reconstructed from a single tfs.
+* Thin samples of uniform thickness from which the only source of contrast is magnetic Fresnel contrast can be reconstructed with a single defocused image using Single-Image-TIE (SITIE). This does method does not apply to all samples; for more information please refer to Chess et al. [2]. 
+* The TIE and SITIE solvers can implement Tikhonov regularization to remove low-frequency noise [1]. Results reconstructed with a Tikhonov filter are no longer quantitative, but can 
+* Symmetric extensions of the image can be created to reduce Fourier processing edge-effects [3]. 
+* Subregions of the images can be selected interactively to improve processing time or remove unwanted regions of large contrast (such as the edge of a TEM window) that would otherwise interfere with reconstruction. At large aspect ratios, Fourier sampling effects become more pronounced and directionally affect the reconstructed magnetization. Therefore _non square images are not quantitative_, though symmetrizing the image can greatly reduce this effect.
+
+### SimLTEM
+* _coming soon_ Easily import .omf file outputs from OOMMF and mumax. 
+* Calculate electron phase shift through samples of a given magnetization with either the Mansuripur algorithm or linear superposition method. 
+* Simulate LTEM images from these phase shifts and reconstruct the magnetic induction for comparison with experimental results. 
+
+### GUI/Align
+
 
 ## Getting started
-This code is intended to be run in Jupyter notebooks, with several examples already included. You can clone the repo directly (is this bad practice??), fork the project, or download the files directly in a .zip. 
+With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo directly, fork the project, or download the files directly in a .zip. 
 
 
-Several standard packages are required which can be installed with conda or pip. Environment.yml files are included in the /envs/ folder, and more will be added soon. Create the environment with 
+Several standard packages are required which can be installed with conda or pip. Environment.yml files are included in the /envs/ folder. Select the appropriate file for your system and create the environment from a command line with 
 ```
 conda env create -f environment.yml
 ```
@@ -26,16 +42,16 @@ or
 ```
 conda activate Pylorentz
 ```
-depending on operating system before opening a notebook
+depending on operating system before opening a notebook:
 ```
 Jupyter notebook
 ```
 
 ### Running with example data
-You can download an example dataset from: https://doi.org/10.18126/z9tc-i8bf, which contains a full through focus series (tfs) with the sample in both flipped and unflipped orientations, and an aligned stack of the images as well. 
+You can download an example dataset from: https://doi.org/10.18126/z9tc-i8bf, which contains a full through focus series (tfs) in both flipped and unflipped orientations as well as an aligned image stack. 
 
 ## Data organization
-If you have both a flip and unflip stack your data should be set up:  
+If you have both a flip and unflip stack your data should be set up as follows:  
 
     datafolder/    flip/     -im1.dm3  
                              -im2.dm3  
@@ -70,8 +86,11 @@ However if you have just one stack (no flip stack) then your data should be in a
                    flsfile.fls 
                    full_align.tif  
                    
-
-
+## References
+[1] Humphrey, E., Phatak, C., Petford-Long, A. K. & De Graef, M. Separation of electrostatic and magnetic phase shifts using a modified transport-of-intensity equation. Ultramicroscopy 139, 5–12 (2014).   
+[2] Chess, J. J. et al. Streamlined approach to mapping the magnetic induction of skyrmionic materials. Ultramicroscopy 177, 78–83 (2018).   
+[3] Volkov, V. V, Zhu, Y. & Graef, M. De. A New Symmetrized Solution for Phase Retrieval using the TI. 33, 411–416 (2002).   
+   
 ## License
 
 This project is licensed under the BSD License - see the [LICENSE.md](https://github.com/PyLorentz/PyLorentz/blob/master/LICENSE) file for details. 
