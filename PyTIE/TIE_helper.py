@@ -245,10 +245,10 @@ def dist(ny, nx, shift=False):
     Returns: 
         numpy array of shape (ny, nx). 
     """
-    ly = np.arange(ny)-ny/2
-    lx = np.arange(nx)-nx/2
+    ly = (np.arange(ny)-ny/2)/ny
+    lx = (np.arange(nx)-nx/2)/nx
     [X,Y] = np.meshgrid(lx, ly)
-    q = np.sqrt(X**2 + Y**2) / np.sqrt(ny*nx)
+    q = np.sqrt(X**2 + Y**2)
     if not shift:
         q = np.fft.ifftshift(q)
     return q
@@ -257,28 +257,18 @@ def dist(ny, nx, shift=False):
 def scale_stack(imstack):
     """Scale a stack of images so all have the same total intensity. 
 
-    A helper function used in TIE_reconstruct. Scales each image in a stack to
-    have the same total intensity, with the minimum and maximum across all 
-    images being 0 and 1.  
-    
     Args: 
         imstack: List. List of 2D arrays. 
 
     Returns:
         List of same shape as imstack
     """
-
     imstack = deepcopy(imstack)
-    minv = np.min(imstack)
-    for im in imstack: 
-        im -= minv
-
     tots = np.sum(imstack, axis = (1,2))
     t = max(tots) / tots
     for i in range(len(tots)):
         imstack[i] *= t[i]
     return imstack/np.max(imstack)
-
 
 
 # =============================================== #

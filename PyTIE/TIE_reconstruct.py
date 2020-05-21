@@ -1,8 +1,6 @@
 """File containing TIE and SITIE reconstruction routines. 
 
 Known Bugs: 
-- Reconstructing with non-square regions causes a scaling error in the magnetization
-    in the x and y directions. 
 - Longitudinal derivative gives a magnetization scaling error for some 
     experimental datasets. 
 
@@ -23,30 +21,6 @@ import sys
 import scipy 
 from pathlib import Path
 from longitudinal_deriv import polyfit_deriv, polyfit_deriv_multiprocess
-
-"""
-PARAMETERS:
- ptie: A parameters class from tie_params.py
- tifs : Five image array in order: [ +- , -- , 0 , ++ , -+ ]
-        (+- = unflip/flip, +- = over/underfocus)
- pscope : Microscope parameters class from miscroscopes.py
- dataname : String ,the output filename to be used for saving the images (32 bit tiffs)
-            Files will be saved ptie.data_loc/images/dataname_defval_<key>.tiff
- sym: Boolean, if you want to symmetrize the image before reconstructing (reconstructs 4x as large image). Default False
- qc: Float, the Tikhonov frequency, or "percent" to use 15% of q, Defaulte None
- save: Boolean, False if you don't want to save the data. Default True
-
-RETURNS:
- result : A dictionary with keys: 
-      'byt' : y-component of integrated magnetic induction,
-      'bxt' : x-copmonent of integrated magnetic induction,
-      'bbt' : magnitude of integrated magnetic induction, 
-      'phase_m' : magnetic phase shift (radians),
-      'phase_e' : electrostatic phase shift (if using flip stack) (radians),
-      'dIdZ_m' : intensity derivative for calculating phase_m,
-      'dIdZ_e' : intensity derivative for calculating phase_e (if using flip stack), 
-      'color_b' : RGB image of magnetization,
-      'inf_im' : the in-focus image"""
 
 def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=False, long_deriv=False, v=1):
     """Sets up the TIE reconstruction and calls phase_reconstruct. 
@@ -129,15 +103,6 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     dim_x = right - left 
     tifs = select_tifs(i, ptie, long_deriv)
 
-    mask = ptie.mask[top:bottom, left:right]
-    if np.max(mask) == np.min(mask): # doesn't like all white mask
-        mask = scipy.ndimage.morphology.binary_erosion(mask) 
-
-    # crop images and apply mask 
-    for ii in range(len(tifs)):
-        tifs[ii] = tifs[ii][top:bottom, left:right]
-        tifs[ii] *= mask
-
     if sym:
         vprint("Reconstructing with symmetrized image.")
         dim_y *= 2
@@ -160,7 +125,13 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         qi = 1 / q**2
     qi[0, 0] = 0
     ptie.qi = qi # saves the freq dist
-   
+
+    # crop images and apply mask 
+    mask = ptie.mask[top:bottom, left:right]
+    for ii in range(len(tifs)):
+        tifs[ii] = tifs[ii][top:bottom, left:right]
+        tifs[ii] *= mask
+
     # Normalizing, scaling the images 
     scaled_tifs = scale_stack(tifs)
     # very small offset from 0, affects uniform magnetizations
@@ -341,10 +312,6 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
     dim_y = bottom - top 
     dim_x = right - left 
 
-    # if i > len(ptie.dm3stack):
-    #     print("You're selecting an image outside of the length of your stack.")
-    #     sys.exit(1)
-    # else:
     if flipstack:
         print("Reconstructing with single flipped image.")
         image = ptie.flip_dm3stack[i].data[top:bottom, left:right]
@@ -440,30 +407,37 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
         x = dim_x
 
     # fourier transform of longitudnal derivatives
-    fd = np.fft.fft2(dIdZ, norm='ortho')  
+    fft1 = np.fft.fft2(dIdZ)  
 
     # applying 2/3 qc cutoff mask (see de Graef 2003)
     gy, gx = np.ogrid[-y//2:y//2, -x//2:x//2]
     rad = y/3 
     qc_mask = gy**2 + gx**2 <= rad**2
     qc_mask = np.fft.ifftshift(qc_mask)
-    fd *= qc_mask
+    fft1 *= qc_mask
         
     # apply first inverse laplacian operator
-    tmp = -1*np.fft.ifft2(fd*qi, norm='ortho') 
+    tmp1 = -1*np.fft.ifft2(fft1*qi) 
     
     # apply gradient operator and divide by in focus image
-    grad_y1, grad_x1 = np.real(np.gradient(tmp)/infocus)
+    # using kernel because np.gradient doesn't allow edge wrapping
+    kx = [[0,0,0], [1/2,0,-1/2], [0,0,0]]
+    ky = [[0,1/2,0], [0,0,0], [0,-1/2,0]]
+    grad_y1 = scipy.signal.convolve2d(tmp1, ky, mode='same', boundary='wrap')
+    grad_y1 = np.real(grad_y1/infocus)
+    grad_x1 = scipy.signal.convolve2d(tmp1, kx, mode='same', boundary='wrap')
+    grad_x1 = np.real(grad_x1/infocus)
 
     # apply second gradient operator
-    grad_y2 = np.gradient(grad_y1)[0]
-    grad_x2 = np.gradient(grad_x1)[1]
+    # Applying laplacian directly doesn't give as good results. 
+    grad_y2 = scipy.signal.convolve2d(grad_y1, ky, mode='same', boundary='wrap')
+    grad_x2 = scipy.signal.convolve2d(grad_x1, kx, mode='same', boundary='wrap')
     tot = grad_y2 + grad_x2
     
     # apply second inverse Laplacian
-    fd = np.fft.fft2(tot, norm='ortho')
-    fd *= qc_mask
-    tmp = -1*np.fft.ifft2(fd*qi, norm='ortho')
+    fft2 = np.fft.fft2(tot)
+    fft2 *= qc_mask
+    tmp2 = -1*np.fft.ifft2(fft2*qi)
     
     # scale
     if long_deriv:
@@ -472,9 +446,9 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
         pre_Lap = -1*ptie.pre_Lap(pscope, defval)
         
     if sym:
-        results['phase'] = np.real(pre_Lap*tmp[:dim_y, :dim_x]) 
+        results['phase'] = np.real(pre_Lap*tmp2[:dim_y, :dim_x]) 
     else:
-        results['phase'] = np.real(pre_Lap*tmp)  
+        results['phase'] = np.real(pre_Lap*tmp2)  
 
     ### getting magnetic induction
     grad_y, grad_x = np.gradient(results['phase']) 

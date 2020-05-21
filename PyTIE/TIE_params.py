@@ -59,7 +59,7 @@ class TIE_params(object):
         mask: Binary mask made form all the images. 1 where all images have
             nonzero data, 0 where any do not. Made by self.make_mask()
     """
-    def __init__(self, dm3stack=None, flip_dm3stack=[], defvals=None, flip=None, data_loc=None, sim=False):
+    def __init__(self, dm3stack=None, flip_dm3stack=[], defvals=None, flip=None, data_loc=None, no_mask=False):
         """Inits TIE_params object. dm3stack, defvals must be specified at minimum.
 
         Args: 
@@ -75,7 +75,7 @@ class TIE_params(object):
                 Even if the flip stack exists the reconstruction will only use 
                 the unflip stack if self.flip = False. 
             data_loc: String for location of data folder.
-            sim: Bool. True if data is simulated, minimizes mask. 
+            no_mask: Bool. If True, does not make mask for images. 
         """
         if type(dm3stack) == list:
             pass
@@ -153,9 +153,8 @@ class TIE_params(object):
                      'bottom': self.shape[0],
                      'left'  : 0,
                      'right' : self.shape[1]}
-        if sim: 
+        if no_mask: 
             self.mask = np.ones(self.shape)
-            self.mask[0,0] = 0 # doesnt deal well with all white mask
         else:
             self.make_mask()
 
@@ -241,6 +240,7 @@ class TIE_params(object):
         # reset roi to central square
         roi = hs.roi.RectangularROI(left= dimx//4*scale, right=3*dimx//4*scale, 
                             top=dimy//4*scale, bottom=3*dimy//4*scale)
+        print(roi)
         display_sig.plot()
         roi2D = roi.interactive(display_sig, color="blue")
         self.roi = roi
@@ -303,5 +303,21 @@ class TIE_params(object):
             Changes can continue to be made by moving/updating the region,
             but you have to run this again for them to take affect.\n"""))
         return
+
+    def set_scale(self, scale): 
+        """Change the scale of the images (nm/pix) in the relevant places."""
+        self.axes[0].scale = scale
+        self.axes[1].scale = scale
+        for sig in self.dm3stack + self.flip_dm3stack: 
+            sig.axes_manager[0].scale = scale
+            sig.axes_manager[1].scale = scale
+
+        self.scale = scale 
+        self.roi = hs.roi.RectangularROI(left= self.shape[1]//4*self.scale, 
+                                 right=3*self.shape[1]//4*self.scale, 
+                                 top=self.shape[0]//4*self.scale, 
+                                 bottom=3*self.shape[0]//4*self.scale)
+        return
+
 
 ### End ### 

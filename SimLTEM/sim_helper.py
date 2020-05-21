@@ -271,10 +271,10 @@ def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
                        np.arange(0,1,1))
     
     # doesnt handle (0,0,0) arrows very well, so this puts in very small ones. 
-    zeros = mag_x.astype('bool')+mag_y.astype('bool')+mag_z.astype('bool')
-    mag_z[np.where(~zeros)] = bmax/100000
-    mag_x[np.where(~zeros)] = bmax/100000
-    mag_y[np.where(~zeros)] = bmax/100000
+    zeros = ~(mag_x.astype('bool')+mag_y.astype('bool')+mag_z.astype('bool'))
+    mag_z[np.where(zeros)] = bmax/100000
+    mag_x[np.where(zeros)] = bmax/100000
+    mag_y[np.where(zeros)] = bmax/100000
 
     U = mag_x.reshape((dimx,dimy,dimz))
     V = mag_y.reshape((dimx,dimy,dimz))
