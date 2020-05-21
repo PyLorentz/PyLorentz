@@ -265,11 +265,11 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             Saves the images to ptie.data_loc/images/
         long_deriv: Bool. Whether to use the longitudinal derivative (True) or 
             central difference method (False). Default False. 
-        i: Int. index of __the ptie.dm3stack or ptie.flip_dm3stack__ to 
+        i: Int. index of __the ptie.imstack or ptie.flipstack__ to 
             reconstruct. This is not the defocus index like in TIE. Default 
             value is -1 which corresponds to the most overfocused image. 
         flipstack: Bool. Whether to pull the image from the ptie.dmrstack[i] or
-            ptie.flip_dm3stack[i]. Default is False, calls image from dm3stack.
+            ptie.flipstack[i]. Default is False, calls image from imstack.
         v: Int. Verbosity. 
             0 : ##TODO no output
             1 : Default output
@@ -314,9 +314,9 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
 
     if flipstack:
         print("Reconstructing with single flipped image.")
-        image = ptie.flip_dm3stack[i].data[top:bottom, left:right]
+        image = ptie.flipstack[i].data[top:bottom, left:right]
     else:
-        image = ptie.dm3stack[i].data[top:bottom, left:right]
+        image = ptie.imstack[i].data[top:bottom, left:right]
 
     if sym:
         print("Reconstructing with symmetrized image.")

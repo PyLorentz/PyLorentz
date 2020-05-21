@@ -29,9 +29,9 @@ class TIE_params(object):
     TIE_template.ipynb notebook. 
 
     Attributes: 
-        dm3stack: A list of hyperspy Signal2D objects, one per image in the 
+        imstack: A list of hyperspy Signal2D objects, one per image in the 
             through focus series (tfs). 
-        flip_dm3stack: A list of hyperspy Signal2D objects for the flip tfs if
+        flipstack: A list of hyperspy Signal2D objects for the flip tfs if
             there is one. 
         defvals: List of defocus values in nm from least to most defocus. This 
             assumes a symmetric defocus over/under, so expects 2 values for a 5
@@ -41,7 +41,7 @@ class TIE_params(object):
             unflip stack if self.flip = False. 
         data_loc: String for location of data folder. 
         sim: Bool. True if data is simulated, minimizes mask. 
-        num_files: Equiv to len(self.dm3stack)
+        num_files: Equiv to len(self.imstack)
         axes: Hyperspy axes_manager from unflip infocus image. Contains useful 
             information such as scale if loaded from dm3. 
         shape: Shape of original image data (y, x) to be consistent with numpy
@@ -54,19 +54,19 @@ class TIE_params(object):
             the interactive region is adjusted. 
         crop: Region of interest in pixels used to select the are to be 
             reconstructed. self.roi is converted from nm to pixels with the 
-            self..crop_dm3s() method, and does not change as the roi is 
+            self..crop_ims() method, and does not change as the roi is 
             adjusted. Initialized to full image. 
         mask: Binary mask made form all the images. 1 where all images have
             nonzero data, 0 where any do not. Made by self.make_mask()
     """
-    def __init__(self, dm3stack=None, flip_dm3stack=[], defvals=None, flip=None, data_loc=None, no_mask=False):
-        """Inits TIE_params object. dm3stack, defvals must be specified at minimum.
+    def __init__(self, imstack=None, flipstack=[], defvals=None, flip=None, data_loc=None, no_mask=False):
+        """Inits TIE_params object. imstack, defvals must be specified at minimum.
 
         Args: 
-            dm3stack: List of hyperspy Signal2D objects, or numpy arrays containing 
+            imstack: List of hyperspy Signal2D objects, or numpy arrays containing 
                 image data which will be converted to Signal2D. One per image in
                 the through focus series (tfs). 
-            flip_dm3stack: A list of hyperspy Signal2D objects for the flip tfs 
+            flipstack: A list of hyperspy Signal2D objects for the flip tfs 
                 if there is one. 
             defvals: List of defocus values in nm from least to most defocus. 
                 This assumes a symmetric defocus over/under, e.g. expects 2 
@@ -77,52 +77,52 @@ class TIE_params(object):
             data_loc: String for location of data folder.
             no_mask: Bool. If True, does not make mask for images. 
         """
-        if type(dm3stack) == list:
+        if type(imstack) == list:
             pass
         else:
             try:
-                if np.ndim(dm3stack) != 3:
-                    dm3stack = [dm3stack]
+                if np.ndim(imstack) != 3:
+                    imstack = [imstack]
             except:
                 pass
-        self.dm3stack = dm3stack
-        self.flip_dm3stack = flip_dm3stack
+        self.imstack = imstack
+        self.flipstack = flipstack
         if type(defvals) is not list and type(defvals) is not np.ndarray:
             self.defvals = [defvals]
         else:
             self.defvals = defvals # array of the defocus steps.
 
-        self.num_files = len(self.dm3stack)
+        self.num_files = len(self.imstack)
         if self.num_files == 1:
             assert len(self.defvals) == 1
         else:
             assert self.num_files == 2*len(self.defvals)+1 # confirm they match
 
-        if type(dm3stack[0]) != hyperspy._signals.signal2d.Signal2D: 
+        if type(imstack[0]) != hyperspy._signals.signal2d.Signal2D: 
             # images loaded are tifs, conver to dm3s
-            ndm3stack = []
-            for arr in dm3stack:
-                ndm3stack.append(hs.signals.Signal2D(arr))
-            self.dm3stack = ndm3stack
-            if list(flip_dm3stack):
-                nflipdm3stack = []
-                for arr in flip_dm3stack:
-                    nflipdm3stack.append(hs.signals.Signal2D(arr))
-                self.flip_dm3stack = nflipdm3stack
+            nimstack = []
+            for arr in imstack:
+                nimstack.append(hs.signals.Signal2D(arr))
+            self.imstack = nimstack
+            if list(flipstack):
+                nflipimstack = []
+                for arr in flipstack:
+                    nflipimstack.append(hs.signals.Signal2D(arr))
+                self.flipstack = nflipimstack
             print("Data not given in hyperspy signal class. You likely need to set ptie.scale (nm/pix).")
 
-        infocus = self.dm3stack[self.num_files//2] # unflip infocus dm3
+        infocus = self.imstack[self.num_files//2] # unflip infocus dm3
         self.axes = infocus.axes_manager # dm3 axes manager
         self.shape = (self.axes.shape[1], self.axes.shape[0]) # to be consistent with np
         scale_y = self.axes[0].scale # pixel size (nm/pix)
         scale_x = self.axes[1].scale 
         assert scale_y == scale_x
         self.scale = scale_y
-        print('Given scale: {:.4f} nm/pix\n'.format(self.dm3stack[0].axes_manager[0].scale))
+        print('Given scale: {:.4f} nm/pix\n'.format(self.imstack[0].axes_manager[0].scale))
 
         if flip is not None:
             self.flip = flip
-        elif flip_dm3stack:
+        elif flipstack:
             self.flip = True
         else:
             self.flip = False
@@ -135,8 +135,8 @@ class TIE_params(object):
             self.data_loc = None 
 
         if flip: 
-            assert len(self.dm3stack) == len(self.flip_dm3stack)
-            flip_infocus = self.flip_dm3stack[self.num_files//2]
+            assert len(self.imstack) == len(self.flipstack)
+            flip_infocus = self.flipstack[self.num_files//2]
             self.infocus = (infocus.data + flip_infocus.data)/2 
             # An averaged infocus image between the flip/unflip stack.
         else:
@@ -171,8 +171,8 @@ class TIE_params(object):
         """
         return -1 * self.scale**2 / (16 * np.pi**3 * pscope.lam * def_step) 
 
-    def make_mask(self, dm3stack = None, threshhold=0):
-        """Sets self.mask to be a binary bounding mask from dm3stack and flip_dm3stack. 
+    def make_mask(self, imstack = None, threshhold=0):
+        """Sets self.mask to be a binary bounding mask from imstack and flipstack. 
         
         Makes all images binary using a threshhold value, and then 
         multiplies these arrays. Can also take a stack of images that aren't 
@@ -182,27 +182,27 @@ class TIE_params(object):
         is all ones, that is accounted for in TIE() function rather than here. 
 
         Optional Args: 
-            dm3stack: List. List of arrays or Signal2D objects from which to make mask
-                Default will use self.dm3stack and self.flip_dm3stack
+            imstack: List. List of arrays or Signal2D objects from which to make mask
+                Default will use self.imstack and self.flipstack
             threshhold: Float. Pixel value with which to threshhold the images. 
                 Default is 0. 
 
         Returns: None
         """
-        if len(self.dm3stack) == 1: # SITIE params
+        if len(self.imstack) == 1: # SITIE params
             self.mask = np.ones(self.shape)
             return
-        if dm3stack is None:
-            dm3stack = self.dm3stack + self.flip_dm3stack
-        shape = np.shape(dm3stack[0].data)
+        if imstack is None:
+            imstack = self.imstack + self.flipstack
+        shape = np.shape(imstack[0].data)
         mask = np.ones(shape)
 
-        if type(dm3stack[0]) == hyperspy._signals.signal2d.Signal2D:
-            for sig in dm3stack:
+        if type(imstack[0]) == hyperspy._signals.signal2d.Signal2D:
+            for sig in imstack:
                 im_mask = np.where(sig.data <= threshhold, 0, 1)
                 mask *= im_mask
         else: # assume they're images
-            for im in dm3stack:
+            for im in imstack:
                 im_mask = np.where(im <= threshhold, 0, 1)
                 mask *= im_mask
 
@@ -218,7 +218,7 @@ class TIE_params(object):
         return
 
     def select_region(self, infocus=True):
-        """ Interactively crop dm3stack to smaller size. 
+        """ Interactively crop imstack to smaller size. 
 
         This method sets self.roi to be the region (square or otherwise) as
         selected by the user. Default is center region.
@@ -231,9 +231,9 @@ class TIE_params(object):
         Returns: None
         """
         if infocus:
-            display_sig = self.dm3stack[self.num_files//2].deepcopy()
+            display_sig = self.imstack[self.num_files//2].deepcopy()
         else:
-            display_sig=self.dm3stack[0].deepcopy()
+            display_sig=self.imstack[0].deepcopy()
 
         dimy, dimx = self.shape
         scale = self.scale
@@ -246,7 +246,7 @@ class TIE_params(object):
         self.roi = roi
 
 
-    def crop_dm3s(self): 
+    def crop_ims(self): 
         """ Sets self.crop in pixels as region to be reconstructed. 
 
         Converts self.roi (in units of nm) to pixels and asks for user input if
@@ -308,7 +308,7 @@ class TIE_params(object):
         """Change the scale of the images (nm/pix) in the relevant places."""
         self.axes[0].scale = scale
         self.axes[1].scale = scale
-        for sig in self.dm3stack + self.flip_dm3stack: 
+        for sig in self.imstack + self.flipstack: 
             sig.axes_manager[0].scale = scale
             sig.axes_manager[1].scale = scale
 

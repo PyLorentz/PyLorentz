@@ -49,9 +49,9 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
             function for experimental data. 
     
     Returns: 
-        dm3stack: array of hyperspy signal2D objects (one per image)
-        flip_dm3stack: array of hyperspy signal2D objects, only if flip
-        ptie: TIE_params object holding a reference to the dm3stack and many
+        imstack: array of hyperspy signal2D objects (one per image)
+        flipstack: array of hyperspy signal2D objects, only if flip
+        ptie: TIE_params object holding a reference to the imstack and many
             useful parameters.
     """
 
@@ -105,19 +105,19 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
             flip_files.append(path + 'flip/' + line)
 
     # Actually load the data using hyperspy
-    dm3stack = hs.load(unflip_files)
+    imstack = hs.load(unflip_files)
     if flip:
-        flip_dm3stack = hs.load(flip_files)
+        flipstack = hs.load(flip_files)
     else:
-        flip_dm3stack = []
+        flipstack = []
 
     # convert scale dimensions to nm
-    for sig in dm3stack + flip_dm3stack: 
+    for sig in imstack + flipstack: 
         sig.axes_manager.convert_units(units = ['nm', 'nm'])
 
     if unflip_files[0][-4:] != '.dm3' and unflip_files[0][-4:] != '.dm4': 
         # if not dm3's then they generally don't have the title metadata. 
-        for sig in dm3stack + flip_dm3stack: 
+        for sig in imstack + flipstack: 
             sig.metadata.General.title = sig.metadata.General.original_filename
 
     # load the aligned tifs and update the dm3 data to match
@@ -150,11 +150,11 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
         # and assign to appropriate stack 
         if i < num_files:
             print('loading unflip:', unflip_files[i])
-            dm3stack[i].data = im
+            imstack[i].data = im
         else: 
             j = i - num_files
             print('loading flip:', flip_files[j])
-            flip_dm3stack[j].data = im
+            flipstack[j].data = im
 
     # read the defocus values
     defvals = fls[-(num_files//2):]
@@ -162,9 +162,9 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
     defvals = [float(i) for i in defvals] # defocus values +/-
 
     # Create a TIE_params object
-    ptie = TIE_params(dm3stack, flip_dm3stack, defvals, flip, path)
+    ptie = TIE_params(imstack, flipstack, defvals, flip, path)
     print('Data loaded successfully.')
-    return (dm3stack, flip_dm3stack, ptie)
+    return (imstack, flipstack, ptie)
 
 
 def select_tifs(i, ptie, long_deriv = False):
@@ -184,7 +184,7 @@ def select_tifs(i, ptie, long_deriv = False):
     Returns: 
         List of np arrays, return depends on parameters:
         if long_deriv = True:
-            returns all images in dm3stack followed by all images in flip_dm3stack
+            returns all images in imstack followed by all images in flipstack
         if ptie.flip: 
             returns [ +- , -- , 0 , ++ , -+ ]
             first +- is unflip/flip, and second +- is over/underfocus
@@ -195,10 +195,10 @@ def select_tifs(i, ptie, long_deriv = False):
     """
     if long_deriv:
         recon_tifs = []
-        for sig in ptie.dm3stack:
+        for sig in ptie.imstack:
             recon_tifs.append(sig.data)
         if ptie.flip:
-            for sig in ptie.flip_dm3stack:
+            for sig in ptie.flipstack:
                 recon_tifs.append(sig.data)
 
     else:
@@ -208,22 +208,22 @@ def select_tifs(i, ptie, long_deriv = False):
         num_files = ptie.num_files
         under = num_files//2 - (i+1)
         over = num_files//2 + (i+1)
-        dm3stack = ptie.dm3stack
-        flip_dm3stack = ptie.flip_dm3stack
+        imstack = ptie.imstack
+        flipstack = ptie.flipstack
         if ptie.flip:
             recon_tifs = [
-                dm3stack[under].data,                    # +-
-                flip_dm3stack[under].data,               # --
-                (dm3stack[num_files//2].data + 
-                 flip_dm3stack[num_files//2].data)/2,    # infocus
-                dm3stack[over].data,                     # ++
-                flip_dm3stack[over].data                 # -+
+                imstack[under].data,                    # +-
+                flipstack[under].data,               # --
+                (imstack[num_files//2].data + 
+                 flipstack[num_files//2].data)/2,    # infocus
+                imstack[over].data,                     # ++
+                flipstack[over].data                 # -+
             ]
         else:
             recon_tifs = [
-                dm3stack[under].data,           # +-
-                dm3stack[num_files//2].data,    # 0
-                dm3stack[over].data             # ++
+                imstack[under].data,           # +-
+                imstack[num_files//2].data,    # 0
+                imstack[over].data             # ++
             ]
     try:
         recon_tifs = deepcopy(recon_tifs) 
