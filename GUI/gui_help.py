@@ -1,13 +1,16 @@
 import io
 import os
 import matplotlib as mpl
-import hyperspy.api as hs
+import warnings
+with warnings.catch_warnings() as w:
+    warnings.simplefilter('ignore')
+    import hyperspy.api as hs
 from PIL import Image
 import sys
 import subprocess
 from align import join
 import numpy as np
-# import time
+import time
 import cv2 as cv
 
 # Miscellaneous to potentially apply later
@@ -16,16 +19,15 @@ import cv2 as cv
 
 
 # ------ Image Loading and Visualization ------ #
-# Prepare images for transformations
-def load_image(img_path, stack=False, stack_names=None):
+def load_image(img_path, graph_size, stack=False):
+    """Load in an image"""
+
     try:
         # Load data
-        data = {}
+        uint8_data, float_data = {}, {}
         img = hs.load(img_path)
         img_data = img.data
-        img_array = None
         z_size = 1
-        cm = mpl.cm.get_cmap('gray')
         if stack:
             z_size, x_size, y_size = img_data.shape
         else:
@@ -35,35 +37,50 @@ def load_image(img_path, stack=False, stack_names=None):
                 temp_data = img_data[z, :, :]
             else:
                 temp_data = img_data
-            # Resize data to fit graph window
-            resized_data = cv.resize(temp_data, (512, 512), interpolation=cv.INTER_AREA)
-            # Scale for uint8 conversion
-            resized_data = resized_data / resized_data.max()
+            # Scale data for graph, convert to uint8
+            uint8_data, float_data = convert_float_unint8(temp_data, graph_size, uint8_data, float_data, z)
 
-            # Convert to uint8 datatype
-            img_array = resized_data
-            resized_data = cm(resized_data, bytes=True)
-            data[z] = resized_data
-        return data, img_array, (x_size, y_size, z_size)
+        # Return dictionary of uint8 data, a scaled float array, and the shape of the image/stack
+        return uint8_data, float_data, (x_size, y_size, z_size)
     except (IndexError, TypeError, NameError):
         print('You tried loading a file that is not recognized. Try a different file type.')
         return None, None, None
 
 
+def convert_float_unint8(float_array, graph_size, uint8_data=None, float_data=None, z=0):
+    """Convert float data to uint8 data, scaling for view in window."""
+
+    if uint8_data is None:
+        uint8_data = {}
+    if float_data is None:
+        float_data = {}
+    scaled_float_array = cv.resize(float_array, graph_size, interpolation=cv.INTER_AREA)
+    resized_data = scaled_float_array - scaled_float_array.min()
+    scaled_float_array = resized_data / resized_data.max()
+    uint8_array = scaled_float_array * 255
+    uint8_array = uint8_array.astype(np.uint8)
+    uint8_data[z] = uint8_array
+    float_data[z] = scaled_float_array
+    return uint8_data, float_data
+
+
 def make_rgba(data, adjust=False, d_theta=0, d_x=0, d_y=0, h_flip=None, color=None):
+
+    # print("Before data shape: ", data.shape)
+    # print("Before data dtype: ", data.dtype)
+    # print("Before data type: ", type(data))
     if adjust:
         # Apply colormap and convert to uint8 datatype
-        if color:
+        if color == 'None':
+            data = data * 255
+            data = data.astype(np.uint8)
+        elif color:
             cm = mpl.cm.get_cmap(color)
-
+            data = cm(data, bytes=True)
         else:
             cm = mpl.cm.get_cmap('Spectral')    # spectral, bwr,twilight, twilight_shifted, hsv shows good contrast
-                                            # tab20c, gnuplot2, terrain, nipy_spectral, gist_stern, jet, PuRd
-        data = cm(data, bytes=True)
+            data = cm(data, bytes=True)
 
-        # print("Adjusting data shape: ", data.shape)
-        # print("Adjusting data dtype: ", data.dtype)
-        # print("Adjusting data type: ", type(data))
 
         # Apply horizontal flip if necessary
         if h_flip:
@@ -104,10 +121,9 @@ def overlay_images(image1, image2, transform):
     """Visualize overlayed images in the GUI canvas. Takes an
     Image Object and converts uint8 data into byte data the Tk
     canvas can use."""
-
     d_theta, d_x, d_y, h_flip = transform
-    array1 = image1.img_array
-    array2 = image2.img_array
+    array1 = image1.flt_data[0]
+    array2 = image2.flt_data[0]
 
     source_rgba = make_rgba(array1, adjust=True, d_theta=d_theta, d_x=d_x, d_y=d_y, h_flip=h_flip)
     target_rgba = make_rgba(array2, adjust=True)
@@ -115,6 +131,18 @@ def overlay_images(image1, image2, transform):
 
     return_img = convert_to_bytes(final_img)
     return return_img
+
+
+def adjust_image(data, transform):
+
+    d_theta, d_x, d_y, h_flip = transform
+    rgba_image = make_rgba(data, adjust=True, d_theta=d_theta, d_x=d_x, d_y=d_y, h_flip=h_flip, color='None')
+    return_img = convert_to_bytes(rgba_image)
+    return return_img
+
+
+def adjust_np_array(data, transform):
+    pass
 
 
 def vis_1_im(image, layer=0):
@@ -137,10 +165,18 @@ def vis_1_im(image, layer=0):
         to represent in TK canvas.
     """
 
-    im_data = image.data[layer]
+    im_data = image.uint8_data[layer]
     rgba_image = make_rgba(im_data)
     return_img = convert_to_bytes(rgba_image)
     return return_img
+
+
+def slice(image, size):
+    """Slice an image"""
+
+    endx, endy = size
+    startx, starty = 0, 0
+    return image[startx:endx, starty:endy, :]
 
 
 # ------ Run FIJI Macros ------ #
@@ -160,7 +196,6 @@ def run_macro(ijm_macro_script, image_dir, fiji_path):
         f.close()
 
     cmd = join([fiji_path, "--ij2", "--headless", "--console", "-macro ", macro_file], " ")
-    print(cmd)
     proc = subprocess.Popen(cmd, shell=True) #stdout=subprocess.PIPE
     return proc
     # # output = None
@@ -169,32 +204,44 @@ def run_macro(ijm_macro_script, image_dir, fiji_path):
 
 
 # ------ Mask Interaction on Graph ------ #
-def draw_mask_points(winfo, graph, double_click=False):
+def draw_mask_points(winfo, graph, current_tab, double_click=False):
     """Draw markers to appear on BUJ graph"""
-    num_coords = len(winfo.buj_mask_coords)
-    for i in range(num_coords):
-        x1, y1 = winfo.buj_mask_coords[i]
-        x2, y2 = winfo.buj_mask_coords[(i + 1) % num_coords]
-        id_horiz = graph.DrawLine((x1 - 7, y1), (x1 + 7, y1), color='red', width=2)
-        id_verti = graph.DrawLine((x1, y1 - 7), (x1, y1 + 7), color='red', width=2)
-        end = (i+1) % num_coords
-        if end or double_click:
-            id_next = graph.DrawLine((x1, y1), (x2, y2), color='red', width=2)
-        else:
-            id_next = graph.DrawLine((x1, y1), (x1, y1), color='red', width=1)
-        winfo.buj_mask_markers.append((id_horiz, id_verti, id_next))
+    if current_tab == 'bunwarpj_tab':
+        num_coords = len(winfo.buj_mask_coords)
+        for i in range(num_coords):
+            x1, y1 = winfo.buj_mask_coords[i]
+            x2, y2 = winfo.buj_mask_coords[(i + 1) % num_coords]
+            id_horiz = graph.DrawLine((x1 - 7, y1), (x1 + 7, y1), color='red', width=2)
+            id_verti = graph.DrawLine((x1, y1 - 7), (x1, y1 + 7), color='red', width=2)
+            end = (i+1) % num_coords
+            if end or double_click:
+                id_next = graph.DrawLine((x1, y1), (x2, y2), color='red', width=2)
+            else:
+                id_next = graph.DrawLine((x1, y1), (x1, y1), color='red', width=1)
+            winfo.buj_mask_markers.append((id_horiz, id_verti, id_next))
+    elif current_tab == 'reconstruct_tab':
+        num_coords = len(winfo.rec_mask_coords)
+        for i in range(num_coords):
+            x1, y1 = winfo.rec_mask_coords[i]
+            x2, y2 = winfo.rec_mask_coords[(i + 1) % num_coords]
+            id = graph.DrawLine((x1, y1), (x2, y2), color='red', width=1)
+            winfo.rec_mask_markers.append(id)
 
 
-def erase_marks(winfo, graph, full_erase=False):
+def erase_marks(winfo, graph, current_tab, full_erase=False):
     """Erase markers off graph. Delete stored markers if full_erase enabled."""
-    for marks in winfo.buj_mask_markers:
-        for line in marks:
+    if current_tab == 'bunwarpj_tab':
+        for marks in winfo.buj_mask_markers:
+            for line in marks:
+                graph.DeleteFigure(line)
+        if full_erase:
+            winfo.buj_mask_coords = []
+            winfo.buj_mask_markers = []
+            winfo.buj_graph_double_click = False
+    elif current_tab == 'reconstruct_tab':
+        winfo.rec_mask_coords = []
+        for line in winfo.rec_mask_markers:
             graph.DeleteFigure(line)
-
-    if full_erase:
-        winfo.buj_mask_coords = []
-        winfo.buj_mask_markers = []
-        winfo.buj_graph_double_click = False
 
 
 def create_mask(winfo, filenames, ref_img):
@@ -214,3 +261,95 @@ def create_mask(winfo, filenames, ref_img):
     for filename in filenames:
         cv.imwrite(f"{filename}", img)
 
+
+def draw_square_mask(winfo, graph):
+
+    mask_percent = winfo.rec_mask[0] / 100
+    graph_x, graph_y = graph.get_size()
+
+    center_x, center_y = winfo.rec_mask_center
+    winfo.rec_mask_coords = []
+    left_bounds, right_bounds = False, False
+    top_bounds, bottom_bounds = False, False
+    min_x, min_y, max_x, max_y = -1, 0, graph_x-1, graph_y
+    for k in range(4):
+        if k == 0:
+            i, j = (1, 1)
+        elif k == 1:
+            i, j = (-1, 1)
+        elif k == 2:
+            i, j = (-1, -1)
+        elif k == 3:
+            i, j = (1, -1)
+        coord_x = center_x + i * graph_x * mask_percent * 1 / 2
+        coord_y = center_y + j * graph_y * mask_percent * 1 / 2
+        if coord_x < -1:
+            left_bounds = True
+            if coord_x < min_x:
+                min_x = coord_x
+        if coord_x > graph_x-1:
+            right_bounds = True
+            if coord_x > max_x:
+                max_x = coord_x
+        if coord_y < 0:
+            bottom_bounds = True
+            if coord_y < min_y:
+                min_y = coord_y
+        if coord_y > graph_y:
+            top_bounds = True
+            if coord_y > max_y:
+                max_y = coord_y
+        winfo.rec_mask_coords.append((coord_x, coord_y))
+
+    for i in range(len(winfo.rec_mask_coords)):
+        coord_x, coord_y = winfo.rec_mask_coords[i]
+        if left_bounds and right_bounds:
+            if coord_x == min_x:
+                coord_x = -1
+            elif coord_x == max_x:
+                coord_x = graph_x - 1
+        elif left_bounds:
+            if coord_x == min_x:
+                coord_x = -1
+            else:
+                coord_x = -1 + graph_x * mask_percent
+        elif right_bounds:
+            if coord_x == max_x:
+                coord_x = graph_x - 1
+            else:
+                coord_x = graph_x - 1 - graph_x * mask_percent
+        if top_bounds and bottom_bounds:
+            if coord_y == min_y:
+                coord_y = 0
+            elif coord_y == max_y:
+                coord_y = graph_y
+        elif bottom_bounds:
+            if coord_y == min_y:
+                coord_y = 0
+            else:
+                coord_y = graph_y * mask_percent
+        elif top_bounds:
+            if coord_y == max_y:
+                coord_y = graph_y
+            else:
+                coord_y = graph_y - graph_y * mask_percent
+        winfo.rec_mask_coords[i] = (coord_x, coord_y)
+
+
+def represents_float(s):
+    """Evaluate if the string is an integer.
+
+    Parameters
+    ----------
+    s : str
+        The string to check if float.
+
+    Returns
+    -------
+    Boolean
+    """
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
