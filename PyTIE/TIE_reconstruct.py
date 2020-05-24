@@ -111,6 +111,11 @@ def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, 
     dim_x = right - left 
     tifs = select_tifs(i, ptie, long_deriv)
 
+    ###############################################################
+    ### Apply rotations/translations to all images in tifs here ###
+    ### The images will be cropped on line 125 ####################
+    ###############################################################
+
     mask = ptie.mask[top:bottom, left:right]
     if np.max(mask) == np.min(mask): # doesn't like all white mask
         mask = scipy.ndimage.morphology.binary_erosion(mask) 
