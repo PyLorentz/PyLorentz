@@ -52,6 +52,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
             Saves the images to ptie.data_loc/images/
         long_deriv: Bool. Whether to use the longitudinal derivative (True) or 
             central difference method (False). Default False. 
+            __Currently has bugs__. Qualitatively looks alright but quantitatively
+            is not accurate. 
         v: Int. Verbosity. 
             0 : no output
             1 : Default output

@@ -164,7 +164,8 @@ def std_mansPhi(mag_x=None, mag_y=None, del_px = 1, isl_shape=None, pscope=Micro
             Default = None -> uniform flat material with thickness = isl_thk.
         del_px: Float. Scale factor (nm/pixel). Default = 1. 
     Material Parameter Args: 
-        pscope: Microscope object. Accelerating voltage is the relevant parameter.
+        pscope: Microscope object. Accelerating voltage is the relevant 
+            parameter. Default 200kV. 
         b0: Float. Saturation magnetization (gauss). Default 1e4.
         isl_thk: Float. Island thickness (nm). Default 20. 
         isl_V0: Float. Island mean inner potential (V). Default 20. 
