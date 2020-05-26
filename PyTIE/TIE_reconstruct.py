@@ -67,7 +67,7 @@ def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, 
     save = False ->  don't save.
     Saves the images to ptie.data_loc/images/
 
-    hsv = Ture  -> The colorwheel will be an hsv colorwheel
+    hsv = True  -> The colorwheel will be an hsv colorwheel
     hsv = False -> The colorwheel will be a 4-fold colorwheel
 
     Returns a dictionary:
