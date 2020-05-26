@@ -53,7 +53,7 @@ import time
 
 
 
-def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, save = True, v = 1):
+def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, hsv=True, save = True, v = 1):
     '''
     Calculates the necessary arrays, derivatives, etc. and then calls 
     phase_reconstruct to solve the TIE. 
@@ -67,6 +67,9 @@ def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, 
     save = False ->  don't save.
     Saves the images to ptie.data_loc/images/
 
+    hsv = Ture  -> The colorwheel will be an hsv colorwheel
+    hsv = False -> The colorwheel will be a 4-fold colorwheel
+    
     Returns a dictionary:
     results = {
         'byt' : y-component of integrated magnetic induction,
@@ -245,7 +248,7 @@ def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, 
     results['bbt'] = np.sqrt(results['bxt']**2 + results['byt']**2)
     results['phase_m'] = resultsB['phase']
     results['color_b'] = color_im(results['bxt'], results['byt'],
-                                    hsvwheel=True, background='black') 
+                                    hsvwheel=hsv, background='black')
 
     if v >= 1:
         show_im(results['color_b'], "B-field color HSV colorwheel")

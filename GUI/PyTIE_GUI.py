@@ -15,7 +15,7 @@ sys.path.append("../PyTIE/")
 from microscopes import Microscope
 from TIE_helper import *
 from TIE_reconstruct import TIE, SITIE
-from colorwheel import colorwheel_HSV, colorwheel_RGB
+from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
 
 # print = sg.Print
 # sg.main()
@@ -194,6 +194,8 @@ def init_rec(winfo, window):
 
     # Image selection
     winfo.rec_last_image_choice = None
+    winfo.rec_last_colorwheel_choice = None
+    winfo.rec_tie_results = None
 
     # Graph and mask making
     winfo.rec_graph_double_click = False
@@ -2012,9 +2014,12 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 if window['__REC_Mask__'].metadata['State'] == 'Def':
                     enable_list.extend(['__REC_Def_Combo__', '__REC_QC_Input__',
                                         '__REC_Run_TIE__', '__REC_Save_TIE__',
-                                        "__REC_Colorwheel__", "__REC_Derivative__"])
+                                        "__REC_Derivative__"])
                 else:
                     enable_list.extend(['__REC_Erase_Mask__'])
+            if (window['__REC_Set_FLS__'].metadata['State'] == 'Set' and
+                  window['__REC_Mask__'].metadata['State'] == 'Def'):
+                enable_list.extend(["__REC_Colorwheel__"])
             if (window['__REC_Stack__'].metadata['State'] == 'Set' and
                     window['__REC_Mask__'].metadata['State'] == 'Def'):
                 enable_list.extend(['__REC_View__', "__REC_Image_List__"])
@@ -2048,6 +2053,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Pull in image data from struct object
     image_dir = winfo.rec_image_dir
     images = winfo.rec_images
+    colorwheel_choice = window['__REC_Colorwheel__'].Get()[0]
 
     # if 'TIMEOUT' not in event:
     #     print(event)
@@ -2061,6 +2067,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                                                          winfo.rec_past_mask != mask_transform)
     change_img = (winfo.rec_last_image_choice !=
                   window['__REC_Image_List__'].get()[0])
+    change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
               and (window['__REC_View__'].metadata['State'] == 'Set' or
                    window['__REC_Mask__'].metadata['State'] == 'Set')
@@ -2390,6 +2397,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         def_val = float(window['__REC_Def_Combo__'].Get())
         def_ind = ptie.defvals.index(def_val)
         dataname = 'example'
+        hsv = window['__REC_Colorwheel__'].get() == 'HSV'
         save = False
 
         sym = window['__REC_Symmetrize__'].Get()
@@ -2440,10 +2448,11 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             try:
                 print(f'Reconstructing for defocus value: {ptie.defvals[def_ind]} nm ')
                 results = TIE(def_ind, ptie, microscope,
-                              dataname, sym, qc, save,
+                              dataname, sym, qc, hsv, save,
                               longitudinal_deriv, v=False)
 
                 # This will need to consider like the cropping region
+                winfo.rec_tie_results = results
                 x_size, y_size = images['REC_Stack'].lat_dims
                 for key in results:
                     # print(key,  results[key].shape, results[key].dtype, results[key])
@@ -2469,6 +2478,8 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
                 # Update window
                 display_img = winfo.rec_images['color_b'].byte_data
+                display_img2 = winfo.rec_colorwheel
+                metadata_change(window, [('__REC_Image__', 'color_b')])
                 toggle(window, ['__REC_View__'], state='Set')
                 update_slider(window, [('__REC_Image_Slider__', {"value": 1})])
                 window['__REC_Image_List__'].update(set_to_index=1, scroll_to_index=1)
@@ -2541,6 +2552,38 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             g_help.draw_square_mask(winfo, graph)
     winfo.rec_past_transform = transform
     winfo.rec_past_mask = mask_transform
+
+    if change_colorwheel:
+        if winfo.rec_tie_results:
+            colorwheel_type = window['__REC_Colorwheel__'].get()
+            rad1, rad2 = colorwheel_graph.get_size()
+            if colorwheel_type == 'HSV':
+                cwheel_hsv = colorwheel_HSV(rad1, background='black')
+                cwheel = colors.hsv_to_rgb(cwheel_hsv)
+                hsvwheel = True
+            elif colorwheel_type == '4-Fold':
+                cwheel = colorwheel_RGB(rad1)
+                hsvwheel = False
+            uint8_colorwheel, float_colorwheel = g_help.convert_float_unint8(cwheel, (rad1, rad2))
+            rgba_colorwheel = g_help.make_rgba(uint8_colorwheel[0])
+            winfo.rec_colorwheel = g_help.convert_to_bytes(rgba_colorwheel)
+            results = winfo.rec_tie_results
+            x_size, y_size = images['REC_Stack'].lat_dims
+            results['color_b'] = color_im(results['bxt'], results['byt'],
+                                   hsvwheel=hsvwheel, background='black')
+            float_array = g_help.slice(results['color_b'], (x_size, y_size))
+            uint8_data, float_data = {}, {}
+            uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
+                                                                 uint8_data, float_data)
+            image = Image(uint8_data, float_data, (x_size, y_size, 1), 'color_b')
+            image.byte_data = g_help.vis_1_im(image)
+            winfo.rec_images['color_b'] = image
+            if window['__REC_Image_List__'].get()[0] == 'Color':
+                display_img = image.byte_data
+                display_img2 = winfo.rec_colorwheel
+        else:
+            print('no')
+    winfo.rec_last_colorwheel_choice = colorwheel_choice
 
     # Check to see if any files need loading
     if len(winfo.rec_file_queue) > 0:
