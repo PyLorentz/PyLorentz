@@ -69,7 +69,7 @@ def TIE(i, ptie, pscope, dataname = '', long_deriv = False, sym=False, qc=None, 
 
     hsv = Ture  -> The colorwheel will be an hsv colorwheel
     hsv = False -> The colorwheel will be a 4-fold colorwheel
-    
+
     Returns a dictionary:
     results = {
         'byt' : y-component of integrated magnetic induction,
