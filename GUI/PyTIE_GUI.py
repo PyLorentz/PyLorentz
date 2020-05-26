@@ -174,6 +174,12 @@ def init_rec(winfo, window):
     # --- Set up loading files --- #
     winfo.rec_file_queue = {}
     winfo.rec_queue_disable_list = []
+    winfo.image_slider_set = 4
+    winfo.image_slider_dict = {'Stack': 0, 'Color': 1,
+                               'MagX': 2, 'MagY': 3, 'Mag': 4,
+                               'Electr. Phase': 5, 'Mag. Phase': 6,
+                               'Electr. Deriv.': 7, 'Mag. Deriv.': 8,
+                               'In Focus': 9}
 
     # Declare transformation timers and related variables
     winfo.rec_transform = (0, 0, 0, None)
@@ -1980,7 +1986,8 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                        '__REC_Mask_Size__', '__REC_Mask__', "__REC_Erase_Mask__",
                        "__REC_transform_y__", "__REC_transform_x__",
                        "__REC_transform_rot__", '__REC_Run_TIE__', '__REC_Save_TIE__',
-                       "__REC_Slider__", "__REC_Colorwheel__", "__REC_Derivative__"]
+                       "__REC_Slider__", "__REC_Colorwheel__", "__REC_Derivative__"
+                       ]
 
         if window['__REC_Set_Img_Dir__'].metadata['State'] == 'Set':
             if window['__REC_Set_FLS__'].metadata['State'] == 'Def':
@@ -2041,9 +2048,8 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Pull in image data from struct object
     image_dir = winfo.rec_image_dir
     images = winfo.rec_images
-    # fls_files = winfo.rec_fls_files
 
-    # if 'TIMEOUT' not in event and "HOVER" not in event:
+    # if 'TIMEOUT' not in event:
     #     print(event)
 
     view_image_button = window['__REC_View__']
@@ -2059,6 +2065,9 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
               and (window['__REC_View__'].metadata['State'] == 'Set' or
                    window['__REC_Mask__'].metadata['State'] == 'Set')
               and winfo.true_element == "__REC_Graph__")
+    scroll_images = (event in event in ['MouseWheel:Up', 'MouseWheel:Down'] and
+                     winfo.true_element == '__REC_Image_List__' or
+                     event == '__REC_Image_Slider__')
     draw_mask = mask_button.metadata['State'] == 'Set'
 
     # Set the working directory
@@ -2173,15 +2182,10 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             fls_1 = winfo.rec_fls_files[0]
             fls_2 = winfo.rec_fls_files[1]
         fls1_path = fls_1.shortname
-        print(fls1_path)
         if fls_2:
             fls2_path = fls_2.shortname
         else:
             fls2_path = None
-        print(fls1_path)
-        print(fls2_path)
-
-
 
         # Is this single series or flipped/unflipped series
         if window['__REC_TFS_Combo__'].metadata['State'] == 'Def':
@@ -2311,6 +2315,22 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
             update_slider(window, [('__REC_Slider__', {"value": slider_val})])
             metadata_change(window, [('__REC_Image__', f'Image {slider_val+1}')])
+
+    # Scroll through image options
+    elif scroll_images:
+        max_slider_val = 4
+        if event in ['MouseWheel:Down', 'MouseWheel:Up']:
+            slider_set = winfo.image_slider_set
+            if event == 'MouseWheel:Up':
+                slider_val = min(max_slider_val, slider_set + 1)
+            elif event == 'MouseWheel:Down':
+                slider_val = max(0, slider_set - 1)
+            winfo.image_slider_set = slider_val
+        elif event == "__REC_Image_Slider__":
+            slider_val = int(values["__REC_Image_Slider__"])
+        update_slider(window, [('__REC_Image_Slider__', {"value": slider_val})])
+        window['__REC_Image_List__'].update(scroll_to_index=max_slider_val-slider_val)
+        winfo.image_slider_set = slider_val
 
     # Changing view stack combo
     elif change_img and window['__REC_View__'].metadata['State'] == 'Set':
@@ -2444,9 +2464,17 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                     uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
                                                                          uint8_data, float_data)
                     image = Image(uint8_data, float_data, (x_size, y_size, 1), f'/{key}')
-
                     image.byte_data = g_help.vis_1_im(image)
                     winfo.rec_images[key] = image
+
+                # Update window
+                display_img = winfo.rec_images['color_b'].byte_data
+                toggle(window, ['__REC_View__'], state='Set')
+                update_slider(window, [('__REC_Image_Slider__', {"value": 1})])
+                window['__REC_Image_List__'].update(set_to_index=1, scroll_to_index=1)
+                winfo.image_slider_set = 4-1
+                winfo.rec_last_image_choice = 'Color'
+
             except:
                 print('There was an error when running TIE.')
                 raise

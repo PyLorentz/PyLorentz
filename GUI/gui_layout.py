@@ -67,7 +67,7 @@ radio_keys = ["__LS_full_align__", "__LS_param_test__", '__LS_unflip_reference__
               "__BUJ_unflip_reference__", "__BUJ_flip_reference__"]
 slider_keys = ["__LS_Stack_Slider__",
                "__BUJ_Stack_Slider__", "__BUJ_img_subsf__",
-               "__REC_Slider__"]
+               "__REC_Slider__", "__REC_Image_Slider__"]
 tab_keys = ["ls_tab", "bunwarpj_tab", "reconstruct_tab", "home_tab", "align_tab"]
 tabgroup_keys = ["align_tabgroup", "pages_tabgroup"]
 text_keys = ["home_title", "home_version", "home_authors", "home_readme", "home_contact",
@@ -762,14 +762,10 @@ def reconstruct_tab(style, DEFAULTS):
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]])],
                              [spacer],
                              [sg.Button('View Image', **style.styles('__REC_View__')),
-                             #  sg.Input('None', **style.styles('__REC_Loading_Stage__')),
                               sg.Listbox(['Stack', 'Color', 'MagX', 'MagY', 'Mag', 'Electr. Phase', 'Mag. Phase',
                                           'Electr. Deriv.', 'Mag. Deriv.', 'In Focus'],
                                           **style.styles('__REC_Image_List__')),
-                              sg.Col([[sg.Text('\u25B2', font='Times 19', pad=((16, 0), (5, 0)))],
-                                      [sg.Text('(Scroll)', font='Times 15', pad=((0, 0), (3, 0)))],
-                                      [sg.Text('\u25BC', font='Times 19', pad=((16, 0), (5, 5)))]])],
-                    ]
+                              sg.Slider(**style.styles('__REC_Image_Slider__'))]]
 
         reconstruct_graph = [[sg.Text("Image Directory:",  pad=((70, 0), (5, 0))),
                   sg.Input(DEFAULTS['browser_dir'], **style.styles('__REC_Image_Dir_Path__')),

@@ -46,7 +46,7 @@ class WindowStyle(object):
 
         # ---------  Theme & Scaling  --------- #
         window_scaling()
-        self.theme = sg.theme('DarkGrey3')
+        self.theme = sg.theme('BlueMono') #DarkGrey3
         self.DEF_BACKGROUND = sg.theme_background_color()
 
         # ---------  self.Fonts and test  --------- #
@@ -460,7 +460,7 @@ class WindowStyle(object):
             elif key == '__REC_Save_TIE__':
                 val.update(enable_events=True, disabled=True, pad=((28, 0), (8, 0)))
             elif key == '__REC_View__':
-                val.update(disabled=True, enable_events=True, pad=((30, 0), (5, 10)),
+                val.update(disabled=True, enable_events=True, pad=((45, 0), (7, 7)),
                            metadata={'Set': 'Hide Image', 'Def': 'View Image',
                                      'State': 'Def'})
             elif key == '__REC_Set_Img_Dir__':
@@ -540,8 +540,8 @@ class WindowStyle(object):
             # Listbox element
             elif key == '__REC_Image_List__':
                 val.update(default_values='Stack', select_mode='LISTBOX_SELECT_MODE_SINGLE',
-                           size=(20, 3), no_scrollbar=True, disabled=True,
-                           enable_events=True, pad=((8, 10), (5, 10)))
+                           size=(16, 5), no_scrollbar=True, disabled=True,
+                           enable_events=True, pad=((9, 0), (7, 7)))
             # Mutliline element
             elif key == '__REC_Def_Multi__':
                 val.update(disabled=True,
@@ -553,6 +553,11 @@ class WindowStyle(object):
                 val.update(size=(40, 20), disable_number_display=True, pad=((10, 8), (80, 0)),
                            disabled=True, enable_events=True, orientation='vertical',
                            default_value=0, metadata={'slider_range': (0, 2)})
+            elif key == '__REC_Image_Slider__':
+                val.update(range = (0, 4), disable_number_display = True,
+                           pad = ((0, 0), (1, 0)), size = (7, 16),
+                           enable_events = True, orientation = 'vertical',
+                           default_value = 9, metadata = {'slider_range': (0, 4)})
             # Text element
             elif key == '__REC_FLS1_Text__':
                 val.update(pad=((5, 0), (5, 0)),
