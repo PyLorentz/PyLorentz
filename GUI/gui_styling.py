@@ -445,10 +445,10 @@ class WindowStyle(object):
             elif key == '__REC_Reset_Stack__':
                 val.update(pad=((5, 17), (8, 0)), disabled=True)
             elif key == '__REC_Set_FLS__':
-                val.update(pad=((130, 0), (10, 0)), disabled=True,
+                val.update(pad=((130, 0), (5, 5)), disabled=True,
                            metadata={'State': 'Def'})
             elif key == '__REC_Reset_FLS__':
-                val.update(pad=((5, 0), (10, 0)), disabled=True)
+                val.update(pad=((5, 0), (5, 5)), disabled=True)
             elif key == '__REC_Mask__':
                 val.update(pad=((108, 0), (5, 5)), disabled=True,
                            metadata={'Set': 'Confirm Mask', 'Def': 'Select Mask',
@@ -460,9 +460,9 @@ class WindowStyle(object):
             elif key == '__REC_Save_TIE__':
                 val.update(enable_events=True, disabled=True, pad=((28, 0), (8, 0)))
             elif key == '__REC_View__':
-                val.update(disabled=True, enable_events=True, pad=((75, 0), (5, 10)),
+                val.update(disabled=True, enable_events=True, pad=((30, 0), (5, 10)),
                            metadata={'Set': 'Hide Image', 'Def': 'View Image',
-                                         'State': 'Def'})
+                                     'State': 'Def'})
             elif key == '__REC_Set_Img_Dir__':
                 val.update(pad=((3, 0), (7, 0)), metadata={'State': 'Def'})
             elif key == '__REC_Reset_Img_Dir__':
@@ -482,13 +482,13 @@ class WindowStyle(object):
                            default_value='None', pad=((23, 0), (8, 0)))
             elif key == '__REC_Derivative__':
                 val.update(size=(16, 1), readonly=True, disabled=True,
-                           default_value='Longitudinal Deriv.', pad=((19, 0), (5, 0)))
+                           default_value='Central Diff.', pad=((19, 0), (5, 0)))
             elif key == '__REC_Colorwheel__':
                 val.update(size=(8, 1), readonly=True, disabled=True,
                            default_value='HSV', pad=((11, 0), (3, 0)))
             # Checkbox Element
             elif key == '__REC_Symmetrize__':
-                val.update(default=True, pad=((0, 0), (7, 0)))
+                val.update(default=False, pad=((0, 0), (7, 0)))
 
 
             # Graph
@@ -527,7 +527,7 @@ class WindowStyle(object):
                 val.update(disabled=True, enable_events=True,
                            pad=((48, 0), (10, 0)), size=(5, 1),
                            justification='right')
-            elif key == '__REC_QC_Inp__':
+            elif key == '__REC_QC_Input__':
                 val.update(pad=((5, 0), (7, 0)),
                            size=(6, 1), justification='right')
             elif key == '__REC_Image_Dir_Path__':
@@ -545,7 +545,7 @@ class WindowStyle(object):
             # Mutliline element
             elif key == '__REC_Def_Multi__':
                 val.update(disabled=True,
-                           size=(15, 0), pad=((25, 0), (2, 8)))
+                           size=(15, 0), pad=((25, 0), (4, 0)))
             # Output element
             # Radio element
             # Slider element

@@ -166,7 +166,7 @@ def init_rec(winfo, window):
     # Declare image path and image storage
     winfo.rec_image_dir = ''
     winfo.rec_images = {}
-    winfo.rec_fls_files = {}
+    winfo.rec_fls_files = [None, None]
     winfo.rec_ptie = None
     winfo.rec_microscope = None
     winfo.rec_colorwheel = None
@@ -179,8 +179,9 @@ def init_rec(winfo, window):
     winfo.rec_transform = (0, 0, 0, None)
     winfo.rec_past_transform = (0, 0, 0, None)
     winfo.rec_mask_timer = (0,)
-    winfo.rec_mask = (50,)
-    winfo.rec_past_mask = (50,)
+    winfo.rec_mask = (100,)
+    winfo.rec_past_mask = (100,)
+    winfo.img_scale = None
 
     graph_size = window['__REC_Graph__'].metadata['size']
     winfo.rec_mask_center = ((graph_size[0]-2)/2, (graph_size[1])/2)
@@ -1974,7 +1975,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         active_keys = ['__REC_Image_Dir_Path__', '__REC_Set_Img_Dir__', '__REC_Image_Dir_Browse__',
                        '__REC_FLS_Combo__', '__REC_Load_FLS1__', '__REC_Set_FLS__',
                        '__REC_Load_FLS2__', '__REC_Load_Stack__', '__REC_View__', '__REC_Image_List__',
-                       '__REC_Def_Combo__', '__REC_QC_Inp__',
+                       '__REC_Def_Combo__', '__REC_QC_Input__',
                        "__REC_Reset_Stack__", "__REC_Reset_FLS__", "__REC_TFS_Combo__",
                        '__REC_Mask_Size__', '__REC_Mask__', "__REC_Erase_Mask__",
                        "__REC_transform_y__", "__REC_transform_x__",
@@ -2002,7 +2003,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                                     "__REC_transform_y__", "__REC_transform_x__",
                                     "__REC_transform_rot__"])
                 if window['__REC_Mask__'].metadata['State'] == 'Def':
-                    enable_list.extend(['__REC_Def_Combo__', '__REC_QC_Inp__',
+                    enable_list.extend(['__REC_Def_Combo__', '__REC_QC_Input__',
                                         '__REC_Run_TIE__', '__REC_Save_TIE__',
                                         "__REC_Colorwheel__", "__REC_Derivative__"])
                 else:
@@ -2091,7 +2092,6 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
     # Set number of FLS files to use
     elif event == '__REC_FLS_Combo__' or event == '__REC_TFS_Combo__':
-        winfo.rec_fls_files = {}
         fls_value = window['__REC_FLS_Combo__'].Get()
         tfs_value = window['__REC_TFS_Combo__'].Get()
         metadata_change(window, ['__REC_FLS2__', '__REC_FLS1__'], reset=True)
@@ -2133,16 +2133,17 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         if 'FLS1' in event:
             fls_path = window['__REC_FLS1_Staging__'].Get()
             update_values(window, [('__REC_FLS1_Staging__', 'None')])
-            file_key = 'REC_FLS1'
             target_key = '__REC_FLS1__'
         elif 'FLS2' in event:
             fls_path = window['__REC_FLS2_Staging__'].Get()
             update_values(window, [('__REC_FLS2_Staging__', 'None')])
-            file_key = 'REC_FLS2'
             target_key = '__REC_FLS2__'
         if os.path.exists(fls_path) and fls_path.endswith('.fls'):
             fls = File_Object(fls_path)
-            winfo.rec_fls_files[file_key] = fls
+            if 'FLS1' in event:
+                winfo.rec_fls_files[0] = fls
+            elif 'FLS2' in event:
+                winfo.rec_fls_files[1] = fls
             metadata_change(window, [(target_key, fls.shortname)])
             toggle(window, [target_key], state='Set')
         else:
@@ -2161,18 +2162,31 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     elif event == '__REC_Set_FLS__':
         # Get PYTIE loading params
         path = image_dir + '/'
-        fls_2 = None
-        flip = False
         stack_name = images['REC_Stack'].shortname
-        if 'REC_FLS1' in winfo.rec_fls_files:
-            fls_1 = winfo.rec_fls_files['REC_FLS1'].shortname
-        if 'REC_FLS2' in winfo.rec_fls_files:
-            fls_2 = winfo.rec_fls_files['REC_FLS2'].shortname
+
+        # Get FLS value information
+        fls_value = window['__REC_FLS_Combo__'].Get()
+        if fls_value == 'One':
+            fls_1 = winfo.rec_fls_files[0]
+            fls_2 = winfo.rec_fls_files[1]
+        elif fls_value == 'Two':
+            fls_1 = winfo.rec_fls_files[0]
+            fls_2 = winfo.rec_fls_files[1]
+        fls1_path = fls_1.shortname
+        if fls_2:
+            fls2_path = fls_2.shortname
+        else:
+            fls2_path = None
+
+        # Is this single series or flipped/unflipped series
         if window['__REC_FLS_Combo__'].metadata['State'] == 'Def':
             flip = True
-        try:
-            dm3stack1, dm3stack2, ptie = load_data(path, fls_1, stack_name, flip, fls_2)
+        else:
+            flip = False
 
+        # Load ptie params
+        try:
+            dm3stack1, dm3stack2, ptie = load_data(path, fls1_path, stack_name, flip, fls2_path)
             string_vals = []
             window['__REC_Def_Multi__'].update(value="")
             for def_val in ptie.defvals:
@@ -2351,63 +2365,86 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         def_val = float(window['__REC_Def_Combo__'].Get())
         def_ind = ptie.defvals.index(def_val)
         dataname = 'example'
+        save = False
 
         sym = window['__REC_Symmetrize__'].Get()
-        qc = float(window['__REC_QC_Inp__'].Get())
-        save = False
-        longitudinal_deriv = False
+        qc = window['__REC_QC_Input__'].Get()
+        qc_passed = True
+        if g_help.represents_float(qc):
+            qc = float(qc)
+            if qc < 0:
+                qc_passed = False
+            elif qc == 0:
+                qc = None
+        else:
+            qc_passed = False
+
+        # Longitudinal deriv
+        deriv_val = window['__REC_Derivative__'].get()
+        if deriv_val == 'Longitudinal Deriv.':
+            longitudinal_deriv = True
+        elif deriv_val == 'Central Diff.':
+            longitudinal_deriv = False
 
         # Set crop data
         # bottom, top, left, right = None, None, None, None
         # for i in range(len(winfo.rec_mask_coords)):
         #     x, y = winfo.rec_mask_coords[i]
         #     x, y = round(x), round(y)
-        #     if x is not None or x > right:
-        #         right = y
-        #     if x is not None or x < left:
-        #         left = y
-        #     if bottom is not None or y > bottom:
+        #     if right is None or x > right:
+        #         right = x
+        #     if left is None or x < left:
+        #         left = x
+        #     if bottom is None or y > bottom:
         #         bottom = y
-        #     if top is not None or y < top:
+        #     if top is None or y < top:
         #         top = y
-        # print(left, right, top, bottom)
-        # ptie.crop['right'], ptie.crop['left'] = right, left
-        # ptie.crop['bottom'], ptie.crop['top'] = bottom, top
+        #
+        # reg_width, reg_height = images['REC_Stack'].lat_dims
+        # crop_width, crop_height = (right - left), (bottom - top)
+        # scale_x, scale_y = reg_width/crop_width, reg_height/crop_height
+        # print('crops: ', left, right, top, bottom)
+        # print('scaled_crop: ', left*scale_x, right*scale_x, top*scale_y, bottom*scale_y)
+        # ptie.crop['right'], ptie.crop['left'] = left*scale_x, right*scale_x
+        # ptie.crop['bottom'], ptie.crop['top'] = bottom*scale_y, top*scale_y,
 
+        if not qc_passed:
+            print('QC value should be an integer or float and not negative. Change value.')
+            update_values(window, [('__REC_QC_Input__', '0.00')])
+        else:
+            try:
+                print(f'Reconstructing for defocus value: {ptie.defvals[def_ind]} nm ')
+                results = TIE(def_ind, ptie, microscope,
+                              dataname, sym, qc, save,
+                              longitudinal_deriv, v=False)
 
-        print(f'Reconstructing for defocus value: {ptie.defvals[def_ind]} nm ')
-        try:
-            results = TIE(def_ind, ptie, microscope,
-                          dataname, sym, qc, save,
-                          longitudinal_deriv, v=False)
+                # This will need to consider like the cropping region
+                x_size, y_size = images['REC_Stack'].lat_dims
+                for key in results:
+                    # print(key,  results[key].shape, results[key].dtype, results[key])
+                    float_array = results[key]
+                    if key == 'color_b':
+                        float_array = g_help.slice(float_array, (x_size, y_size))
+                        colorwheel_type = window['__REC_Colorwheel__'].get()
+                        rad1, rad2 = colorwheel_graph.get_size()
+                        if colorwheel_type == 'HSV':
+                            cwheel_hsv = colorwheel_HSV(rad1, background='black')
+                            cwheel = colors.hsv_to_rgb(cwheel_hsv)
+                        elif colorwheel_type == '4-Fold':
+                            cwheel = colorwheel_RGB(rad1)
+                        uint8_colorwheel, float_colorwheel = g_help.convert_float_unint8(cwheel, (rad1, rad2))
+                        rgba_colorwheel = g_help.make_rgba(uint8_colorwheel[0])
+                        winfo.rec_colorwheel = g_help.convert_to_bytes(rgba_colorwheel)
+                    uint8_data, float_data = {}, {}
+                    uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
+                                                                         uint8_data, float_data)
+                    image = Image(uint8_data, float_data, (x_size, y_size, 1), f'/{key}')
 
-            # This will need to consider like the cropping region
-            x_size, y_size = images['REC_Stack'].lat_dims
-            for key in results:
-                # print(key,  results[key].shape, results[key].dtype, results[key])
-                float_array = results[key]
-                if key == 'color_b':
-                    float_array = g_help.slice(float_array, (x_size, y_size))
-                    colorwheel_type = window['__REC_Colorwheel__'].get()
-                    rad1, rad2 = colorwheel_graph.get_size()
-                    if colorwheel_type == 'HSV':
-                        cwheel_hsv = colorwheel_HSV(rad1, background='black')
-                        cwheel = colors.hsv_to_rgb(cwheel_hsv)
-                    elif colorwheel_type == '4-Fold':
-                        cwheel = colorwheel_RGB(rad1)
-                    uint8_colorwheel, float_colorwheel = g_help.convert_float_unint8(cwheel, (rad1, rad2))
-                    rgba_colorwheel = g_help.make_rgba(uint8_colorwheel[0])
-                    winfo.rec_colorwheel = g_help.convert_to_bytes(rgba_colorwheel)
-                uint8_data, float_data = {}, {}
-                uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
-                                                                     uint8_data, float_data)
-                image = Image(uint8_data, float_data, (x_size, y_size, 1), f'/{key}')
-
-                image.byte_data = g_help.vis_1_im(image)
-                winfo.rec_images[key] = image
-        except:
-            print('There was an error when running TIE.')
-            raise
+                    image.byte_data = g_help.vis_1_im(image)
+                    winfo.rec_images[key] = image
+            except:
+                print('There was an error when running TIE.')
+                raise
 
     # Start making reconstruct subregion
     elif event == '__REC_Mask__':
@@ -2460,7 +2497,6 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         update_values(window, [('__REC_transform_x__', '0'), ('__REC_transform_y__', '0'),
                                ('__REC_transform_rot__', "0"), ('__REC_Mask_Size__', '50')])
 
-
     # Adjust stack and related variables
     if adjust:
         if winfo.rec_past_transform != transform:
@@ -2470,8 +2506,6 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         if winfo.rec_past_mask != mask_transform:
             g_help.erase_marks(winfo, graph, current_tab, full_erase=True)
             g_help.draw_square_mask(winfo, graph)
-
-
     winfo.rec_past_transform = transform
     winfo.rec_past_mask = mask_transform
 

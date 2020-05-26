@@ -54,7 +54,7 @@ input_keys = ["__Fiji_Path__", "__LS_Image_Dir_Path__", "__LS_igb__",
               "__BUJ_Image1__", "__BUJ_Image2__", "__BUJ_Stack__",
               "__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__", "__BUJ_Unflip_Mask_Inp__", "__BUJ_Flip_Mask_Inp__",
 
-              "__REC_Image_Dir_Path__", "__REC_Image__", "__REC_QC_Inp__",
+              "__REC_Image_Dir_Path__", "__REC_Image__", "__REC_QC_Input__",
               "__REC_transform_y__", "__REC_transform_x__",
               "__REC_transform_rot__", "__REC_Mask_Size__",
               "__REC_FLS1__", "__REC_FLS2__", "__REC_Stack__", "__REC_Stack_Staging__",
@@ -719,14 +719,15 @@ def reconstruct_tab(style, DEFAULTS):
                             sg.Input('None', **style.styles('__REC_FLS2_Staging__')),
                             sg.Input("None",  **style.styles('__REC_FLS2__')),
                             sg.Text("Flip FLS", **style.styles('__REC_FLS2_Text__'))],
-                           [sg.Button('Set', **style.styles('__REC_Set_FLS__')),
-                            sg.Button('Reset', **style.styles('__REC_Reset_FLS__'))],
                            [sg.Col([[sg.Text('Defocus Values:', pad=((50, 0), (8, 0)))],
                                    [sg.Multiline('Unloaded', **style.styles('__REC_Def_Multi__'))]]),
                             sg.Col([[sg.Text('Microscope Voltage:', pad=((20, 0), (8, 0)))],
                                     [sg.Input('200', **style.styles('__REC_M_Volt__')),
                                      sg.Text('kV', pad=((13, 0), (20, 0)), font="Times 36")]]),
-                            ]]
+                            ],
+                           [sg.Button('Set', **style.styles('__REC_Set_FLS__')),
+                            sg.Button('Reset', **style.styles('__REC_Reset_FLS__'))]
+                           ]
 
         subregion_frame = [[sg.Button('Select Mask', **style.styles('__REC_Mask__')),
                             sg.Button('Reset', **style.styles('__REC_Erase_Mask__'))],
@@ -740,7 +741,7 @@ def reconstruct_tab(style, DEFAULTS):
                                      sg.Input('0', **style.styles('__REC_transform_y__')),
                                      sg.Text('px')]]),
                             sg.Col([[sg.Text('Mask Size:', pad=((40, 59), (12, 0)))],
-                                    [sg.Input('50', **style.styles('__REC_Mask_Size__')),
+                                    [sg.Input('100', **style.styles('__REC_Mask_Size__')),
                                       sg.Text('%', pad=((4, 0), (10, 0)))]])
                             ]]
 
@@ -749,11 +750,11 @@ def reconstruct_tab(style, DEFAULTS):
         TIE_menu = [[sg.Col([[sg.Text('Defocus Value:', pad=((10, 0), (8, 0))),
                               sg.Combo(['None'], **style.styles('__REC_Def_Combo__'))],
                              [sg.Text("QC value:", pad=((10, 0), (7, 0))),
-                              sg.Input('0.001', **style.styles('__REC_QC_Inp__')),
+                              sg.Input('0.00', **style.styles('__REC_QC_Input__')),
                               sg.Text('Symmetrize:', pad=((22, 0), (7, 0))),
                               sg.Checkbox('', **style.styles('__REC_Symmetrize__'))],
                              [sg.Text('Derivative:', pad=((10, 0), (5, 0))),
-                              sg.Combo(['Longitudinal Deriv.', 'Central Diff.'],
+                              sg.Combo(['Central Diff.', 'Longitudinal Deriv.'],
                                         **style.styles('__REC_Derivative__'))],
                              [sg.Text('Colorwheel:', pad=((10, 0), (4, 0))),
                               sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__'))]]),
@@ -764,9 +765,11 @@ def reconstruct_tab(style, DEFAULTS):
                              #  sg.Input('None', **style.styles('__REC_Loading_Stage__')),
                               sg.Listbox(['Stack', 'Color', 'MagX', 'MagY', 'Mag', 'Electr. Phase', 'Mag. Phase',
                                           'Electr. Deriv.', 'Mag. Deriv.', 'In Focus'],
-                                          **style.styles('__REC_Image_List__'))],
+                                          **style.styles('__REC_Image_List__')),
+                              sg.Col([[sg.Text('\u25B2', font='Times 19', pad=((16, 0), (5, 0)))],
+                                      [sg.Text('(Scroll)', font='Times 15', pad=((0, 0), (3, 0)))],
+                                      [sg.Text('\u25BC', font='Times 19', pad=((16, 0), (5, 5)))]])],
                     ]
-
 
         reconstruct_graph = [[sg.Text("Image Directory:",  pad=((70, 0), (5, 0))),
                   sg.Input(DEFAULTS['browser_dir'], **style.styles('__REC_Image_Dir_Path__')),
