@@ -1,38 +1,47 @@
-#!/usr/bin/python
-#
-# This module consists of functions for simulating the phase shift of a given
-# object. 
-# It contained two functions:
-# 1) linsupPhi - using the linear supeposition principle for application in MBIR type
-#                3D reconstruction of magnetization (both magnetic and electrostatic)
-# 2) mansPhi - using the Mansuripur Algorithm to compute the phase shift (only magnetic)
-#
-# Written, CD Phatak, ANL, 08.May.2015.
-# Modified, CD Phatak, ANL, 22.May.2016.
+"""This module consists of functions for simulating the phase shift of a given
+object. 
 
-#import necessary modules
+It contained two functions:
+1) linsupPhi - using the linear supeposition principle for application in MBIR type
+               3D reconstruction of magnetization (both magnetic and electrostatic)
+2) mansPhi - using the Mansuripur Algorithm to compute the phase shift (only magnetic)
+
+Written, CD Phatak, ANL, 08.May.2015.
+Modified, CD Phatak, ANL, 22.May.2016.
+"""
+
 import numpy as np
 from TIE_helper import *
-#import matplotlib.pyplot as p
-#from scipy.interpolate import RectBivariateSpline as spline_2d
-#from microscopes import Microscope
-#from skimage import io as skimage_io
-#import time as time
 
-def linsupPhi(mx = 1.0,
-        my = 1.0,
-        mz = 1.0,
-        Dshp = 1.0,
-        theta_x = 0.0,
-        theta_y = 0.0,
-        pre_B = 1.0,
-        pre_E = 1.0):
-    
-    # This function will take the 3D arrays with Mx, My and Mz components of the magnetization
-    # and the Dshp array consisting of the shape function for the object (1 inside, 0 outside)
-    # and then the tilt angles about x and y axes to compute the magnetic phase shift and
-    # the electrostatic phase shift. Initial computation is done in Fourier space and then
-    # real space values are returned.
+def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=1.0, theta_x=0.0, theta_y=0.0, pre_B=1.0, pre_E=1.0):
+    """Applies linear supeposition principle for 3D reconstruction of magnetic and electrostatic phase shifts.
+
+    This function will take the 3D arrays with Mx, My and Mz components of the magnetization
+    and the Dshp array consisting of the shape function for the object (1 inside, 0 outside)
+    and then the tilt angles about x and y axes to compute the magnetic phase shift and
+    the electrostatic phase shift. Initial computation is done in Fourier space and then
+    real space values are returned.
+
+    Args: 
+        mx: 3D array. x component of magnetization at each voxel
+        my: 3D array. y component of magnetization at each voxel
+        mz: 3D array. z component of magnetization at each voxel
+        Dshp: 3D array. Binary shape function of the object. 1 inside, 0 outside
+        theta_x: Float. Rotation around x-axis (degrees) 
+        theta_y: Float. Rotation around y-axis (degrees) 
+        pre_B: Float. Prefactor for unit conversion in calculating the magnetic 
+            phase shift. Units 1/pixels^2. Generally (2*pi*b0*(nm/pix)^2)/phi0 
+            where b0 is the saturation magnetization and phi0 the magnetic flux
+            quantum. 
+        pre_E: Float. Prefactor for unit conversion in calculating the 
+            electrostatic phase shift. Equal to sigma*V0, where sigma is the 
+            interaction constant of the given TEM accelerating voltage (is an 
+            attribute of the microscope class), and V0 the mean inner potential.
+
+    Returns: [ephi, mphi]
+        ephi: Electrostatic phase shift, 2D array
+        mphi: magnetic phase shift, 2D array
+    """
 
     [ysz,xsz,zsz] = mx.shape
     dim = xsz #Assuming same dimensions along X and Y
@@ -101,14 +110,31 @@ def linsupPhi(mx = 1.0,
 
     return [ephi,mphi]
 
-# Function for using Mansuripur Algorithm. The input given is assumed to be 2D array for Bx,By,Bz.
-def mansPhi(bx = 1.0,
-        by = 1.0,
-        bz = 1.0,
-        beam = [0.0,0.0,1.0], #beam direction
-        thick = 1.0, #thickness of sample
-        embed = 0.0): #embedding the array into bigger array for F-space comp.
+def mansPhi(bx = 1.0,by = 1.0,bz = 1.0,beam = [0.0,0.0,1.0],thick = 1.0,embed = 0.0): 
+    """Calculate magnetic phase shift using Mansuripur algorithm [1]. 
 
+    Unlike the linear superposition method, this algorithm only accepts 2D 
+    samples. The input given is expected to be 2D arrays for Bx, By, Bz. 
+
+    Args: 
+        bx: 2D array. x component of magnetization at each pixel.
+        by: 2D array. y component of magnetization at each pixel.
+        bz: 2D array. z component of magnetization at each pixel.  
+        beam: List [x,y,z]. Vector direction of beam. Default [001]. 
+        thick: Float. Thickness of the sample in pixels, need not be an int. 
+        embed:  Int. Whether or not to embed the bx, by, bz into a larger array
+            for fourier-space computation. This improves edge effects at the 
+            cost of reduced speed. 
+            embed = 0: Do not embed (default)
+            embed = 1: Embed in (1024, 1024) array
+            embed = x: Embed in (x, x) array. 
+
+    Returns: 
+        Magnetic phase shift, 2D array
+    
+    [1] Mansuripur, M. Computation of electron diffraction patterns in Lorentz 
+        electron microscopy of thin magnetic films. J. Appl. Phys. 69, 5890 (1991).
+    """
     #Normalize the beam direction
     beam = np.array(beam)
     beam /= np.sqrt(np.sum(beam**2))
@@ -180,8 +206,3 @@ def mansPhi(bx = 1.0,
 
     return ret_phi
 #done.
-
-
-
-
-
