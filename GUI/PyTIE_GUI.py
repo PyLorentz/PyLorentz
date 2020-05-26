@@ -2173,13 +2173,18 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             fls_1 = winfo.rec_fls_files[0]
             fls_2 = winfo.rec_fls_files[1]
         fls1_path = fls_1.shortname
+        print(fls1_path)
         if fls_2:
             fls2_path = fls_2.shortname
         else:
             fls2_path = None
+        print(fls1_path)
+        print(fls2_path)
+
+
 
         # Is this single series or flipped/unflipped series
-        if window['__REC_FLS_Combo__'].metadata['State'] == 'Def':
+        if window['__REC_TFS_Combo__'].metadata['State'] == 'Def':
             flip = True
         else:
             flip = False
