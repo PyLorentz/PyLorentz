@@ -224,7 +224,7 @@ def draw_mask_points(winfo, graph, current_tab, double_click=False):
         for i in range(num_coords):
             x1, y1 = winfo.rec_mask_coords[i]
             x2, y2 = winfo.rec_mask_coords[(i + 1) % num_coords]
-            id = graph.DrawLine((x1, y1), (x2, y2), color='red', width=1)
+            id = graph.DrawLine((x1-1, y1), (x2-1, y2), color='red', width=1)
             winfo.rec_mask_markers.append(id)
 
 
@@ -271,7 +271,7 @@ def draw_square_mask(winfo, graph):
     winfo.rec_mask_coords = []
     left_bounds, right_bounds = False, False
     top_bounds, bottom_bounds = False, False
-    min_x, min_y, max_x, max_y = -1, 0, graph_x-1, graph_y
+    min_x, min_y, max_x, max_y = 0, 0, graph_x, graph_y
     for k in range(4):
         if k == 0:
             i, j = (1, 1)
@@ -283,11 +283,11 @@ def draw_square_mask(winfo, graph):
             i, j = (1, -1)
         coord_x = center_x + i * graph_x * mask_percent * 1 / 2
         coord_y = center_y + j * graph_y * mask_percent * 1 / 2
-        if coord_x < -1:
+        if coord_x < 0:
             left_bounds = True
             if coord_x < min_x:
                 min_x = coord_x
-        if coord_x > graph_x-1:
+        if coord_x > graph_x:
             right_bounds = True
             if coord_x > max_x:
                 max_x = coord_x
@@ -305,19 +305,19 @@ def draw_square_mask(winfo, graph):
         coord_x, coord_y = winfo.rec_mask_coords[i]
         if left_bounds and right_bounds:
             if coord_x == min_x:
-                coord_x = -1
+                coord_x = 0
             elif coord_x == max_x:
-                coord_x = graph_x - 1
+                coord_x = graph_x
         elif left_bounds:
             if coord_x == min_x:
-                coord_x = -1
+                coord_x = 0
             else:
-                coord_x = -1 + graph_x * mask_percent
+                coord_x = graph_x * mask_percent
         elif right_bounds:
             if coord_x == max_x:
-                coord_x = graph_x - 1
+                coord_x = graph_x
             else:
-                coord_x = graph_x - 1 - graph_x * mask_percent
+                coord_x = graph_x - graph_x * mask_percent
         if top_bounds and bottom_bounds:
             if coord_y == min_y:
                 coord_y = 0
