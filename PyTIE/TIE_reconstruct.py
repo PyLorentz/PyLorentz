@@ -144,6 +144,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
             if ii == 1:
                 print('Value', tifs[ii][0, 0])
             tifs[ii] = scipy.ndimage.rotate(tifs[ii], rotate, reshape=False, order=0)
+            tifs[ii] = scipy.ndimage.shift(tifs[ii], (-y_shift, x_shift), order=0)
             if ii == 1:
                 show_im(tifs[ii], "stop")
                 print(tifs[ii][0, 0])
