@@ -2388,6 +2388,58 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             print("Image is not available to view. Must run PYTIE.")
         winfo.rec_last_image_choice = image_choice
 
+    # Start making reconstruct subregion
+    elif event == '__REC_Mask__':
+        if mask_button.metadata['State'] == 'Def':
+            # Get the stack to view
+            stack = images['REC_Stack']
+            slider_range = (0, stack.z_size - 1)
+            slider_val = int(values["__REC_Slider__"])
+            display_img = g_help.adjust_image(stack.flt_data[slider_val], transform)
+
+            # Update window
+            metadata_change(window, [('__REC_Image__', f'Image {slider_val + 1}')])
+            toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Set')
+            update_slider(window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
+
+            # winfo.rec_mask = float(window['__REC_Mask_Size__'].Get())
+            draw_mask = True
+            g_help.draw_square_mask(winfo, graph)
+
+        # Quit mask making make_mask_button
+        elif mask_button.metadata['State'] == 'Set':
+            graph.Erase()
+            toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Def')
+            metadata_change(window, ['__REC_Image__'], reset=True)
+            draw_mask = False
+            # print(winfo.rec_mask_coords)
+
+    # Clicking on graph and making markers for mask
+    elif event in ['__REC_Graph__', '__REC_Graph__+UP'] and mask_button.metadata['State'] == 'Set':
+
+        # Erase any previous marks
+        g_help.erase_marks(winfo, graph, current_tab)
+
+        # # Draw new marks
+        value = values['__REC_Graph__']
+        winfo.rec_mask_center = round(value[0]), round(value[1])
+        g_help.draw_square_mask(winfo, graph)
+        draw_mask = True
+
+    # Remove all mask coordinates from the graph and mask file
+    elif event == '__REC_Erase_Mask__':
+        # Erase any previous marks
+        g_help.erase_marks(winfo, graph, current_tab, full_erase=True)
+        graph_size = graph.get_size()
+        winfo.rec_mask_center = (graph_size[0] / 2, graph_size[1] / 2)
+        winfo.rec_mask = (100,)
+        mask_transform = (100,)
+        transform = (0, 0, 0, None)
+        adjust = True
+        draw_mask = True
+        update_values(window, [('__REC_transform_x__', '0'), ('__REC_transform_y__', '0'),
+                               ('__REC_transform_rot__', "0"), ('__REC_Mask_Size__', '50')])
+
     # Run PyTIE
     elif event == '__REC_Run_TIE__':
         ptie = winfo.rec_ptie
@@ -2470,9 +2522,10 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         else:
             try:
                 print(f'Reconstructing for defocus value: {ptie.defvals[def_ind]} nm ')
+                transform = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
                 results = TIE(def_ind, ptie, microscope,
                               dataname, sym, qc, hsv, save,
-                              longitudinal_deriv, v=False)
+                              longitudinal_deriv, v=2, rotate_translate=transform)
 
                 # This will need to consider like the cropping region
                 winfo.rec_tie_results = results
@@ -2514,57 +2567,9 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 print('There was an error when running TIE.')
                 raise
 
-    # Start making reconstruct subregion
-    elif event == '__REC_Mask__':
-        if mask_button.metadata['State'] == 'Def':
-            # Get the stack to view
-            stack = images['REC_Stack']
-            slider_range = (0, stack.z_size - 1)
-            slider_val = int(values["__REC_Slider__"])
-            display_img = g_help.adjust_image(stack.flt_data[slider_val], transform)
-
-            # Update window
-            metadata_change(window, [('__REC_Image__', f'Image {slider_val + 1}')])
-            toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Set')
-            update_slider(window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
-
-            # winfo.rec_mask = float(window['__REC_Mask_Size__'].Get())
-            draw_mask = True
-            g_help.draw_square_mask(winfo, graph)
-
-        # Quit mask making make_mask_button
-        elif mask_button.metadata['State'] == 'Set':
-            graph.Erase()
-            toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Def')
-            metadata_change(window, ['__REC_Image__'], reset=True)
-            draw_mask = False
-            # print(winfo.rec_mask_coords)
-
-    # Clicking on graph and making markers for mask
-    elif event in ['__REC_Graph__', '__REC_Graph__+UP'] and mask_button.metadata['State'] == 'Set':
-
-        # Erase any previous marks
-        g_help.erase_marks(winfo, graph, current_tab)
-
-        # # Draw new marks
-        value = values['__REC_Graph__']
-        winfo.rec_mask_center = round(value[0]), round(value[1])
-        g_help.draw_square_mask(winfo, graph)
-        draw_mask = True
-
-    # Remove all mask coordinates from the graph and mask file
-    elif event == '__REC_Erase_Mask__':
-        # Erase any previous marks
-        g_help.erase_marks(winfo, graph, current_tab, full_erase=True)
-        graph_size = graph.get_size()
-        winfo.rec_mask_center = (graph_size[0] / 2, graph_size[1] / 2)
-        winfo.rec_mask = (100,)
-        mask_transform = (100,)
-        transform = (0, 0, 0, None)
-        adjust = True
-        draw_mask = True
-        update_values(window, [('__REC_transform_x__', '0'), ('__REC_transform_y__', '0'),
-                               ('__REC_transform_rot__', "0"), ('__REC_Mask_Size__', '50')])
+    # Save PyTIE
+    elif event == '__REC_Save_TIE__':
+        pass
 
     # Adjust stack and related variables
     if adjust:

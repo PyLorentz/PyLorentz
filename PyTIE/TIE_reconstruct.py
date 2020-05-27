@@ -22,7 +22,8 @@ import scipy
 from pathlib import Path
 from longitudinal_deriv import polyfit_deriv, polyfit_deriv_multiprocess
 
-def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True, save=False, long_deriv=False, v=1):
+def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True, save=False, long_deriv=False, v=1,
+        rotate_translate=None):
     """Sets up the TIE reconstruction and calls phase_reconstruct. 
 
     This function calculates the necessary arrays, derivatives, etc. and then 
@@ -58,7 +59,13 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
         v: Int. Verbosity. 
             0 : no output
             1 : Default output
-            2 : Extended output for debugging. 
+            2 : Extended output for debugging.
+        rotate_translate: None or Tuple. This will adjust the view of
+            the image by rotating and translating the data.
+            None : Due not apply any transformation
+            Tuple : Index 0 - Rotation
+                    Index 1 - X Translation
+                    Index 2 - Y Translation
 
     Returns: A dictionary of arrays. 
         results = {
@@ -129,11 +136,28 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     qi[0, 0] = 0
     ptie.qi = qi # saves the freq dist
 
-    # crop images and apply mask 
+    # If rotation and translation to be applied
+    if rotate_translate is not None:
+        rotate, x_shift, y_shift = rotate_translate
+        for ii in range(len(tifs)):
+            print('Before:', tifs[ii].shape, tifs[ii].dtype, rotate)
+            if ii == 1:
+                print('Value', tifs[ii][0, 0])
+            tifs[ii] = scipy.ndimage.rotate(tifs[ii], rotate, reshape=False, order=0)
+            if ii == 1:
+                show_im(tifs[ii], "stop")
+                print(tifs[ii][0, 0])
+            print('after:', tifs[ii].shape, tifs[ii].dtype)
+
+
+    # crop images and apply mask
     mask = ptie.mask[top:bottom, left:right]
     for ii in range(len(tifs)):
         tifs[ii] = tifs[ii][top:bottom, left:right]
         tifs[ii] *= mask
+
+    if np.min(mask) == np.max(mask):
+        mask[0, 0] = 0
 
     # Normalizing, scaling the images 
     scaled_tifs = scale_stack(tifs)
@@ -229,8 +253,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
                                     hsvwheel=hsv, background='black')
 
-    if v >= 1:
-        show_im(results['color_b'], "B-field color HSV colorwheel")
+    # if v >= 1:
+    #     show_im(results['color_b'], "B-field color HSV colorwheel")
 
     # save the images
     if save: 
@@ -240,7 +264,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     return results
 
 
-def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=-1, flipstack=False, v=1):
+def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=-1, flipstack=False, v=1,
+          rotate_translate=None):
     """Uses a modified derivative to get the magnetic phase shift with TIE from a single image.
 
     This technique is only appplicable to uniformly thin samples from which the 
@@ -276,7 +301,13 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
         v: Int. Verbosity. 
             0 : ##TODO no output
             1 : Default output
-            2 : Extended output for debugging. 
+            2 : Extended output for debugging.
+        rotate_translate: None or Tuple. This will adjust the view of
+            the image by rotating and translating the data.
+            None : Due not apply any transformation
+            Tuple : Index 0 - Rotation
+                    Index 1 - X Translation
+                    Index 2 - Y Translation
 
     Returns: A dictionary of arrays. 
         results = {
@@ -310,17 +341,18 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             defval = ptie.defvals[0]
         vprint(f'SITIE defocus: {defval} nm')
 
-    right, left = ptie.crop['right']  , ptie.crop['left']
-    bottom, top = ptie.crop['bottom'] , ptie.crop['top']
-    print('mask', right, left, bottom, top)
+    right, left = ptie.crop['right'] , ptie.crop['left']
+    bottom, top = ptie.crop['bottom'], ptie.crop['top']
+    # print('mask', right, left, bottom, top)
     dim_y = bottom - top
     dim_x = right - left 
 
     if flipstack:
         print("Reconstructing with single flipped image.")
-        image = ptie.flipstack[i].data[top:bottom, left:right]
+        image = ptie.flipstack[i].data
     else:
         image = ptie.imstack[i].data[top:bottom, left:right]
+
 
     if sym:
         print("Reconstructing with symmetrized image.")
@@ -360,8 +392,8 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
     results['phase_m'] = resultsB['phase']
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
         hsvwheel=True, background='black')
-    if v >= 1:
-        show_im(results['color_b'], "B field color, HSV colorhweel")
+    # if v >= 1:
+    #     show_im(results['color_b'], "B field color, HSV colorhweel")
     
     # save the images
     if save: 
