@@ -1983,7 +1983,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         active_keys = ['__REC_Image_Dir_Path__', '__REC_Set_Img_Dir__', '__REC_Image_Dir_Browse__',
                        '__REC_FLS_Combo__', '__REC_Load_FLS1__', '__REC_Set_FLS__',
                        '__REC_Load_FLS2__', '__REC_Load_Stack__', '__REC_View__', '__REC_Image_List__',
-                       '__REC_Def_Combo__', '__REC_QC_Input__',
+                       '__REC_M_Volt__', '__REC_Def_Combo__', '__REC_QC_Input__',
                        "__REC_Reset_Stack__", "__REC_Reset_FLS__", "__REC_TFS_Combo__",
                        '__REC_Mask_Size__', '__REC_Mask__', "__REC_Erase_Mask__",
                        "__REC_transform_y__", "__REC_transform_x__",
@@ -1993,7 +1993,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
         if window['__REC_Set_Img_Dir__'].metadata['State'] == 'Set':
             if window['__REC_Set_FLS__'].metadata['State'] == 'Def':
-                enable_list.extend(['__REC_FLS_Combo__', "__REC_TFS_Combo__"])
+                enable_list.extend(['__REC_FLS_Combo__', "__REC_TFS_Combo__",'__REC_M_Volt__'])
                 if (window['__REC_FLS_Combo__'].Get() == 'Two' and
                         window['__REC_FLS2__'].metadata['State'] == 'Def'):
                     enable_list.extend(['__REC_Load_FLS2__'])
@@ -2202,6 +2202,12 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
         # Load ptie params
         try:
+            if float(window['__REC_M_Volt__'].get()) > 0:
+                accel_volt = float(window['__REC_M_Volt__'].get()) * 1e3
+            else:
+                print('Error with Voltage.')
+                raise
+
             dm3stack1, dm3stack2, ptie = load_data(path, fls1_path, stack_name, flip, fls2_path)
             string_vals = []
             window['__REC_Def_Multi__'].update(value="")
@@ -2211,14 +2217,16 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 string_vals.append(val)
             window['__REC_Def_Combo__'].update(values=string_vals)
 
-            accel_volt = float(window['__REC_M_Volt__'].get()) * 1e3
+
             winfo.rec_ptie = ptie
             winfo.rec_microscope = Microscope(E=accel_volt, Cs=200.0e3, theta_c=0.01e-3, def_spr=80.0)
             toggle(window, elem_list=['__REC_Set_FLS__'])
 
         except:
             print('Something went wrong loading in image data.')
-            raise
+            print('1. Check to make sure the fls file(s) match the aligned file chosen.')
+            print('   Otherwise PYTIE will search the wrong directories.')
+            print('2. Check to see voltage is numerical and above 0.')
 
     # View the image stack created from alignment
     elif event == '__REC_View__':
@@ -2522,7 +2530,9 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         else:
             try:
                 print(f'Reconstructing for defocus value: {ptie.defvals[def_ind]} nm ')
-                transform = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
+                rot, x_trans, y_trans = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
+                x_trans, y_trans = x_trans*scale_x, y_trans*scale_y
+                transform = rot, x_trans, y_trans
                 results = TIE(def_ind, ptie, microscope,
                               dataname, sym, qc, hsv, save,
                               longitudinal_deriv, v=2, rotate_translate=transform)
