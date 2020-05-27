@@ -140,19 +140,18 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     if rotate_translate is not None:
         rotate, x_shift, y_shift = rotate_translate
         for ii in range(len(tifs)):
-            print('Before:', tifs[ii].shape, tifs[ii].dtype, rotate)
-            if ii == 1:
-                print('Value', tifs[ii][0, 0])
             tifs[ii] = scipy.ndimage.rotate(tifs[ii], rotate, reshape=False, order=0)
             tifs[ii] = scipy.ndimage.shift(tifs[ii], (-y_shift, x_shift), order=0)
             if ii == 1:
                 show_im(tifs[ii], "stop")
-                print(tifs[ii][0, 0])
-            print('after:', tifs[ii].shape, tifs[ii].dtype)
-
+        mask = scipy.ndimage.rotate(ptie.mask, rotate, reshape=False, order=0)
+        mask = scipy.ndimage.shift(mask, (-y_shift, x_shift), order=0)
 
     # crop images and apply mask
-    mask = ptie.mask[top:bottom, left:right]
+    if rotate_translate is None:
+        mask = ptie.mask[top:bottom, left:right]
+    else:
+        mask = mask[top:bottom, left:right]
     for ii in range(len(tifs)):
         tifs[ii] = tifs[ii][top:bottom, left:right]
         tifs[ii] *= mask
