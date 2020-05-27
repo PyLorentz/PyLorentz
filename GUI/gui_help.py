@@ -10,6 +10,7 @@ import sys
 import subprocess
 from align import join
 import numpy as np
+import math
 import time
 import cv2 as cv
 
@@ -271,69 +272,49 @@ def draw_square_mask(winfo, graph):
     winfo.rec_mask_coords = []
     left_bounds, right_bounds = False, False
     top_bounds, bottom_bounds = False, False
-    min_x, min_y, max_x, max_y = 0, 0, graph_x, graph_y
-    for k in range(4):
-        if k == 0:
-            i, j = (1, 1)
-        elif k == 1:
-            i, j = (-1, 1)
-        elif k == 2:
-            i, j = (-1, -1)
-        elif k == 3:
-            i, j = (1, -1)
-        coord_x = center_x + i * graph_x * mask_percent * 1 / 2
-        coord_y = center_y + j * graph_y * mask_percent * 1 / 2
-        if coord_x < 0:
-            left_bounds = True
-            if coord_x < min_x:
-                min_x = coord_x
-        if coord_x > graph_x:
-            right_bounds = True
-            if coord_x > max_x:
-                max_x = coord_x
-        if coord_y < 0:
-            bottom_bounds = True
-            if coord_y < min_y:
-                min_y = coord_y
-        if coord_y > graph_y:
-            top_bounds = True
-            if coord_y > max_y:
-                max_y = coord_y
-        winfo.rec_mask_coords.append((coord_x, coord_y))
 
-    for i in range(len(winfo.rec_mask_coords)):
-        coord_x, coord_y = winfo.rec_mask_coords[i]
-        if left_bounds and right_bounds:
-            if coord_x == min_x:
-                coord_x = 0
-            elif coord_x == max_x:
-                coord_x = graph_x
-        elif left_bounds:
-            if coord_x == min_x:
-                coord_x = 0
-            else:
-                coord_x = graph_x * mask_percent
-        elif right_bounds:
-            if coord_x == max_x:
-                coord_x = graph_x
-            else:
-                coord_x = graph_x - graph_x * mask_percent
-        if top_bounds and bottom_bounds:
-            if coord_y == min_y:
-                coord_y = 0
-            elif coord_y == max_y:
-                coord_y = graph_y
-        elif bottom_bounds:
-            if coord_y == min_y:
-                coord_y = 0
-            else:
-                coord_y = graph_y * mask_percent
-        elif top_bounds:
-            if coord_y == max_y:
-                coord_y = graph_y
-            else:
-                coord_y = graph_y - graph_y * mask_percent
-        winfo.rec_mask_coords[i] = (coord_x, coord_y)
+    width, height = round(graph_x * mask_percent), round(graph_x * mask_percent)
+    if width % 2 != 0:
+        width -= 1
+    if height % 2 != 0:
+        height -= 1
+    if center_x <= width//2:
+        left_bounds = True
+    if center_x >= graph_x - width//2:
+        right_bounds = True
+    if graph_y - center_y <= height//2:
+        top_bounds = True
+    if graph_y - center_y >= graph_y - height//2:
+        bottom_bounds = True
+
+    if not left_bounds and not right_bounds:
+        x_left = center_x - width//2
+        x_right = center_x + width//2
+    elif left_bounds and right_bounds:
+        x_left = 0
+        x_right = graph_x
+    elif right_bounds:
+        x_left = graph_x - width
+        x_right = graph_x
+    elif left_bounds:
+        x_left = 0
+        x_right = width
+
+    if not top_bounds and not bottom_bounds:
+        y_top = center_y - height//2
+        y_bottom = center_y + height//2
+    elif top_bounds and bottom_bounds:
+        y_top = 0
+        y_bottom = graph_y
+    elif bottom_bounds:
+        y_top = 0
+        y_bottom = height
+    elif top_bounds:
+        y_top = graph_y - height
+        y_bottom = graph_y
+
+    winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
+
 
 
 def represents_float(s):

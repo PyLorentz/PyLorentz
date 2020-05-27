@@ -2008,15 +2008,15 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                     enable_list.extend(['__REC_Set_FLS__'])
             elif (window['__REC_Set_FLS__'].metadata['State'] == 'Set' and
                   window['__REC_View__'].metadata['State'] == 'Def'):
-                enable_list.extend(['__REC_Mask__', '__REC_Mask_Size__',
-                                    "__REC_transform_y__", "__REC_transform_x__",
-                                    "__REC_transform_rot__"])
+                enable_list.extend(['__REC_Mask__'])
                 if window['__REC_Mask__'].metadata['State'] == 'Def':
                     enable_list.extend(['__REC_Def_Combo__', '__REC_QC_Input__',
                                         '__REC_Run_TIE__', '__REC_Save_TIE__',
                                         "__REC_Derivative__"])
                 else:
-                    enable_list.extend(['__REC_Erase_Mask__'])
+                    enable_list.extend(['__REC_Erase_Mask__', '__REC_Mask_Size__',
+                                    "__REC_transform_y__", "__REC_transform_x__",
+                                    "__REC_transform_rot__"])
             if (window['__REC_Set_FLS__'].metadata['State'] == 'Set' and
                   window['__REC_Mask__'].metadata['State'] == 'Def'):
                 enable_list.extend(["__REC_Colorwheel__"])
@@ -2422,22 +2422,45 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         for i in range(len(winfo.rec_mask_coords)):
             x, y = winfo.rec_mask_coords[i]
             if right is None or x > right:
-                right = round(x)
+                right = x
             if left is None or x < left:
-                left = round(x)
-            if bottom is None or y > bottom:
-                bottom = round(y)
-            if top is None or y < top:
-                top = round(y)
+                left = x
+            if bottom is None or graph.get_size()[1] - y > bottom:
+                bottom = graph.get_size()[1] - y
+            if top is None or graph.get_size()[1] - y < top:
+                top = graph.get_size()[1] - y
         if (bottom, top, left, right) == (None, None, None, None):
             bottom, top, left, right = graph.get_size()[1], 0, 0, graph.get_size()[0]
 
+        # Scaling the image from the graph region to the regular sized image
         reg_width, reg_height = images['REC_Stack'].lat_dims
         scale_x, scale_y = reg_width/graph.get_size()[0], reg_height/graph.get_size()[1]
-        print('center:', winfo.rec_mask_center)
-        print('crops: ', left, right, top, bottom)
-        print('scaled_crop: ', round(left*scale_x), round(right*scale_x), round(top*scale_y), round(bottom*scale_y))
-        print('scaled_crop_size: ', round(right*scale_x) - round(left*scale_x), round(bottom*scale_y) - round(top*scale_y))
+
+        # Make sure the image is square
+        if round(right*scale_x) - round(left*scale_x) != round(bottom*scale_y) - round(top*scale_y):
+            print('The crop region was not square. Fixing.')
+            if round(right*scale_x) - round(left*scale_x) < round(bottom*scale_y) - round(top*scale_y):
+                if (round(right*scale_x) - round(left*scale_x)) % 2 != 0:
+                    if right == reg_width:
+                        left -= 1
+                    else:
+                        right += 1
+                elif (round(bottom*scale_y) - round(top*scale_y)) % 2 != 0:
+                    bottom -= 1
+            if round(right * scale_x) - round(left * scale_x) > round(bottom * scale_y) - round(top * scale_y):
+                if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
+                    right -= 1
+                    if right == reg_width:
+                        left -= 1
+                    else:
+                        right += 1
+                elif (round(bottom * scale_y) - round(top * scale_y)) % 2 != 0:
+                    if bottom == reg_height:
+                        top -= 1
+                    else:
+                        bottom += 1
+
+        # Set ptie crop
         ptie.crop['right'], ptie.crop['left'] = round(right*scale_x), round(left*scale_x)
         ptie.crop['bottom'], ptie.crop['top'] = round(bottom*scale_y), round(top*scale_y)
 
@@ -2486,7 +2509,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 window['__REC_Image_List__'].update(set_to_index=1, scroll_to_index=1)
                 winfo.image_slider_set = 4-1
                 winfo.rec_last_image_choice = 'Color'
-
+                winfo.rec_ptie = ptie
             except:
                 print('There was an error when running TIE.')
                 raise
@@ -2515,6 +2538,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Def')
             metadata_change(window, ['__REC_Image__'], reset=True)
             draw_mask = False
+            # print(winfo.rec_mask_coords)
 
     # Clicking on graph and making markers for mask
     elif event in ['__REC_Graph__', '__REC_Graph__+UP'] and mask_button.metadata['State'] == 'Set':
@@ -2569,7 +2593,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             rgba_colorwheel = g_help.make_rgba(uint8_colorwheel[0])
             winfo.rec_colorwheel = g_help.convert_to_bytes(rgba_colorwheel)
             results = winfo.rec_tie_results
-            x_size, y_size = images['REC_Stack'].lat_dims
+
             results['color_b'] = color_im(results['bxt'], results['byt'],
                                    hsvwheel=hsvwheel, background='black')
             float_array = g_help.slice(results['color_b'], winfo.graph_slice)
@@ -2579,7 +2603,8 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             image = Image(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), 'color_b')
             image.byte_data = g_help.vis_1_im(image)
             winfo.rec_images['color_b'] = image
-            if window['__REC_Image_List__'].get()[0] == 'Color':
+            if (window['__REC_Image_List__'].get()[0] == 'Color' and
+                window['__REC_View__'].metadata['State'] == 'Set'):
                 display_img = image.byte_data
                 display_img2 = winfo.rec_colorwheel
     winfo.rec_last_colorwheel_choice = colorwheel_choice

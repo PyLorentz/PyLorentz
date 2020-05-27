@@ -754,7 +754,7 @@ def reconstruct_tab(style, DEFAULTS):
                               sg.Text('Symmetrize:', pad=((22, 0), (7, 0))),
                               sg.Checkbox('', **style.styles('__REC_Symmetrize__'))],
                              [sg.Text('Derivative:', pad=((10, 0), (5, 0))),
-                              sg.Combo(['Central Diff.', 'Longitudinal Deriv.'],
+                              sg.Combo(['Central Diff.'], #, 'Longitudinal Deriv.'
                                         **style.styles('__REC_Derivative__'))],
                              [sg.Text('Colorwheel:', pad=((10, 0), (4, 0))),
                               sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__'))]]),

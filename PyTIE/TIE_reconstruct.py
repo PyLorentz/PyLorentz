@@ -312,7 +312,8 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
 
     right, left = ptie.crop['right']  , ptie.crop['left']
     bottom, top = ptie.crop['bottom'] , ptie.crop['top']
-    dim_y = bottom - top 
+    print('mask', right, left, bottom, top)
+    dim_y = bottom - top
     dim_x = right - left 
 
     if flipstack:
