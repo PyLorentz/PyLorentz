@@ -530,7 +530,7 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
 
     for key,value in results.items():
         # save either all or just some of the images
-        if save == 'b':
+        if save == 'b' or save == 'color':
             if key not in b_keys:
                 continue
         if value is None: 
