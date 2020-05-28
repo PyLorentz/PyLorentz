@@ -118,6 +118,7 @@ class TIE_params(object):
         scale_x = self.axes[1].scale 
         assert scale_y == scale_x
         self.scale = scale_y
+        self.rotation, self.x_transl, self.y_transl = 0, 0, 0   # The rotation/translation to apply to images.
         print('Given scale: {:.4f} nm/pix\n'.format(self.imstack[0].axes_manager[0].scale))
 
         if flip is not None:

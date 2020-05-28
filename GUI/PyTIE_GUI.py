@@ -14,7 +14,7 @@ import time
 sys.path.append("../PyTIE/")
 from microscopes import Microscope
 from TIE_helper import *
-from TIE_reconstruct import TIE, SITIE
+from TIE_reconstruct import TIE, SITIE, save_results
 from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
 
 # print = sg.Print
@@ -168,6 +168,8 @@ def init_rec(winfo, window):
     winfo.rec_images = {}
     winfo.rec_fls_files = [None, None]
     winfo.rec_ptie = None
+    winfo.rec_sym = None
+    winfo.rec_qc = None
     winfo.rec_microscope = None
     winfo.rec_colorwheel = None
 
@@ -185,8 +187,8 @@ def init_rec(winfo, window):
     winfo.rec_transform = (0, 0, 0, None)
     winfo.rec_past_transform = (0, 0, 0, None)
     winfo.rec_mask_timer = (0,)
-    winfo.rec_mask = (100,)
-    winfo.rec_past_mask = (100,)
+    winfo.rec_mask = (50,)
+    winfo.rec_past_mask = (50,)
     winfo.graph_slice = (None, None)
 
     graph_size = window['__REC_Graph__'].metadata['size']
@@ -196,6 +198,7 @@ def init_rec(winfo, window):
     winfo.rec_last_image_choice = None
     winfo.rec_last_colorwheel_choice = None
     winfo.rec_tie_results = None
+    winfo.rec_def_val = None
 
     # Graph and mask making
     winfo.rec_graph_double_click = False
@@ -2420,7 +2423,6 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Def')
             metadata_change(window, ['__REC_Image__'], reset=True)
             draw_mask = False
-            # print(winfo.rec_mask_coords)
 
     # Clicking on graph and making markers for mask
     elif event in ['__REC_Graph__', '__REC_Graph__+UP'] and mask_button.metadata['State'] == 'Set':
@@ -2531,14 +2533,19 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             try:
                 print(f'Reconstructing for defocus value: {ptie.defvals[def_ind]} nm ')
                 rot, x_trans, y_trans = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
+                print('right before scaling:', rot, x_trans, y_trans)
                 x_trans, y_trans = x_trans*scale_x, y_trans*scale_y
-                transform = rot, x_trans, y_trans
+                print('right before running TIE:', rot, x_trans, y_trans)
+                ptie.rotation, ptie.x_transl, ptie.y_transl = rot, int(x_trans), int(y_trans)
                 results = TIE(def_ind, ptie, microscope,
                               dataname, sym, qc, hsv, save,
-                              longitudinal_deriv, v=2, rotate_translate=transform)
+                              longitudinal_deriv, v=0)
 
                 # This will need to consider like the cropping region
                 winfo.rec_tie_results = results
+                winfo.rec_def_val = def_val
+                winfo.rec_sym = sym
+                winfo.rec_qc = qc
                 winfo.graph_slice = (round(right*scale_x) - round(left*scale_x),
                                      round(bottom*scale_x) - round(top*scale_x))
 
@@ -2575,11 +2582,23 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 winfo.rec_ptie = ptie
             except:
                 print('There was an error when running TIE.')
-                raise
 
     # Save PyTIE
     elif event == '__REC_Save_TIE__':
-        pass
+        if winfo.rec_tie_results:
+            filenames, overwrite_signals, prefix, save_tie, im_dir = run_save_window(winfo, event, image_dir,
+                                                                                     orientations=None,
+                                                                                     defocus=winfo.rec_def_val)
+            save = overwrite_signals[0]
+            if filenames == 'close' or not filenames or not save or not save_tie:
+                print(f'Exited without saving files!')
+            elif save:
+                print(save_tie)
+                save_results(winfo.rec_def_val, winfo.rec_tie_results, winfo.rec_ptie,
+                             prefix, winfo.rec_sym, winfo.rec_qc, save=save_tie, v=2,
+                             directory=im_dir, long_deriv=False)
+        else:
+            print("Reconstruction results haven't been generated.")
 
     # Adjust stack and related variables
     if adjust:
@@ -2645,7 +2664,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
 
 # -------------- Save Window --------------#
-def check_overwrite(save_win, true_paths, orientations, im_type):
+def check_overwrite(save_win, true_paths, orientations, im_type, event):
     """Check whether the paths listed in the log box for
     each image will be overwritten.
 
@@ -2667,33 +2686,53 @@ def check_overwrite(save_win, true_paths, orientations, im_type):
     update_values(save_win, [('__save_win_log__', '')])
     overwrite_signals = [None]*len(true_paths)
     save_enable = True
+    if event == '__REC_Save_TIE__':
+        overwrite_box = save_win[f'__save_win_overwrite1__'].Get()
     for i in range(len(true_paths)):
         text = ''
-        overwrite_box = save_win[f'__save_win_overwrite{i+1}__'].Get()
         exists = os.path.exists(true_paths[i])
         # If no orientation, this removes extra space in insertion for log
-        if orientations[i]:
-            insertion = f'{orientations[i]}'
-        else:
-            insertion = im_type
-        # Exists but not overwrite
-        if exists and not overwrite_box:
-            text = f'''The {insertion} file already exists. Check overwrite checkbox if you want to save anyway.'''
-            overwrite_signals[i] = False
-            save_enable = False
-        # File already exists but will be overwritten
-        elif exists and overwrite_box:
-            text = f'The {insertion} file will be overwritten.'
-            overwrite_signals[i] = True
-        # Doesn't exist, don't overwrite
-        elif not exists:
-            text = f'The {insertion} file will be saved.'
-            overwrite_signals[i] = True
+        if event != '__REC_Save_TIE__':
+            overwrite_box = save_win[f'__save_win_overwrite{i+1}__'].Get()
+            if orientations[i]:
+                insertion = f'{orientations[i]}'
+            else:
+                insertion = im_type
+
+            # Exists but not overwrite
+            if exists and not overwrite_box:
+                text = f'''The {insertion} file already exists. Check overwrite checkbox if you want to save anyway.'''
+                overwrite_signals[i] = False
+                save_enable = False
+            # File already exists but will be overwritten
+            elif exists and overwrite_box:
+                text = f'The {insertion} file will be overwritten.'
+                overwrite_signals[i] = True
+            # Doesn't exist, don't overwrite
+            elif not exists:
+                text = f'The {insertion} file will be saved.'
+                overwrite_signals[i] = True
+
+        elif event == '__REC_Save_TIE__':
+            index = true_paths[i].rfind('/')
+            insertion = true_paths[i][index+1:]
+            if exists and not overwrite_box:
+                text = f'''The {insertion} file already exists. Check overwrite box to overwrite.'''
+                save_enable = False
+                overwrite_signals = [False]
+            elif exists and overwrite_box:
+                text = f'''The {insertion} file will be overwritten.'''
+                overwrite_signals = [True]
+            elif not exists:
+                text = f'The {insertion} file will be saved.'
+                overwrite_signals = [True]
+
 
         # Update save window
         current_log_text = save_win['__save_win_log__'].Get()
         new_log_text = current_log_text + text
         update_values(save_win, [('__save_win_log__', new_log_text.strip())])
+
     if save_enable:
         enable_elements(save_win, ['__save_win_save__'])
     else:
@@ -2701,7 +2740,7 @@ def check_overwrite(save_win, true_paths, orientations, im_type):
     return overwrite_signals
 
 
-def save_window_values(save_win, num_paths):
+def save_window_values(save_win, num_paths, event, orientations, defocus=None):
     """Sets ups the save window layout.
 
     Parameters
@@ -2712,6 +2751,8 @@ def save_window_values(save_win, num_paths):
         The number of paths, to create the number
         of overwrite checkboxes and true_path
         input elements.
+    event : str
+        The save event from the main GUI window.
 
 
     Returns
@@ -2720,14 +2761,29 @@ def save_window_values(save_win, num_paths):
         The list containing the full path names.
     """
     # Comb through all input fields and pull current path name
-    # overwrite = True
-    true_paths, overwrite_boxes = [], []
-    for i in range(1, num_paths + 1):
-        true_paths.append(save_win[f'__save_win_filename{i}__'].Get())
+    true_paths = []
+    if event != '__REC_Save_TIE__':
+        for i in range(1, num_paths + 1):
+            true_paths.append(save_win[f'__save_win_filename{i}__'].Get())
+    elif event == '__REC_Save_TIE__':
+        save_choice = save_win['__save_rec_combo__'].Get()
+        working_directory = save_win[f'__save_win_filename1__'].Get()
+        prefix = save_win[f'__save_win_prefix__'].Get()
+        path = align.join([working_directory, prefix], "/")
+        if save_choice == 'Color':
+            stop = 2
+        elif save_choice == 'Full Save':
+            stop = 10
+        elif save_choice == 'Mag. & Color':
+            stop = 4
+        elif save_choice == 'No Save':
+            stop = 0
+        for i in range(stop):
+            true_paths.append(align.join([path, str(defocus), orientations[i]], '_'))
     return true_paths
 
 
-def run_save_window(winfo, event, image_dir, orientations=None):
+def run_save_window(winfo, event, image_dir, orientations=None, defocus=None):
     """Executes the save window.
 
     Parameters
@@ -2751,18 +2807,31 @@ def run_save_window(winfo, event, image_dir, orientations=None):
     """
     # Create layout of save window
     window_layout, im_type, file_paths, orientations = save_window_ly(event, image_dir, orientations)
-    save_win = sg.Window('Save Window', window_layout,
-                         grab_anywhere=True).Finalize()
+    save_win = sg.Window('Save Window', window_layout, grab_anywhere=True).Finalize()
     winfo.save_win = save_win
     winfo.window.Hide()
-    true_paths = save_window_values(save_win, len(file_paths))
+    true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
     # Run event handler
     overwrite_signals = []
     while True:
         ev2, vals2 = save_win.Read(timeout=400)
+        if event == '__REC_Save_TIE__':
+            prefix = save_win[f'__save_win_prefix__'].Get()
+            index = save_win['__save_win_filename1__'].Get().rfind('/')
+            im_dir = save_win['__save_win_filename1__'].Get()[index + 1:]
+            save_choice = save_win['__save_rec_combo__'].Get()
+            if save_choice == 'Color':
+                save_tie = 'color'
+            elif save_choice == 'Full Save':
+                save_tie = True
+            elif save_choice == 'Mag. & Color':
+                save_tie = 'b'
+            elif save_choice == 'No Save':
+                save_tie = False
+
         filenames = []
         if ev2 and ev2 != 'Exit':
-            true_paths = save_window_values(save_win, len(file_paths))
+            true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
 
         # Exit or save pressed
         if not ev2 or ev2 in ['Exit', '__save_win_save__']:
@@ -2772,8 +2841,11 @@ def run_save_window(winfo, event, image_dir, orientations=None):
                 for path in true_paths:
                     filenames.append(path)
             break
-        overwrite_signals = check_overwrite(save_win, true_paths, orientations, im_type)
-    return filenames, overwrite_signals
+        overwrite_signals = check_overwrite(save_win, true_paths, orientations, im_type, event)
+    if event != '__REC_Save_TIE__':
+        return filenames, overwrite_signals
+    elif event == '__REC_Save_TIE__':
+        return filenames, overwrite_signals, prefix, save_tie, im_dir
 
 
 # -------------- Main Event Handler and run GUI --------------#

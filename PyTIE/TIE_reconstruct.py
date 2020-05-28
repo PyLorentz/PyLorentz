@@ -137,18 +137,17 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     ptie.qi = qi # saves the freq dist
 
     # If rotation and translation to be applied
-    if rotate_translate is not None:
-        rotate, x_shift, y_shift = rotate_translate
+    if ptie.rotation != 0 or ptie.x_transl != 0 or ptie.y_transl != 0:
+        rotate, x_shift, y_shift = ptie.rotation, ptie.x_transl, ptie.y_transl
+        print('in ptie', rotate, x_shift, y_shift)
         for ii in range(len(tifs)):
             tifs[ii] = scipy.ndimage.rotate(tifs[ii], rotate, reshape=False, order=0)
             tifs[ii] = scipy.ndimage.shift(tifs[ii], (-y_shift, x_shift), order=0)
-            if ii == 1:
-                show_im(tifs[ii], "stop")
         mask = scipy.ndimage.rotate(ptie.mask, rotate, reshape=False, order=0)
         mask = scipy.ndimage.shift(mask, (-y_shift, x_shift), order=0)
 
     # crop images and apply mask
-    if rotate_translate is None:
+    if ptie.rotation == 0 and ptie.x_transl == 0 and ptie.y_transl == 0:
         mask = ptie.mask[top:bottom, left:right]
     else:
         mask = mask[top:bottom, left:right]
@@ -253,19 +252,18 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
                                     hsvwheel=hsv, background='black')
 
-    # if v >= 1:
-    #     show_im(results['color_b'], "B-field color HSV colorwheel")
+    if v >= 1:
+        show_im(results['color_b'], "B-field color HSV colorwheel")
 
     # save the images
     if save: 
-        save_results(defval, results, ptie, dataname, sym, qc, save, v, long_deriv = long_deriv)
+        save_results(defval, results, ptie, dataname, sym, qc, save, v, long_deriv=long_deriv)
 
     vprint('Phase reconstruction completed.')
     return results
 
 
-def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=-1, flipstack=False, v=1,
-          rotate_translate=None):
+def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=-1, flipstack=False, v=1):
     """Uses a modified derivative to get the magnetic phase shift with TIE from a single image.
 
     This technique is only appplicable to uniformly thin samples from which the 
@@ -302,12 +300,6 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             0 : ##TODO no output
             1 : Default output
             2 : Extended output for debugging.
-        rotate_translate: None or Tuple. This will adjust the view of
-            the image by rotating and translating the data.
-            None : Due not apply any transformation
-            Tuple : Index 0 - Rotation
-                    Index 1 - X Translation
-                    Index 2 - Y Translation
 
     Returns: A dictionary of arrays. 
         results = {
@@ -343,7 +335,6 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
 
     right, left = ptie.crop['right'] , ptie.crop['left']
     bottom, top = ptie.crop['bottom'], ptie.crop['top']
-    # print('mask', right, left, bottom, top)
     dim_y = bottom - top
     dim_x = right - left 
 
@@ -385,15 +376,15 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
     ### Now calling the phase reconstruct in the normal way
     print('Calling SITIE solver\n')
     resultsB = phase_reconstruct(ptie, infocus, 
-                                dIdZ, pscope, defval, sym = sym)
+                                 dIdZ, pscope, defval, sym=sym)
     results['byt'] = resultsB['ind_y']
     results['bxt'] = resultsB['ind_x']
     results['bbt'] = np.sqrt(resultsB['ind_x']**2 + resultsB['ind_y']**2)
     results['phase_m'] = resultsB['phase']
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
         hsvwheel=True, background='black')
-    # if v >= 1:
-    #     show_im(results['color_b'], "B field color, HSV colorhweel")
+    if v >= 1:
+        show_im(results['color_b'], "B field color, HSV colorhweel")
     
     # save the images
     if save: 
@@ -507,7 +498,7 @@ def symmetrize(image):
     return imi
 
 
-def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = None, long_deriv=False):
+def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=None, long_deriv=False):
     """Save the contents of results dictionary as 32 bit tiffs.
     
     This function saves the contents of the supplied dictionary (either all or 
@@ -543,6 +534,8 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
         defval = 'long'
 
     print('Saving images')
+    b_keys = ['byt', 'bxt', 'bbt', 'phase_e', 'phase_m',
+              'dIdZ_m', 'dIdZ_e', 'color_b', 'inf_im']
     if save == 'b':
         b_keys = ['bxt', 'byt', 'color_b']
     elif save == 'color': 
@@ -562,11 +555,10 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-    for key,value in results.items():
+    for key, value in results.items():
         # save either all or just some of the images
-        if save == 'b':
-            if key not in b_keys:
-                continue
+        if key not in b_keys:
+            continue
         if value is None: 
             continue
 
@@ -577,14 +569,14 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
         
         save_name = dataname + str(defval)+'_' + key + '.tiff'
         if v >= 2: 
-            print(f'Saving {os.path.join(Path(save_path).absolute(), save_name)}.tiff')
+            print(f'Saving {os.path.join(Path(save_path).absolute(), save_name)}')
         tifffile.imsave(os.path.join(save_path, save_name), im, 
-            imagej = True,
-            resolution = (res, res),
-            metadata={'unit': 'um'})
+                        imagej=True,
+                        resolution=(res, res),
+                        metadata={'unit': 'um'})
 
     # make a txt file with parameters: 
-    with open(os.path.join(save_path, dataname + "recon_params.txt"), "w") as txt:
+    with open(os.path.join(save_path, dataname + str(defval) + '_' + "recon_params.txt"), "w") as txt:
         txt.write("Reconstruction parameters for {:}\n".format(dataname[:-1]))
         txt.write("Defocus value: {} nm\n".format(defval))
         txt.write("Full E and M reconstruction: {} \n".format(ptie.flip))

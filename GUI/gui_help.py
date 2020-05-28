@@ -316,7 +316,6 @@ def draw_square_mask(winfo, graph):
     winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
 
 
-
 def represents_float(s):
     """Evaluate if the string is an integer.
 

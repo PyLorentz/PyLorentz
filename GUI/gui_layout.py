@@ -741,7 +741,7 @@ def reconstruct_tab(style, DEFAULTS):
                                      sg.Input('0', **style.styles('__REC_transform_y__')),
                                      sg.Text('px')]]),
                             sg.Col([[sg.Text('Mask Size:', pad=((40, 59), (12, 0)))],
-                                    [sg.Input('100', **style.styles('__REC_Mask_Size__')),
+                                    [sg.Input('50', **style.styles('__REC_Mask_Size__')),
                                       sg.Text('%', pad=((4, 0), (10, 0)))]])
                             ]]
 
@@ -870,12 +870,22 @@ def save_window_ly(event, image_dir, orientations):
         im_type = 'Linear Sift stack'
         names = ['aligned_ls_stack.tif']
         file_paths = [join([image_dir, name], '/') for name in names]
+    elif event == '__REC_Save_TIE__':
+        im_type = 'Reconstructed Images'
+        orientations = ['recon_params.txt', 'color_b.tiff', 'byt.tiff', 'bxt.tiff',
+                        'bbt.tiff', 'dIdZ_e.tiff', 'dIdZ_m.tiff', 'inf_im.tiff',
+                        'phase_e.tiff', 'phase_b.tiff']
+        file_paths = [join([image_dir, 'images'], '/')]
 
     # Define the layout for the save window
-    col1 = [[sg.Text(f'Choose your {im_type} filename(s): ', pad=((5, 0), (10, 0)))]]
+    if event != '__REC_Save_TIE__':
+        col1 = [[sg.Text(f'Choose your {im_type} filename(s): ', pad=((5, 0), (10, 0)))]]
+    elif event == '__REC_Save_TIE__':
+        col1 = [[sg.Text(f'Choose your {im_type} prefix: ', pad=((5, 0), (10, 0)))]]
     col2 = [[sg.Text('Overwrite', pad=((0, 10), (10, 0)))]]
 
     # Add extra padding for specific variables
+    size = (70, 1)
     for i in range(1, len(file_paths)+1):
         orient = orientations[i-1]
         if not orient:
@@ -895,17 +905,32 @@ def save_window_ly(event, image_dir, orientations):
         elif orient == 'bunwarp transform':
             pad = ((5, 0), (10, 0))
             x_pad = 143
+        elif im_type == 'Reconstructed Images':
+            pad = ((5, 0), (10, 0))
+            x_pad = 126
+            size = (70, 10)
         else:
             x_pad = 49
             pad = ((5, 0), (10, 0))
+
         # Create on input fields based off of which files are being saved.
-        col1 += [[sg.Text(f'{orient}:', pad=pad),
-                  sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', size=(70, 1), pad=((5, 10), (10, 0)))]]
-        col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), enable_events=True)]]
+        if event != '__REC_Save_TIE__':
+            col1 += [[sg.Text(f'{orient}:', pad=pad),
+                      sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', size=(70, 1), pad=((5, 10), (10, 0)))]]
+            col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), enable_events=True)]]
+        elif event == '__REC_Save_TIE__':
+            col1 += [[sg.Text(f'Image Directory:', pad=pad),
+                      sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', size=(70, 1), pad=((5, 10), (10, 0)))]]
+            col1 += [[sg.Text(f'prefix:', pad=((72, 0), (10, 0))),
+                      sg.Input(f'example', key=f'__save_win_prefix__', size=(30, 1), pad=pad),
+                      sg.Combo(['Color', 'Full Save', 'Mag. & Color', 'No Save'], key='__save_rec_combo__',
+                                size=(12, 1), default_value='Color', readonly=True, pad=((20, 0), (10, 0)))]]
+            col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), default=True,
+                                  enable_events=True)]]
     # Create buttons to define whether to check if paths exists, exit, or save info
     col1 += [[sg.Button('Exit', pad=((x_pad, 0), (10, 5))),
               sg.Button('Save', key='__save_win_save__', pad=((5, 0), (10, 5)), disabled=True)],
-             [sg.Multiline('', visible=True, key='__save_win_log__', size=(70, 1), pad=((x_pad, 0), (0, 15)))]]
+             [sg.Multiline('', visible=True, key='__save_win_log__', size=size, pad=((x_pad, 0), (0, 15)))]]
     layout = [[sg.Col(col1), sg.Col(col2)]]
     return layout, im_type, file_paths, orientations
 
