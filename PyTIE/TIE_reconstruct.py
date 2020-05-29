@@ -139,7 +139,6 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     # If rotation and translation to be applied
     if ptie.rotation != 0 or ptie.x_transl != 0 or ptie.y_transl != 0:
         rotate, x_shift, y_shift = ptie.rotation, ptie.x_transl, ptie.y_transl
-        print('in ptie', rotate, x_shift, y_shift)
         for ii in range(len(tifs)):
             tifs[ii] = scipy.ndimage.rotate(tifs[ii], rotate, reshape=False, order=0)
             tifs[ii] = scipy.ndimage.shift(tifs[ii], (-y_shift, x_shift), order=0)

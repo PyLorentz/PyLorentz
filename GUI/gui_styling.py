@@ -7,7 +7,7 @@ def window_scaling():
     similar across OS."""
 
     sys_layout = [[sg.Text('')]]
-    scaling_window = sg.Window('Window Title', sys_layout, no_titlebar=True, alpha_channel=0).Finalize()
+    scaling_window = sg.Window('Window Title', sys_layout, no_titlebar=True, alpha_channel=0, finalize=True)
     scaling_window.TKroot.tk.call('tk', 'scaling', 1)
     scaling_window.close()
 
@@ -163,13 +163,13 @@ class WindowStyle(object):
                 val.update(size=(30, 1))
             elif key == '__LS_Image1__':
                 default_text = 'None'
-                val.update(default_text=default_text, pad=pad(0, 0, 0, 0),
+                val.update(default_text=default_text, pad=pad(0, 0, 0, 0), enable_events=True,
                            size=(30, 1), background_color=self.DEF_BACKGROUND,
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})
             elif key == '__LS_Image2__':
                 val.update(default_text='None', pad=pad(0, 0, 0, 0),
-                           size=(30, 1), background_color=self.DEF_BACKGROUND,
+                           size=(30, 1), background_color=self.DEF_BACKGROUND, enable_events=True,
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})
             elif key == '__LS_Stack__':
@@ -215,10 +215,9 @@ class WindowStyle(object):
                 val.update(size=(12, 0), enable_events=True)
             # Slider element
             elif key == '__LS_Stack_Slider__':
-                val.update(range=(0, 2), size=(30, 15), pad=pad(25, 0, 4, 4), default_value=1,
+                val.update(range=(0, 0), size=(30, 15), pad=pad(25, 0, 4, 4), default_value=0,
                            enable_events=True, resolution=1, orientation='h', disable_number_display=True,
-                           visible=False,
-                           metadata={'slider_range': (0, 2)})
+                           metadata={'slider_range': (0, 0)})
             return val
 
         def BUJ_style(key, val):
@@ -376,18 +375,18 @@ class WindowStyle(object):
                                      'State': 'Def'})
 
             elif key == '__BUJ_Unflip_Stack_Inp__':
-                val.update(default_text='None', size=(30, 1), pad=(0, 0),
+                val.update(default_text='None', size=(30, 1), pad=(0, 0), enable_events=True,
                            background_color=self.DEF_BACKGROUND,
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})
             elif key == '__BUJ_Flip_Stack_Inp__':
-                val.update(default_text='None', size=(30, 1), pad=(0, 0),
+                val.update(default_text='None', size=(30, 1), pad=(0, 0), enable_events=True,
                            background_color=self.DEF_BACKGROUND,
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})
             elif key == '__BUJ_Image1__':
                 val.update(default_text='None',
-                           size=(30, 1), pad=(0, 0), background_color=self.DEF_BACKGROUND,
+                           size=(30, 1), pad=(0, 0), background_color=self.DEF_BACKGROUND, enable_events=True,
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})
             elif key == '__BUJ_Image2__':
@@ -396,7 +395,7 @@ class WindowStyle(object):
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})
             elif key == '__BUJ_Stack__':
-                val.update(default_text='None', pad=pad(0, 0, 0, 5),
+                val.update(default_text='None', pad=pad(0, 0, 0, 5), enable_events=True,
                            size=(30, 1), background_color=self.DEF_BACKGROUND,
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})
@@ -412,12 +411,12 @@ class WindowStyle(object):
                 val.update(size=(22, 2), pad=pad(10, 0, 0, 4), enable_events=True)
             # Slider element
             elif key == '__BUJ_Stack_Slider__':
-                val.update(range=(0, 2), size=(32, 15), default_value=1,
+                val.update(range=(0, 0), size=(32, 15), default_value=1,
                            enable_events=True, resolution=1, orientation='h',
-                           disable_number_display=True, visible=False,
-                           metadata={'slider_range': (0, 2)})
+                           disable_number_display=True,
+                           metadata={'slider_range': (0, 0)})
             elif key == '__BUJ_img_subsf__':
-                val.update(range=(0, 7), size=(25, 12), pad=pad(40, 0, 4, 4), default_value=0,
+                val.update(range=(0, 7), size=(25, 12), pad=pad(30, 0, 4, 4), default_value=0,
                            resolution=1, orientation='h', disable_number_display=False, visible=True)
             return val
 
@@ -432,7 +431,7 @@ class WindowStyle(object):
             # Browse Buttons
             elif key == '__REC_Load_Stack__':
                 val.update(target='__REC_Stack_Staging__',
-                           pad=((5, 0), (8, 0)), disabled=True)
+                           pad=((5, 0), (5, 0)), disabled=True)
             elif key == '__REC_Load_FLS1__':
                 val.update(target='__REC_FLS1_Staging__', pad=((10, 0), (5, 0)),
                            disabled=True)
@@ -443,18 +442,18 @@ class WindowStyle(object):
                 val.update(pad=((5, 0), (7, 0)))
             # Button Element
             elif key == '__REC_Reset_Stack__':
-                val.update(pad=((5, 17), (8, 0)), disabled=True)
+                val.update(pad=((5, 17), (5, 0)), disabled=True)
             elif key == '__REC_Set_FLS__':
-                val.update(pad=((130, 0), (5, 5)), disabled=True,
+                val.update(pad=((130, 0), (4, 5)), disabled=True,
                            metadata={'State': 'Def'})
             elif key == '__REC_Reset_FLS__':
-                val.update(pad=((5, 0), (5, 5)), disabled=True)
+                val.update(pad=((5, 0), (4, 5)), disabled=True)
             elif key == '__REC_Mask__':
-                val.update(pad=((108, 0), (5, 5)), disabled=True,
+                val.update(pad=((50, 0), (4, 4)), disabled=True,
                            metadata={'Set': 'Confirm Mask', 'Def': 'Select Mask',
                                      'State': 'Def'})
             elif key == '__REC_Erase_Mask__':
-                val.update(disabled=True, pad=((10, 0), (5, 5)))
+                val.update(disabled=True, pad=((10, 0), (4, 4)))
             elif key == '__REC_Run_TIE__':
                 val.update(enable_events=True, disabled=True, pad=((30, 0), (28, 0)))
             elif key == '__REC_Save_TIE__':
@@ -478,14 +477,14 @@ class WindowStyle(object):
                            metadata={'Set': 'Unflip/Flip', 'Def': 'Unflip/Flip',
                                      'State': 'Def'})
             elif key == '__REC_Def_Combo__':
-                val.update(size=(12, 1), readonly=True, disabled=True,
-                           default_value='None', pad=((23, 0), (8, 0)))
+                val.update(size=(12, 1), disabled=True,
+                           default_value='None', pad=((8, 0), (8, 0)))
             elif key == '__REC_Derivative__':
-                val.update(size=(16, 1), readonly=True, disabled=True,
-                           default_value='Central Diff.', pad=((19, 0), (5, 0)))
+                val.update(size=(16, 1), disabled=True,
+                           default_value='Central Diff.', pad=((8, 0), (5, 0)))
             elif key == '__REC_Colorwheel__':
-                val.update(size=(8, 1), readonly=True, disabled=True,
-                           default_value='HSV', pad=((11, 0), (3, 0)))
+                val.update(size=(8, 1), disabled=True,
+                           default_value='HSV', pad=((8, 0), (3, 0)))
             # Checkbox Element
             elif key == '__REC_Symmetrize__':
                 val.update(default=False, pad=((0, 0), (7, 0)))
@@ -503,7 +502,7 @@ class WindowStyle(object):
             # Input field element
             elif key == '__REC_Stack__':
                 val.update(size=(24, 1), use_readonly_for_disable=True,
-                           disabled=True, pad=((0, 0), (8, 0)),
+                           disabled=True, pad=((0, 0), (5, 0)),
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})
             elif key == '__REC_FLS1__':
@@ -515,7 +514,7 @@ class WindowStyle(object):
                            disabled=True, size=(24, 1), pad=((10, 0), (5, 0)),
                            metadata={'Set': 'None', 'Def': 'None', 'State': 'Def'})
             elif key == '__REC_M_Volt__':
-                val.update(size=(4, 1), enable_events=True, pad=((25, 0), (20, 0)),
+                val.update(size=(4, 1), enable_events=True, pad=((25, 0), (10, 0)),
                            font="Times 36", justification='right')
             elif key == '__REC_transform_rot__':
                 val.update(pad=(5, 5), size=(4, 1))
@@ -528,12 +527,12 @@ class WindowStyle(object):
                            pad=((48, 0), (10, 0)), size=(5, 1),
                            justification='right')
             elif key == '__REC_QC_Input__':
-                val.update(pad=((5, 0), (7, 0)),
+                val.update(pad=((8, 0), (7, 0)),
                            size=(6, 1), justification='right')
             elif key == '__REC_Image_Dir_Path__':
                 val.update(size=(35, 1), pad=((2, 0), (7, 0)))
             elif key == '__REC_Image__':
-                val.update(background_color=sg.theme_background_color(),
+                val.update(background_color=sg.theme_background_color(), enable_events=True,
                            pad=((0, 0), (10, 0)), font='Times 20', size=(60, 1),
                            metadata={'Set': 'None', 'Def': 'None',
                            'State': 'Def'})
@@ -542,22 +541,27 @@ class WindowStyle(object):
                 val.update(default_values='Stack', select_mode='LISTBOX_SELECT_MODE_SINGLE',
                            size=(16, 5), no_scrollbar=True, disabled=True,
                            enable_events=True, pad=((9, 0), (7, 7)))
-            # Mutliline element
-            elif key == '__REC_Def_Multi__':
-                val.update(disabled=True,
-                           size=(15, 0), pad=((25, 0), (4, 0)))
+            elif key == '__REC_Def_List__':
+                val.update(select_mode=None, size=(16, 3),
+                           no_scrollbar=True, pad=((19, 0), (7, 7)),
+                           metadata={'length': 1})
             # Output element
             # Radio element
             # Slider element
             elif key == '__REC_Slider__':
                 val.update(size=(40, 20), disable_number_display=True, pad=((10, 8), (80, 0)),
                            disabled=True, enable_events=True, orientation='vertical',
-                           default_value=0, metadata={'slider_range': (0, 2)})
+                           default_value=0, metadata={'slider_range': (0, 0)})
             elif key == '__REC_Image_Slider__':
-                val.update(range = (0, 4), disable_number_display = True,
-                           pad = ((0, 0), (1, 0)), size = (7, 16),
-                           enable_events = True, orientation = 'vertical',
-                           default_value = 9, metadata = {'slider_range': (0, 4)})
+                val.update(range=(0, 5), disable_number_display=True,
+                           pad=((0, 0), (1, 0)), size=(7, 16),
+                           enable_events=True, orientation='vertical',
+                           default_value=5, metadata={'slider_range': (0, 5)})
+            elif key == '__REC_Defocus_Slider__':
+                val.update(range=(0, 0), disable_number_display=True,
+                           pad=((0, 0), (1, 0)), size=(4, 16),
+                           enable_events=True, orientation='vertical',
+                           default_value=0, metadata={'slider_range': (0, 0)})
             # Text element
             elif key == '__REC_FLS1_Text__':
                 val.update(pad=((5, 0), (5, 0)),

@@ -58,34 +58,43 @@ input_keys = ["__Fiji_Path__", "__LS_Image_Dir_Path__", "__LS_igb__",
               "__REC_transform_y__", "__REC_transform_x__",
               "__REC_transform_rot__", "__REC_Mask_Size__",
               "__REC_FLS1__", "__REC_FLS2__", "__REC_Stack__", "__REC_Stack_Staging__",
-              "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__"
+              "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__", "__REC_Data_Prefix__"
               ]
-listbox_keys = ["__REC_Image_List__"]
-multiline_keys = ["__REC_Def_Multi__"] #"__LS_Log__", "__BUJ_Log__"
+listbox_keys = ["__REC_Image_List__", "__REC_Def_List__"]
+# multiline_keys = ["__REC_Def_Multi__"] #"__LS_Log__", "__BUJ_Log__"
 # output_keys = ["__LS_Log__", "__BUJ_Log__"]
 radio_keys = ["__LS_full_align__", "__LS_param_test__", '__LS_unflip_reference__', '__LS_flip_reference__',
               "__BUJ_unflip_reference__", "__BUJ_flip_reference__"]
 slider_keys = ["__LS_Stack_Slider__",
                "__BUJ_Stack_Slider__", "__BUJ_img_subsf__",
-               "__REC_Slider__", "__REC_Image_Slider__"]
+               "__REC_Slider__", "__REC_Image_Slider__", "__REC_Defocus_Slider__"]
 tab_keys = ["ls_tab", "bunwarpj_tab", "reconstruct_tab", "home_tab", "align_tab"]
 tabgroup_keys = ["align_tabgroup", "pages_tabgroup"]
 text_keys = ["home_title", "home_version", "home_authors", "home_readme", "home_contact",
-             '__REC_FLS2_Text', '__REC_FLS2_Text']
+             '__REC_FLS2_Text__', '__REC_FLS2_Text__', '__REC_Mask_Text__']
+read_only_inputs_keys = ["__LS_Image1__", "__LS_Image2__", "__LS_Stack__",
+
+                         "__BUJ_Image1__", "__BUJ_Image2__", "__BUJ_Stack__",
+                         "__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__",
+
+                         "__REC_Image__"
+                         ]
 keys = {'button': button_keys,
     'checkbox': checkbox_keys,
     'combo': combo_keys,
     'colum': column_keys,
     'graph': graph_keys,
     'input': input_keys,
+    'read_only_inputs': read_only_inputs_keys,
     'listbox': listbox_keys,
-    'multiline': multiline_keys,
+    # 'multiline': multiline_keys,
     # 'output': output_keys,
     'radio': radio_keys,
     'slider': slider_keys,
     'tab': tab_keys,
     'tabgroup': tabgroup_keys,
     'text': text_keys}
+
 
 
 # ------------------------------------------------ Layout ------------------------------------------------ #
@@ -699,7 +708,7 @@ def reconstruct_tab(style, DEFAULTS):
             The layout for the overall alignment tab.
         """
 
-        load_data_frame = [[sg.Text('Stack:', pad=((5, 0), (8, 0))),
+        load_data_frame = [[sg.Text('Stack:', pad=((5, 0), (5, 0))),
                             sg.Input('None', **style.styles('__REC_Stack_Staging__')),
                             sg.Input('None', **style.styles('__REC_Stack__')),
                             sg.FileBrowse("Load", **style.styles('__REC_Load_Stack__')),
@@ -719,18 +728,21 @@ def reconstruct_tab(style, DEFAULTS):
                             sg.Input('None', **style.styles('__REC_FLS2_Staging__')),
                             sg.Input("None",  **style.styles('__REC_FLS2__')),
                             sg.Text("Flip FLS", **style.styles('__REC_FLS2_Text__'))],
-                           [sg.Col([[sg.Text('Defocus Values:', pad=((50, 0), (8, 0)))],
-                                   [sg.Multiline('Unloaded', **style.styles('__REC_Def_Multi__'))]]),
+                           [sg.Col([[sg.Text('Defocus Values:', pad=((35, 0), (8, 0)))],
+                                   [sg.Listbox(['None'], **style.styles('__REC_Def_List__')),
+                                    sg.Slider(**style.styles('__REC_Defocus_Slider__'))]]),
                             sg.Col([[sg.Text('Microscope Voltage:', pad=((20, 0), (8, 0)))],
                                     [sg.Input('200', **style.styles('__REC_M_Volt__')),
-                                     sg.Text('kV', pad=((13, 0), (20, 0)), font="Times 36")]]),
+                                     sg.Text('kV', pad=((13, 0), (10, 0)), font="Times 36")]]),
                             ],
                            [sg.Button('Set', **style.styles('__REC_Set_FLS__')),
-                            sg.Button('Reset', **style.styles('__REC_Reset_FLS__'))]
-                           ]
+                            sg.Button('Reset', **style.styles('__REC_Reset_FLS__')),
+                            ]]
 
-        subregion_frame = [[sg.Button('Select Mask', **style.styles('__REC_Mask__')),
-                            sg.Button('Reset', **style.styles('__REC_Erase_Mask__'))],
+        subregion_frame = [[sg.Text('Unset', key='__REC_Mask_Text__', font='Times 19', pad=((10, 0), (4, 4))),
+                            sg.Button('Select Mask', **style.styles('__REC_Mask__')),
+                            sg.Button('Reset', **style.styles('__REC_Erase_Mask__')),
+                            ],
                            [sg.Col([[sg.Text('Rotation:', pad=((50, 0), (0, 0))),
                                      sg.Input('0', **style.styles('__REC_transform_rot__')),
                                      sg.Text(u'\N{DEGREE SIGN}')],
@@ -742,21 +754,24 @@ def reconstruct_tab(style, DEFAULTS):
                                      sg.Text('px')]]),
                             sg.Col([[sg.Text('Mask Size:', pad=((40, 59), (12, 0)))],
                                     [sg.Input('50', **style.styles('__REC_Mask_Size__')),
-                                      sg.Text('%', pad=((4, 0), (10, 0)))]])
+                                      sg.Text('%', pad=((4, 0), (10, 0)))]
+                                    ])
                             ]]
 
-        spacer = sg.Graph((339, 1), (0, 0), (339, 1), pad=((10, 10), (15, 4)), background_color='black')
+        spacer = sg.Graph((339, 1), (0, 0), (339, 1), pad=((10, 10), (10, 4)), background_color='black')
 
-        TIE_menu = [[sg.Col([[sg.Text('Defocus Value:', pad=((10, 0), (8, 0))),
+        TIE_menu = [[sg.Col([[sg.Text('Data Prefix:', pad=((10, 0), (4, 0))),
+                              sg.Input('Example', key='__REC_Data_Prefix__', pad=((8, 0), (4, 0)), size=(20, 1))],
+                             [sg.Text('Defocus:', pad=((30, 0), (4, 0))),
                               sg.Combo(['None'], **style.styles('__REC_Def_Combo__'))],
-                             [sg.Text("QC value:", pad=((10, 0), (7, 0))),
+                             [sg.Text("QC value:", pad=((22, 0), (5, 0))),
                               sg.Input('0.00', **style.styles('__REC_QC_Input__')),
-                              sg.Text('Symmetrize:', pad=((22, 0), (7, 0))),
+                              sg.Text('Symmetrize:', pad=((12, 0), (5, 0))),
                               sg.Checkbox('', **style.styles('__REC_Symmetrize__'))],
-                             [sg.Text('Derivative:', pad=((10, 0), (5, 0))),
+                             [sg.Text('Derivative:', pad=((16, 0), (5, 0))),
                               sg.Combo(['Central Diff.'], #, 'Longitudinal Deriv.'
                                         **style.styles('__REC_Derivative__'))],
-                             [sg.Text('Colorwheel:', pad=((10, 0), (4, 0))),
+                             [sg.Text('Colorwheel:', pad=((8, 0), (4, 0))),
                               sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__'))]]),
                      sg.Col([[sg.Button('Run', **style.styles('__REC_Run_TIE__'))],
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]])],
@@ -772,7 +787,7 @@ def reconstruct_tab(style, DEFAULTS):
                   sg.FolderBrowse("Browse", **style.styles('__REC_Image_Dir_Browse__')),
                   sg.Button('Set', **style.styles('__REC_Set_Img_Dir__')),
                   sg.Button('Reset', **style.styles('__REC_Reset_Img_Dir__'))],
-                 [sg.Slider((0, 2), **style.styles('__REC_Slider__')),
+                 [sg.Slider((0, 0), **style.styles('__REC_Slider__')),
                   sg.Graph((672, 672), (0, 0), (671, 671), **style.styles('__REC_Graph__')),
                   sg.Graph((70, 70), (0, 0), (69, 69), **style.styles('__REC_Colorwheel_Graph__'))
                  ]]
@@ -785,9 +800,9 @@ def reconstruct_tab(style, DEFAULTS):
         left_panel = sg.Col([[sg.Frame("Load Data", load_data_frame, relief=sg.RELIEF_SUNKEN,
                                        pad=((8, 0), (3, 3)), font=('Times New Roman', 19))],
                              [sg.Frame("Region Select", subregion_frame, relief=sg.RELIEF_SUNKEN,
-                                       pad=((8, 0), (5, 3)), font=('Times New Roman', 19))],
+                                       pad=((8, 0), (3, 3)), font=('Times New Roman', 19))],
                              [sg.Frame("TIE", TIE_menu, relief=sg.RELIEF_SUNKEN,
-                                       pad=((8, 0), (5, 3)), font=('Times New Roman', 19))]])
+                                       pad=((8, 0), (3, 3)), font=('Times New Roman', 19))]])
 
         return [[left_panel, right_panel]]
 
@@ -828,7 +843,8 @@ def window_ly(style, DEFAULTS):
 
     window_layout = [[menu], [invisible_graph, pages]]
     window = sg.Window('PyTIE Phase Reconstruction', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
-                       resizable=True, size=(style.window_width, style.window_height), use_default_focus=False)
+                       resizable=True, size=(style.window_width, style.window_height), use_default_focus=False,
+                       finalize=True)
     return window
 
 
@@ -872,10 +888,11 @@ def save_window_ly(event, image_dir, orientations):
         file_paths = [join([image_dir, name], '/') for name in names]
     elif event == '__REC_Save_TIE__':
         im_type = 'Reconstructed Images'
+        prefix = orientations
         orientations = ['recon_params.txt', 'color_b.tiff', 'byt.tiff', 'bxt.tiff',
                         'bbt.tiff', 'dIdZ_e.tiff', 'dIdZ_m.tiff', 'inf_im.tiff',
                         'phase_e.tiff', 'phase_b.tiff']
-        file_paths = [join([image_dir, 'images'], '/')]
+        file_paths = ['images']
 
     # Define the layout for the save window
     if event != '__REC_Save_TIE__':
@@ -906,8 +923,9 @@ def save_window_ly(event, image_dir, orientations):
             pad = ((5, 0), (10, 0))
             x_pad = 143
         elif im_type == 'Reconstructed Images':
-            pad = ((5, 0), (10, 0))
-            x_pad = 126
+            pad1 = ((5, 0), (10, 0))
+            pad2 = ((22, 0), (10, 0))
+            x_pad = 138
             size = (70, 10)
         else:
             x_pad = 49
@@ -916,15 +934,25 @@ def save_window_ly(event, image_dir, orientations):
         # Create on input fields based off of which files are being saved.
         if event != '__REC_Save_TIE__':
             col1 += [[sg.Text(f'{orient}:', pad=pad),
-                      sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', size=(70, 1), pad=((5, 10), (10, 0)))]]
+                      sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', enable_events=True,
+                               size=(70, 1), pad=((5, 10), (10, 0)))]]
             col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), enable_events=True)]]
         elif event == '__REC_Save_TIE__':
-            col1 += [[sg.Text(f'Image Directory:', pad=pad),
-                      sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', size=(70, 1), pad=((5, 10), (10, 0)))]]
-            col1 += [[sg.Text(f'prefix:', pad=((72, 0), (10, 0))),
-                      sg.Input(f'example', key=f'__save_win_prefix__', size=(30, 1), pad=pad),
+            col1 += [[sg.Text('Working Directory:', pad=pad1),
+                      sg.Input(f'{image_dir}', key=f'__save_win_wd__', size=(65, 1),
+                               use_readonly_for_disable=True, disabled=True,
+                               pad=((0, 10), (10, 0)))],
+                     [sg.Text('Image Directory:', pad=pad2),
+                      sg.Input(f'{file_paths[0]}', key=f'__save_win_filename1__', size=(65, 1),
+                               enable_events=True,
+                               pad=((0, 10), (10, 0)))]
+                     ]
+            col1 += [[sg.Text(f'prefix:', pad=((89, 0), (10, 0))),
+                      sg.Input(f'{prefix}', key=f'__save_win_prefix__', size=(30, 1), enable_events=True,
+                               pad=((0, 0), (10, 0))),
                       sg.Combo(['Color', 'Full Save', 'Mag. & Color', 'No Save'], key='__save_rec_combo__',
-                                size=(12, 1), default_value='Color', readonly=True, pad=((20, 0), (10, 0)))]]
+                                enable_events=True, size=(12, 1), default_value='Color',
+                                readonly=True, pad=((20, 0), (10, 0)))]]
             col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), default=True,
                                   enable_events=True)]]
     # Create buttons to define whether to check if paths exists, exit, or save info

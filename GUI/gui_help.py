@@ -55,13 +55,18 @@ def convert_float_unint8(float_array, graph_size, uint8_data=None, float_data=No
         uint8_data = {}
     if float_data is None:
         float_data = {}
-    scaled_float_array = cv.resize(float_array, graph_size, interpolation=cv.INTER_AREA)
-    resized_data = scaled_float_array - scaled_float_array.min()
-    scaled_float_array = resized_data / resized_data.max()
-    uint8_array = scaled_float_array * 255
-    uint8_array = uint8_array.astype(np.uint8)
-    uint8_data[z] = uint8_array
-    float_data[z] = scaled_float_array
+    if float_array is not None:
+        scaled_float_array = cv.resize(float_array, graph_size, interpolation=cv.INTER_AREA)
+        resized_data = scaled_float_array - scaled_float_array.min()
+        maximum = resized_data.max()
+        if maximum == 0:
+            maximum = 1
+        inv_max = 1/maximum
+        scaled_float_array = resized_data * inv_max
+        uint8_array = scaled_float_array * 255
+        uint8_array = uint8_array.astype(np.uint8)
+        uint8_data[z] = uint8_array
+        float_data[z] = scaled_float_array
     return uint8_data, float_data
 
 
@@ -140,10 +145,6 @@ def adjust_image(data, transform):
     rgba_image = make_rgba(data, adjust=True, d_theta=d_theta, d_x=d_x, d_y=d_y, h_flip=h_flip, color='None')
     return_img = convert_to_bytes(rgba_image)
     return return_img
-
-
-def adjust_np_array(data, transform):
-    pass
 
 
 def vis_1_im(image, layer=0):
