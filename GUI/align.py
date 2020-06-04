@@ -30,10 +30,15 @@ def fijify_macro(unready_macro):
     return fiji_ready_macro
 
 
-def flatten_list(l):
+def flatten_list(my_list):
     """Flattens a list of lists into a single list"""
 
-    flat_list = [item for sublist in l for item in sublist]
+    if my_list:
+        l0, l1, l2 = my_list[0], my_list[1], my_list[2]
+        ordered_list = [l0[::-1], l1, l2]
+        flat_list = [item for sublist in ordered_list for item in sublist]
+    else:
+        flat_list = my_list
     return flat_list
 
 
@@ -57,55 +62,6 @@ def format_GUI_string(s):
 ##########################
 # Manipulating fls files #
 ##########################
-def grab_fls_data(unflip_fls, flip_fls, single_fls, check_sift):
-    """Grab image data from .fls file."""
-
-    # Read image data from .fls files and store in flip/unflip lists
-    if single_fls:
-        flip_files = pull_image_files(single_fls, check_sift)
-        unflip_files = pull_image_files(single_fls, check_sift)
-    else:
-        flip_files = pull_image_files(flip_fls, check_sift)
-        unflip_files = pull_image_files(unflip_fls, check_sift)
-    return flip_files, unflip_files
-
-
-def read_fls(datafolder, unflip_path, flip_path, check_sift):
-    """Read image files from a .fls file. Checks if the image files exist, returning
-       them if they do."""
-
-    # Find paths and .fls files
-    unflip_fls, flip_fls, single_fls = return_fls(datafolder)
-
-    # Read image data from .fls files and store in flip/unflip lists
-    flip_files, unflip_files = grab_fls_data(unflip_fls, flip_fls, single_fls, check_sift)
-
-    # Check if image path exists and break if any path is nonexistent
-    for file in flatten_list(unflip_files):
-        full_path = join([unflip_path, file], '/')
-        if not os.path.exists(full_path):
-            return
-    for file in flatten_list(flip_files):
-        full_path = join([flip_path, file], '/')
-        if not os.path.exists(full_path):
-            return
-    return flip_files, unflip_files
-
-
-def return_fls(datafolder):
-    """Return fls file(s) located in the datafolder."""
-
-    unflip_fls, flip_fls, single_fls = None, None, None
-    for file in os.listdir(datafolder):
-        if '.fls' in file and 'unflip' in file:
-            unflip_fls = join([datafolder, file], '/')
-        elif '.fls' in file and 'flip' in file:
-            flip_fls = join([datafolder, file], '/')
-        elif '.fls' in file:
-            single_fls = join([datafolder, file], '/')
-    return unflip_fls, flip_fls, single_fls
-
-
 def pull_image_files(fls_file, check_align=False):
     """Use .fls file to return ordered image files for alignment."""
 
@@ -136,18 +92,68 @@ def pull_image_files(fls_file, check_align=False):
     return filenames
 
 
-def check_setup(datafolder):
+def grab_fls_data(fls1, fls2, tfs_value, fls_value, check_sift):
+    """Grab image data from .fls file."""
+
+    # Read image data from .fls files and store in flip/unflip lists
+    if fls_value == 'One':
+        files1 = pull_image_files(fls1, check_sift)
+        if tfs_value == 'Unflip/Flip':
+            files2 = pull_image_files(fls1, check_sift)
+        else:
+            files2 = []
+    elif fls_value == 'Two':
+        files1 = pull_image_files(fls1, check_sift)
+        files2 = pull_image_files(fls2, check_sift)
+    return files1, files2
+
+
+def read_fls(path1, path2, fls_files,
+             tfs_value, fls_value, check_sift=False):
+    """Read image files from a .fls file. Checks if the image files exist, returning
+       them if they do."""
+
+    # Find paths and .fls files
+    fls1, fls2 =  fls_files[0], fls_files[1]
+
+    # Read image data from .fls files and store in flip/unflip lists
+    files1, files2 = grab_fls_data(fls1, fls2, tfs_value, fls_value, check_sift)
+
+    # Check same number of files between fls
+    if tfs_value != 'Single':
+        if len(flatten_list(files2)) != len(flatten_list(files1)):
+            return
+    # Check if image path exists and break if any path is nonexistent
+    for file in flatten_list(files1):
+        full_path = join([path1, file], '/')
+        if not os.path.exists(full_path):
+            return
+    if files2:
+        for file in flatten_list(files2):
+            full_path = join([path2, file], '/')
+            if not os.path.exists(full_path):
+                return
+    return files1, files2
+
+
+def check_setup(datafolder, tfs_value, fls_value, fls_files):
     """Check to see all images filenames in .fls exists in
     the datafolder"""
 
     # Find paths and .fls files
-    unflip_path = join([datafolder, 'unflip'], '/')
-    flip_path = join([datafolder, 'flip'], '/')
+    if tfs_value == 'Unflip/Flip':
+        path1 = join([datafolder, 'unflip'], '/')
+        path2 = join([datafolder, 'flip'], '/')
+    elif tfs_value == 'Single':
+        path1 = join([datafolder, 'tfs'], '/')
+        path2 = None
 
     # Grab the files that exist in the flip and unflip dirs.
-    file_result = read_fls(datafolder, unflip_path, flip_path, check_sift=False)
+    file_result = read_fls(path1, path2, fls_files,
+                           tfs_value, fls_value, check_sift=False)
     if isinstance(file_result, tuple):
-        return True, unflip_path, flip_path
+        files1, files2 = file_result
+        return True, path1, path2, flatten_list(files1), flatten_list(files2)
     else:
         print('Task failed because the number of files extracted from the')
         print('directory does not match the number of files expected from')
@@ -157,50 +163,23 @@ def check_setup(datafolder):
         return False
 
 
-def collect_image_data(datafolder):
-    """ Loads images files located in the "flip" and "unflip directories" of
-    the image_dir
-    """
-
-    unflip_path = join([datafolder, 'unflip'], '/')
-    flip_path = join([datafolder, 'flip'], '/')
-    unflip_fls, flip_fls, single_fls = return_fls(datafolder)
-    if single_fls:
-        flip_files = pull_image_files(single_fls)
-        unflip_files = pull_image_files(single_fls)
-    else:
-        flip_files = pull_image_files(flip_fls)
-        unflip_files = pull_image_files(unflip_fls)
-
-    unflip_ref = unflip_files[1]
-    unflip_ref = join([unflip_path, unflip_ref[0]], '/')
-    flip_ref = flip_files[1]
-    flip_ref = join([flip_path, flip_ref[0]], '/')
-    return unflip_ref, flip_ref, unflip_files, flip_files, unflip_path, flip_path
-
-
-def pre_ls_alignement(datafolder, reference, check_sift):
+def pre_ls_alignement(reference, check_sift, path1, path2, fls_files, tfs_value, fls_value):
     """ Pre-alignment file manipulations """
 
     # Check setup of datafolder
-    check = check_setup(datafolder)
-    if check:
-        correct_setup, unflip_path, flip_path = check
-        flip_files, unflip_files = read_fls(datafolder, unflip_path, flip_path, check_sift)
-    else:
-        return check
+    files1, files2 = read_fls(path1, path2, fls_files, tfs_value, fls_value, check_sift)
 
     # Get reference image to align to.
     ref = ''
-    if reference == 'unflip':
-        ref_list = unflip_files[1].pop()
-        ref = join([unflip_path, ref_list], '/')
+    if reference == 'tfs' or reference == 'unflip':
+        ref_list = files1[1].pop()
+        ref = join([path1, ref_list], '/')
     elif reference == 'flip':
-        ref_list = flip_files[1].pop()
-        ref = join([flip_path, ref_list], '/')
-    all_files = [unflip_files, flip_files]
+        ref_list = files2[1].pop()
+        ref = join([path2, ref_list], '/')
+    all_files = [files1, files2]
 
-    return ref, (all_files, flip_files, unflip_files), (flip_path, unflip_path)
+    return ref, (all_files, files1, files2)
 
 
 #############################
@@ -448,7 +427,7 @@ def set_default_bUnwarp():
     return bUnwarp_params
 
 
-def check_image_flip(window, unflip_path, flip_path, ref):
+def check_image_flip(window, path1, path2, ref):
     """Check if image requires a horizontal flip"""
 
     # If 'unflip' is reference, flip the 'flipped' images.
@@ -456,13 +435,13 @@ def check_image_flip(window, unflip_path, flip_path, ref):
     # From setup -> windows 1-3: unflipped, windows 4-6: flipped
     flip, path = None, None
     if window <= 3:
-        path = unflip_path
+        path = path1
         if 'unflip' in ref:
             flip = False
         elif 'flip' in ref:
             flip = True
     elif window > 3:
-        path = flip_path
+        path = path2
         if 'unflip' in ref:
             flip = True
         elif 'flip' in ref:
@@ -487,7 +466,7 @@ def determine_window_focus(window):
     return place, pos
 
 
-def ls_alignment(unflip_path, flip_path, sift_params, transform_params, ref, all_files):
+def ls_alignment(path1, path2, sift_params, transform_params, ref, all_files):
     """Create ImageJ macros for each defocus and orientation
      other than the reference infocus image."""
 
@@ -502,7 +481,7 @@ def ls_alignment(unflip_path, flip_path, sift_params, transform_params, ref, all
     window = 1
     while window <= 6:
         # Determine if the image window requires horizontal flip.
-        flip, path = check_image_flip(window, unflip_path, flip_path, ref)
+        flip, path = check_image_flip(window, path1, path2, ref)
         # Determine image window's focus
         place, pos = determine_window_focus(window)
         # Write alignment macro and append to list. Write shortnames.
@@ -515,15 +494,19 @@ def ls_alignment(unflip_path, flip_path, sift_params, transform_params, ref, all
     return macros, shortnames
 
 
-def single_ls_alignment(sift_params, files, path):
+def single_ls_alignment(sift_params, files, path, param_test=False, ref=None):
 
     # Set sift param and image transformation defaults
     if not sift_params:
         sift_params = set_default_sift()
 
     # Initialize parameters
-    ref = files[1][0]
-    under, over = files[0][:], files[2][:]
+    if ref is None:
+        ref = files[1][0]
+    if param_test:
+        under, over = files[0], files[2]
+    else:
+        under, over = files[0][:], files[2][:]
     shortnames, macros = [], []
     window = 1
     for filenames in [under, over]:
@@ -592,7 +575,7 @@ def order_windows_for_selection_macro(shortnames, ref):
             concat_list = join([concat_list, img])
             window_order = join([window_order, new_select], '\n')
             img_num += 1
-        elif ('-under-' or '+over+') in shortnames[window]:
+        elif '-under-' in shortnames[window] or '+over+' in shortnames[window]:
             new_select = f'selectWindow("{shortnames[window]}");'
             concat_list = join([concat_list, img])
             window_order = join([window_order, new_select], '\n')
@@ -697,7 +680,7 @@ def order_single_slices(files, path):
 
 
 def run_ls_align(datafolder, reference='unflip', check_sift=False, sift_params=None, transform_params=None,
-                 stack_name='aligned_ls_stack.tif'):
+                 stack_name='uf_aligned_ls_stack.tif', tfs_value='Unflip/Flip', fls_value='Two', fls_files=None):
     """ Aligns all 'dm3' files in the 'datafolder' and saves an aligned Tiff
     stack in the datafolder.
     """
@@ -706,19 +689,29 @@ def run_ls_align(datafolder, reference='unflip', check_sift=False, sift_params=N
     if check_sift:
         print('Checking SIFT parameters ...\n')
 
+    if tfs_value == 'Unflip/Flip':
+        path1 = join([datafolder, 'unflip'], '/')
+        path2 = join([datafolder, 'flip'], '/')
+    elif tfs_value == 'Single':
+        path1 = join([datafolder, 'tfs'], '/')
+        path2 = None
+
     # Open files, rotate, and apply transformations before alignment (pre-alignment)
-    ref, image_files, image_paths = pre_ls_alignement(datafolder, reference, check_sift)
-    all_files, flip_files, unflip_files = image_files
-    flip_path, unflip_path = image_paths
+    ref, image_files = pre_ls_alignement(reference, check_sift, path1, path2, fls_files, tfs_value, fls_value)
+    all_files, files1, files2 = image_files
 
     # Generate the Fiji macro for each alignment procedure.
-    all_macros, shortnames = ls_alignment(unflip_path, flip_path, sift_params, transform_params, ref, all_files)
-
-    # Post-alignment processing for saving the stack
-    all_macros = post_ls_alignment(all_macros, shortnames, all_files, stack_name, ref)
+    if tfs_value != 'Single':
+        all_macros, shortnames = ls_alignment(path1, path2, sift_params, transform_params, ref, all_files)
+        all_macros = post_ls_alignment(all_macros, shortnames, all_files, stack_name, ref)
+    else:
+        ref_name = ref[ref.rfind('/')+1:]
+        all_macros, shortnames = single_ls_alignment(sift_params, files1, path1, param_test=check_sift, ref=ref_name)
+        all_macros = post_single_ls_alignment(all_macros, shortnames, files1, stack_name, ref)
 
     # Format macro to run in FIJI
     full_ls_macro = format_macro(all_macros)
+    # print(full_ls_macro)
 
     # # Run macro with PyimageJ
     # # print(full_ls_macro, '\n')
@@ -730,7 +723,7 @@ def run_ls_align(datafolder, reference='unflip', check_sift=False, sift_params=N
 
 
 def run_single_ls_align(datafolder, reference='', sift_params=None,
-                        stack_name='test_ls_align.tif'):
+                        stack_name='test_ls_align.tif', fls_files=None):
     """ Aligns all 'dm3' files in the 'datafolder' and saves an aligned Tiff
     stack in the datafolder.
     """
@@ -739,17 +732,20 @@ def run_single_ls_align(datafolder, reference='', sift_params=None,
     # time_start = time.time()
 
     # Grab image data
-    unflip_ref, flip_ref, unflip_files, flip_files, unflip_path, flip_path = collect_image_data(datafolder)
+    path1 = join([datafolder, 'unflip'], '/')
+    path2 = join([datafolder, 'flip'], '/')
+    unflip_files = pull_image_files(fls_files[0])
+    flip_files = pull_image_files(fls_files[1])
 
     # Generate the Fiji macro for each alignment procedure.
     if reference == "unflip":
-        ref = unflip_ref
+        ref = unflip_files[1]
         files = unflip_files
-        path = unflip_path
+        path = path1
     elif reference == 'flip':
-        ref = flip_ref
+        ref = flip_files[1]
         files = flip_files
-        path = flip_path
+        path = path2
 
     # Single alignement
     all_macros, shortnames = single_ls_alignment(sift_params, files, path)
@@ -770,19 +766,10 @@ def run_single_ls_align(datafolder, reference='', sift_params=None,
     # print(f'Completed task. Aligned in {round(time_stop - time_start)} seconds!')
     return full_ls_macro
 
-# import imagej
-# fiji = imagej.init('/Applications/Fiji.app')
-# fiji = 'hi'
-
-# =======
-# image_folder = '/Users/timothycote/Box/dataset1_tim'
-# print(run_ls_align(image_folder, fiji, reference='unflip', check_sift=True,
-#                   sift_params=None, transform_params=(0, 0, 0, True)))
-
 
 def run_bUnwarp_align(datafolder, mask_files, reference, transformation, im_size,
                       stack_paths, sift_FE_params=None, buj_params=None,
-                      savenames=("test.txt", "test.tif")):
+                      savenames=("test.txt", "test.tif"), fls_files=None):
 
     # Initiate pre-alignment processing.
     if savenames == ("test.txt", "test.tif"):
@@ -792,7 +779,14 @@ def run_bUnwarp_align(datafolder, mask_files, reference, transformation, im_size
         transf_savename, stack_savename = savenames
 
     # Grab image data and get path names
-    unflip_ref, flip_ref, unflip_files, flip_files, unflip_path, flip_path = collect_image_data(datafolder)
+    unflip_files = pull_image_files(fls_files[0])
+    flip_files = pull_image_files(fls_files[1])
+    for i in range(len(unflip_files)):
+        for j in range(len(unflip_files[i])):
+            unflip_files[i][j] = join([datafolder, 'unflip', unflip_files[i][j]], '/')
+            flip_files[i][j] = join([datafolder, 'flip', flip_files[i][j]], '/')
+
+    unflip_ref, flip_ref = unflip_files[1][0], flip_files[1][0]
 
     # Pre-alignment (open image files, apply transformations, open masks)
     open_macro, src_img, target_img, masks = pre_bUnwarp_align(unflip_ref, flip_ref, mask_files,
@@ -938,9 +932,6 @@ def extract_SIFT_landmarks_macro(src_img, target_img, SIFT_params):
     return SIFT_macro
 
 
-
-
-
 def pre_bUnwarp_align(unflip_ref, flip_ref, mask_files, reference, transformation):
 
     # Grab reference images
@@ -971,17 +962,4 @@ def pre_bUnwarp_align(unflip_ref, flip_ref, mask_files, reference, transformatio
     masks = [src_mask, target_mask]
     return macro, src_img, target_img, masks
 
-# import imagej
-# fiji = imagej.init('/Applications/Fiji.app')
-# # fiji = 'hi'
-# image_folder = '/Users/timothycote/Box/dataset1_tim'
-# mask_files = [None, "/Users/timothycote/Box/dataset1_tim/flip_mask.bmp"]
-# # ij = "hi"
-# transformation = (1, 2, 1, True)
-# im_size = (2048, 2048)
-# reference = 'unflip'
-# sift_params = None
-# buj_params = None
-# run_bUnwarp_align(image_folder, fiji, mask_files, reference,
-#                   transformation, im_size, sift_params,
-#                   buj_params)
+

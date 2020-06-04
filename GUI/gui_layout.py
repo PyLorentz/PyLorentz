@@ -7,27 +7,34 @@ from gui_styling import pad
 # """Perform the 'bUnwarpJ' Fiji plugin. """
 
 # ---------------- Element Keys ---------------- #
-button_keys = ["__Fiji_Browse__", "__Fiji_Set__", "__Fiji_Reset__", "__LS_Image_Dir_Browse__",
+button_keys = ["__Fiji_Browse__", "__Fiji_Set__", "__Fiji_Reset__",
+
+               "__LS_Image_Dir_Browse__", "__LS_Load_FLS1__", "__LS_Load_FLS2__",
                "__LS_Set_Img_Dir__", "__LS_Reset_Img_Dir__", "__LS_Run_Align__", "__LS_Adjust__",
-               "__LS_Load_Stack__", "__LS_View_Stack__",
-               "__BUJ_Image_Dir_Browse__", "__BUJ_Set_Img_Dir__", "__BUJ_Reset_Img_Dir__",
+               "__LS_View_Stack__", "__LS_Set_FLS__",
+               "__LS_Reset_FLS__",
+
+               "__BUJ_Image_Dir_Browse__", "__BUJ_Set_FLS__", "__BUJ_Load_FLS1__",
+               "__BUJ_Load_FLS2__", "__BUJ_Reset_FLS__",
+               "__BUJ_Set_Img_Dir__", "__BUJ_Reset_Img_Dir__",
                "__BUJ_Load_Unflip_Stack__", "__BUJ_Load_Flip_Stack__",
                "__BUJ_Elastic_Align__", "__BUJ_Unflip_Align__", "__BUJ_Flip_Align__",
                "__BUJ_Adjust__", "__BUJ_View_Stack__", "__BUJ_Make_Mask__", "__BUJ_Reset_Mask__",
-               "__BUJ_Load_Mask__", "__BUJ_Load_Stack__",
+               "__BUJ_Load_Mask__",
                "__BUJ_Clear_Unflip_Mask__", "__BUJ_Clear_Flip_Mask__",
 
                "__REC_Image_Dir_Browse__", "__REC_Set_Img_Dir__", "__REC_Reset_Img_Dir__",
                "__REC_View__", "__REC_Save_TIE__", "__REC_Run_TIE__",
                "__REC_Erase_Mask__", "__REC_Mask__",
                "__REC_Load_FLS2__", "__REC_Load_FLS1__", "__REC_Reset_FLS__", "__REC_Load_Stack__",
-               "__REC_Reset_Stack__", "__REC_Set_FLS__"
+               "__REC_Set_FLS__"
                ]
 checkbox_keys = ["__LS_horizontal_flip__", "__LS_interp__",
                  "__BUJ_horizontal_flip__", "__BUJ_LS_interp__", "__BUJ_filter__",
                  "__REC_Symmetrize__"]
-combo_keys = ["__LS_exp_transf__",
+combo_keys = ["__LS_exp_transf__","__LS_FLS_Combo__", "__LS_TFS_Combo__",
               "__BUJ_reg_mode__", "__BUJ_init_def__", "__BUJ_final_def__",
+              "__BUJ_FLS_Combo__", "__BUJ_TFS_Combo__",
               "__BUJ_LS_exp_transf__", "__BUJ_exp_transf__", "__BUJ_Stack_Choice__", "__BUJ_Mask_View__",
               "__REC_Def_Combo__", "__REC_FLS_Combo__", "__REC_TFS_Combo__",
               "__REC_Derivative__", "__REC_Colorwheel__"]
@@ -40,14 +47,16 @@ input_keys = ["__Fiji_Path__", "__LS_Image_Dir_Path__", "__LS_igb__",
               "__LS_spso__", "__LS_min_im__", "__LS_max_im__", "__LS_fds__", "__LS_fdob__",
               "__LS_cncr__", "__LS_max_al_err__", "__LS_inlier_rat__", "__LS_transform_x__",
               "__LS_transform_y__", "__LS_transform_rot__",
-              "__LS_Image1__", "__LS_Image2__", "__LS_Stack__", "__LS_Staging_Load__",
+              "__LS_FLS1__", "__LS_FLS1_Staging__", "__LS_FLS2_Staging__", "__LS_FLS2__",
+              "__LS_Image1__", "__LS_Image2__", "__LS_Stack__",
 
-              "__BUJ_Stack_Stage_Load__", "__BUJ_Unflip_Stage_Load__", "__BUJ_Flip_Stage_Load__",
+              "__BUJ_Unflip_Stage_Load__", "__BUJ_Flip_Stage_Load__",
               "__BUJ_LS_igb__", "__BUJ_LS_spso__", "__BUJ_LS_min_im__", "__BUJ_LS_max_im__",
               "__BUJ_LS_fds__", "__BUJ_LS_fdob__", "__BUJ_LS_cncr__", "__BUJ_LS_max_al_err__",
               "__BUJ_LS_inlier_rat__", "__BUJ_igb__", "__BUJ_spso__", "__BUJ_min_im__",
               "__BUJ_max_im__", "__BUJ_fds__", "__BUJ_fdob__", "__BUJ_cncr__",
               "__BUJ_max_al_err__", "__BUJ_inlier_rat__", "__BUJ_min_num_inlier__",
+              "__BUJ_FLS1__", "__BUJ_FLS1_Staging__", "__BUJ_FLS2_Staging__", "__BUJ_FLS2__",
               "__BUJ_Image_Dir_Path__", "__BUJ_div_w__", "__BUJ_curl_w__",
               "__BUJ_land_w__", "__BUJ_img_w__", "__BUJ_cons_w__", "__BUJ_stop_thresh__",
               "__BUJ_transform_x__", "__BUJ_transform_y__", "__BUJ_transform_rot__",
@@ -71,12 +80,11 @@ slider_keys = ["__LS_Stack_Slider__",
 tab_keys = ["ls_tab", "bunwarpj_tab", "reconstruct_tab", "home_tab", "align_tab"]
 tabgroup_keys = ["align_tabgroup", "pages_tabgroup"]
 text_keys = ["home_title", "home_version", "home_authors", "home_readme", "home_contact",
+             "__LS_FLS1_Text__", "__LS_FLS2_Text__", "__BUJ_FLS1_Text__", "__BUJ_FLS2_Text__",
              '__REC_FLS2_Text__', '__REC_FLS2_Text__', '__REC_Mask_Text__']
 read_only_inputs_keys = ["__LS_Image1__", "__LS_Image2__", "__LS_Stack__",
-
                          "__BUJ_Image1__", "__BUJ_Image2__", "__BUJ_Stack__",
                          "__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__",
-
                          "__REC_Image__"
                          ]
 keys = {'button': button_keys,
@@ -105,7 +113,7 @@ def menu_bar():
     """Menu bar layout (kind of pointless at the moment)"""
 
     menu_def = [['&File', ['&Open', '&Save', '&Exit', 'Properties']],
-                ['&Edit', ['Paste', ['Special', 'Normal', ], 'Undo'], ],
+                ['Log', ['Main', 'Fiji Output']],
                 ['&Help', '&About...'], ]
     return sg.Menu(menu_def)
 
@@ -203,6 +211,27 @@ def align_tab(style, DEFAULTS):
         tab : list of list of PySimpleGUI Elements
             The layout for the linear sift tab tab.
         """
+
+        # --- FLS File Frame --- #
+        def ls_fls_frame():
+            layout = [[sg.Text("FLS Files:", pad=((10, 0), (10, 0))),
+                       sg.Combo(['Two', 'One'], **style.styles('__LS_FLS_Combo__')),
+                       sg.Text("TFS:", pad=((10, 0), (10, 0))),
+                       sg.Combo(['Unflip/Flip', 'Single'], **style.styles('__LS_TFS_Combo__'))
+                       ],
+                      [sg.FileBrowse("Load", **style.styles('__LS_Load_FLS1__')),
+                       sg.Input('None', **style.styles('__LS_FLS1_Staging__')),
+                       sg.Input("None", **style.styles('__LS_FLS1__')),
+                       sg.Text("Unflip FLS", **style.styles('__LS_FLS1_Text__'))
+                       ],
+                      [sg.FileBrowse("Load", **style.styles('__LS_Load_FLS2__')),
+                       sg.Input('None', **style.styles('__LS_FLS2_Staging__')),
+                       sg.Input("None", **style.styles('__LS_FLS2__')),
+                       sg.Text("Flip FLS", **style.styles('__LS_FLS2_Text__'))],
+                      [sg.Button('Set', **style.styles('__LS_Set_FLS__')),
+                       sg.Button('Reset', **style.styles('__LS_Reset_FLS__')),
+                       ]]
+            return layout
 
         # --- SIFT Parameter Frame --- #
         def ls_sift_p_frame():
@@ -310,14 +339,12 @@ def align_tab(style, DEFAULTS):
                            [spacer2],
                            [sg.Text('Image: 1.', pad=((10, 0), (0, 0))),
                             sg.Input(**style.styles('__LS_Image1__')),
-                            sg.FileBrowse('Load Stack', **style.styles('__LS_Load_Stack__')),
                             sg.Button('View Stack', **style.styles('__LS_View_Stack__'))],
                            [sg.Text('2.', pad=((59, 0), (0, 0))),
                             sg.Input(**style.styles('__LS_Image2__')),
                             sg.Slider(**style.styles('__LS_Stack_Slider__'))],
                            [sg.Text('Stack:', pad=((12, 0), (0, 5))),
-                            sg.Input(**style.styles('__LS_Stack__')),
-                            sg.Input(**style.styles('__LS_Staging_Load__'))]]
+                            sg.Input(**style.styles('__LS_Stack__'))]]
             return align_frame
 
         # --- Full Linear SIFT Layout --- #
@@ -329,14 +356,16 @@ def align_tab(style, DEFAULTS):
             lin_sift_layout : list of list of PySimpleGUI Elements
                 The layout for the linear sift tab.
             """
-            # fiji_info = ls_intro()
+            fls_frame = sg.Frame(layout=ls_fls_frame(), title='FLS Files',
+                                 relief=sg.RELIEF_SUNKEN, pad=((10, 0), (10, 0)), font=('Times New Roman', 19))
             sift_p_frame = sg.Frame(layout=ls_sift_p_frame(), title='Linear SIFT Parameters',  # title_color='purple'
                                     relief=sg.RELIEF_SUNKEN, pad=((10, 0), (10, 0)), font=('Times New Roman', 19))
             align_frame = sg.Frame(layout=ls_al_frame(), title='Alignment',
                                    relief=sg.RELIEF_SUNKEN, pad=((10, 0), (10, 30)), font=('Times New Roman', 19))
             # ls_log = sg.Multiline(**style.styles("__LS_Log__"))    #Output
             # Layout
-            page_layout = [[sg.Column([[sift_p_frame]]), align_frame]] # , [ls_log]
+            page_layout = [[sg.Column([[fls_frame],
+                                       [sift_p_frame]]), align_frame]] # , [ls_log]
             lin_sift_layout = [[sg.Column(page_layout, size=style.small_tab_size)]]
             return lin_sift_layout
 
@@ -352,6 +381,26 @@ def align_tab(style, DEFAULTS):
         tab : list of list of PySimpleGUI Elements
             The layout for the bunwarpj tab.
         """
+        def bunwarp_fls_frame():
+            layout = [[sg.Text("FLS Files:", pad=((10, 0), (10, 0))),
+                       sg.Combo(['Two', 'One'], **style.styles('__BUJ_FLS_Combo__')),
+                       sg.Text("TFS:", pad=((30, 0), (10, 0))),
+                       sg.Combo(['Unflip/Flip'], **style.styles('__BUJ_TFS_Combo__'))
+                       ],
+                      [sg.FileBrowse("Load", **style.styles('__BUJ_Load_FLS1__')),
+                       sg.Input('None', **style.styles('__BUJ_FLS1_Staging__')),
+                       sg.Input("None", **style.styles('__BUJ_FLS1__')),
+                       sg.Text("Unflip FLS", **style.styles('__BUJ_FLS1_Text__'))
+                       ],
+                      [sg.FileBrowse("Load", **style.styles('__BUJ_Load_FLS2__')),
+                       sg.Input('None', **style.styles('__BUJ_FLS2_Staging__')),
+                       sg.Input("None", **style.styles('__BUJ_FLS2__')),
+                       sg.Text("Flip FLS", **style.styles('__BUJ_FLS2_Text__'))],
+                      [sg.Button('Set', **style.styles('__BUJ_Set_FLS__')),
+                       sg.Button('Reset', **style.styles('__BUJ_Reset_FLS__')),
+                       ]]
+            return layout
+
         # --- SIFT Parameter Frame --- #
         def bunwarp_ls_sift_p_frame():
             """The bunwarpJ linear sift parameter frame layout.
@@ -608,12 +657,10 @@ def align_tab(style, DEFAULTS):
                              sg.Input(**style.styles('__BUJ_Unflip_Stack_Inp__'))],
                             [sg.Text('Flip.', pad=((40, 0), (0, 0))),
                              sg.Input(**style.styles('__BUJ_Flip_Stack_Inp__'))],
-                            [sg.Text('Gen.', pad=((39, 0), (0, 5))),
+                            [sg.Text('BUJ.', pad=((37, 0), (0, 5))),
                              sg.Input(**style.styles('__BUJ_Stack__'))]]
 
-            stack_view_column = [[sg.FileBrowse('Load Stack', **style.styles('__BUJ_Load_Stack__')),
-                                  sg.Input(**style.styles('__BUJ_Stack_Stage_Load__')),
-                                  sg.Button('View Stack', **style.styles('__BUJ_View_Stack__')),
+            stack_view_column = [[sg.Button('View Stack', **style.styles('__BUJ_View_Stack__')),
                                   sg.Text(':'),
                                   sg.Combo(('Unflip LS', 'Flip LS', 'bUnwarpJ'), **style.styles('__BUJ_Stack_Choice__'))],
                                  [sg.Text(" ", pad=((20, 0), (0, 0))), sg.Slider(**style.styles('__BUJ_Stack_Slider__'))]]
@@ -631,7 +678,8 @@ def align_tab(style, DEFAULTS):
             bunwarp_layout : list of list of PySimpleGUI Elements
                 The layout for the bunwarpj tab.
             """
-            # readme = bunwarp_intro()
+            fls_frame = sg.Frame(layout=bunwarp_fls_frame(), title='FLS Files',
+                                 relief=sg.RELIEF_SUNKEN, pad=((4, 0), (0, 0)), font=('Times New Roman', 19))
             sift_par_tab = sg.Tab("2a. Linear SIFT", layout=bunwarp_ls_sift_p_frame(), font=style.fonts['tab'])
             feat_ext_par_tab = sg.Tab("5a. Feature Extract", layout=buj_feat_ext_p_frame(), font=style.fonts['tab'])
             bunwarp_par_tab = sg.Tab("5b. bUnwarpJ", layout=bunwarp_p_frame(), font=style.fonts['tab'])
@@ -643,7 +691,8 @@ def align_tab(style, DEFAULTS):
             param_frame = sg.Frame(layout=param_tabgroup, title='Registration Parameters', pad=((4, 0), (0, 0)),
                                    relief=sg.RELIEF_SUNKEN, font=('Times New Roman', 19))
             # Layout
-            page_layout = [[sg.Column([[param_frame]]), align_frame]]  # [bunwarp_log]
+            page_layout = [[sg.Column([[fls_frame],
+                                       [param_frame]]), align_frame]]  # [bunwarp_log]
 
             bunwarp_layout = [[sg.Column(page_layout)]]
             return bunwarp_layout
@@ -711,8 +760,7 @@ def reconstruct_tab(style, DEFAULTS):
         load_data_frame = [[sg.Text('Stack:', pad=((5, 0), (5, 0))),
                             sg.Input('None', **style.styles('__REC_Stack_Staging__')),
                             sg.Input('None', **style.styles('__REC_Stack__')),
-                            sg.FileBrowse("Load", **style.styles('__REC_Load_Stack__')),
-                            sg.Button("Reset", **style.styles('__REC_Reset_Stack__')),
+                            sg.FileBrowse("Load", **style.styles('__REC_Load_Stack__'))
                             ],
                            [sg.Text("FLS Files:", pad=((21, 0), (10, 0))),
                             sg.Combo(['Two', 'One'], **style.styles('__REC_FLS_Combo__')),
@@ -842,13 +890,13 @@ def window_ly(style, DEFAULTS):
     invisible_graph = sg.Graph((0, 0), (0, 0), (0, 0), visible=True, key="__invisible_graph__")
 
     window_layout = [[menu], [invisible_graph, pages]]
-    window = sg.Window('PyTIE Phase Reconstruction', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
+    window = sg.Window('PyLorentz', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
                        resizable=True, size=(style.window_width, style.window_height), use_default_focus=False,
-                       finalize=True)
+                       icon=style.icon, finalize=True)
     return window
 
 
-def save_window_ly(event, image_dir, orientations):
+def save_window_ly(event, image_dir, orientations, tfs=None):
     """Initializes save window.
 
     Parameters
@@ -884,7 +932,10 @@ def save_window_ly(event, image_dir, orientations):
         file_paths = [join([image_dir, name], '/') for name in names]
     elif event == '__LS_Run_Align__':
         im_type = 'Linear Sift stack'
-        names = ['aligned_ls_stack.tif']
+        if tfs == 'Unflip/Flip':
+            names = ['uf_aligned_ls_stack.tif']
+        elif tfs == 'Single':
+            names = ['tfs_aligned_ls_stack.tif']
         file_paths = [join([image_dir, name], '/') for name in names]
     elif event == '__REC_Save_TIE__':
         im_type = 'Reconstructed Images'

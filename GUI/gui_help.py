@@ -123,11 +123,13 @@ def convert_to_bytes(img):
     return byte_img
 
 
-def overlay_images(image1, image2, transform):
+def overlay_images(image1, image2, transform, image_size, graph_size):
     """Visualize overlayed images in the GUI canvas. Takes an
     Image Object and converts uint8 data into byte data the Tk
     canvas can use."""
     d_theta, d_x, d_y, h_flip = transform
+    d_x = round(d_x/image_size*graph_size)
+    d_y = round(d_y/image_size*graph_size)
     array1 = image1.flt_data[0]
     array2 = image2.flt_data[0]
 
@@ -139,9 +141,11 @@ def overlay_images(image1, image2, transform):
     return return_img
 
 
-def adjust_image(data, transform):
+def adjust_image(data, transform, img_size, graph_size):
 
     d_theta, d_x, d_y, h_flip = transform
+    d_x = round(d_x/img_size*graph_size)
+    d_y = round(d_y/img_size*graph_size)
     rgba_image = make_rgba(data, adjust=True, d_theta=d_theta, d_x=d_x, d_y=d_y, h_flip=h_flip, color='None')
     return_img = convert_to_bytes(rgba_image)
     return return_img
