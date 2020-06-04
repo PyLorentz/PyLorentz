@@ -612,7 +612,8 @@ class WindowStyle(object):
                 val.update(size=(35, 1), pad=((2, 0), (7, 0)))
             elif key == '__REC_Image__':
                 val.update(background_color=sg.theme_background_color(), enable_events=True,
-                           pad=((0, 0), (10, 0)), font='Times 20', size=(60, 1),
+                           justification='center',
+                           pad=((38, 0), (10, 0)), font='Times 20', size=(67, 1),
                            metadata={'Set': 'None', 'Def': 'None',
                            'State': 'Def'})
             # Listbox element

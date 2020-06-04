@@ -840,8 +840,7 @@ def reconstruct_tab(style, DEFAULTS):
                   sg.Graph((70, 70), (0, 0), (69, 69), **style.styles('__REC_Colorwheel_Graph__'))
                  ]]
 
-        files_column = [[sg.Text('Image: ', pad=((235, 0), (10, 0)), font='Times 20'),
-                         sg.Input('None', **style.styles('__REC_Image__'))]]
+        files_column = [[sg.Input('None', **style.styles('__REC_Image__'))]]
 
         right_panel = sg.Col([[sg.Column(reconstruct_graph)],
                                [sg.Column(files_column)]])

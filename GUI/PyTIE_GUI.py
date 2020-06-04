@@ -2808,24 +2808,33 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         if image_choice == 'Stack':
             image_key = 'REC_Stack'
             disabled = '__REC_Load_Stack__' in winfo.rec_file_queue
+        elif image_choice == 'Color':
+            image_key = 'color_b'
+            im_name = 'Color'
         elif image_choice == 'MagX':
             image_key = 'bxt'
+            im_name = 'X-Comp. of Mag. Induction'
         elif image_choice == 'MagY':
             image_key = 'byt'
+            im_name = 'Y-Comp. of Mag. Induction'
         elif image_choice == 'Mag':
-             image_key = 'bbt'
+            image_key = 'bbt'
+            im_name = 'Magnitude of Mag. Induction'
         elif image_choice == 'Mag. Phase':
-             image_key = 'phase_m'
+            image_key = 'phase_m'
+            im_name = 'Magnetic Phase Shift (radians)'
         elif image_choice == 'Electr. Phase':
-             image_key = 'phase_e'
+            image_key = 'phase_e'
+            im_name = 'Electrostatic Phase Shift (radians)'
         elif image_choice == 'Mag. Deriv.':
-             image_key = 'dIdZ_m'
+            image_key = 'dIdZ_m'
+            im_name = 'Intensity Deriv. for Mag. Phase'
         elif image_choice == 'Electr. Deriv.':
-             image_key = 'dIdZ_e'
-        elif image_choice == 'Color':
-             image_key = 'color_b'
+            image_key = 'dIdZ_e'
+            im_name = 'Intensity Deriv. for Electr. Phase'
         elif image_choice == 'In Focus':
-             image_key = 'inf_im'
+            image_key = 'inf_im'
+            im_name = 'In-focus image'
         if view_button.metadata['State'] == 'Def':
             slider_val = int(values["__REC_Slider__"])
             if image_key in images and not disabled and image_key == 'REC_Stack' and images[image_key] is not None:
@@ -2862,7 +2871,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 update_slider(window, [('__REC_Slider__', {"value": slider_val})])
 
                 # Update window
-                metadata_change(window, [('__REC_Image__', image_choice)])
+                metadata_change(window, [('__REC_Image__', f'{winfo.rec_def_val} {im_name}')])
                 winfo.rec_last_image_choice = image_choice
             else:
                 print("Tried loading unavailable image.")
@@ -2981,22 +2990,31 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             image_key = 'REC_Stack'
         elif image_choice == 'Color':
             image_key = 'color_b'
+            im_name = 'Color'
         elif image_choice == 'MagX':
             image_key = 'bxt'
+            im_name = 'X-Comp. of Mag. Induction'
         elif image_choice == 'MagY':
             image_key = 'byt'
+            im_name = 'Y-Comp. of Mag. Induction'
         elif image_choice == 'Mag':
             image_key = 'bbt'
+            im_name = 'Magnitude of Mag. Induction'
         elif image_choice == 'Mag. Phase':
             image_key = 'phase_m'
+            im_name = 'Magnetic Phase Shift (radians)'
         elif image_choice == 'Electr. Phase':
             image_key = 'phase_e'
+            im_name = 'Electrostatic Phase Shift (radians)'
         elif image_choice == 'Mag. Deriv.':
             image_key = 'dIdZ_m'
+            im_name = 'Intensity Deriv. for Mag. Phase'
         elif image_choice == 'Electr. Deriv.':
             image_key = 'dIdZ_e'
+            im_name = 'Intensity Deriv. for Electr. Phase'
         elif image_choice == 'In Focus':
             image_key = 'inf_im'
+            im_name = 'In-focus image'
         if window['__REC_View__'].metadata['State'] == 'Set':
             # Stack set
             if image_key in images and image_choice == 'Stack' and images[image_key] is not None:
@@ -3005,7 +3023,20 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 slider_range = (0, stack.z_size - 1)
 
                 # Update window
-                metadata_change(window, [('__REC_Image__', f'Image {slider_val+1}')])
+                if winfo.rec_files1:
+                    if winfo.rec_files1 and winfo.rec_files2:
+                        if slider_val < len(winfo.rec_files1):
+                            prefix = 'unflip'
+                            im_name = winfo.rec_files1[slider_val]
+                        elif slider_val >= len(winfo.rec_files1):
+                            prefix = 'flip'
+                            im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
+                    else:
+                        prefix = ''
+                        im_name = winfo.rec_files1[slider_val]
+                    metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
+                else:
+                    metadata_change(window, [('__REC_Image__', f'Image {slider_val + 1}')])
                 display_img = stack.byte_data[slider_val]
                 colorwheel_graph.Erase()
                 update_slider(window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range}),
@@ -3018,7 +3049,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                     display_img2 = winfo.rec_colorwheel
                 else:
                     colorwheel_graph.Erase()
-                metadata_change(window, [('__REC_Image__', f'{image_choice}')])
+                metadata_change(window, [('__REC_Image__', f'{winfo.rec_def_val} {im_name}')])
             else:
                 window['__REC_Image_List__'].update(set_to_index=last_index)
                 print("Image is not available to view. Check PYTIE is run.")
@@ -3040,7 +3071,20 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
 
             # Update window
-            metadata_change(window, [('__REC_Image__', f'Image {slider_val+1}')])
+            if winfo.rec_files1:
+                if winfo.rec_files1 and winfo.rec_files2:
+                    if slider_val < len(winfo.rec_files1):
+                        prefix = 'unflip'
+                        im_name = winfo.rec_files1[slider_val]
+                    elif slider_val >= len(winfo.rec_files1):
+                        prefix = 'flip'
+                        im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
+                else:
+                    prefix = ''
+                    im_name = winfo.rec_files1[slider_val]
+                metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
+            else:
+                metadata_change(window, [('__REC_Image__', f'Image {slider_val + 1}')])
             toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Set')
             update_slider(window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
 
@@ -3210,8 +3254,8 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 # Update window
                 display_img = winfo.rec_images['color_b'].byte_data
                 display_img2 = winfo.rec_colorwheel
-                metadata_change(window, [('__REC_Image__', 'color_b')])
-                toggle(window, ['__REC_View__'], state='Set')
+                metadata_change(window, [('__REC_Image__', f'{def_val} Color')])
+                toggle(window, ['__REC_Image__', '__REC_View__'], state='Set')
                 update_slider(window, [('__REC_Image_Slider__', {"value": 5-1})])
                 window['__REC_Image_List__'].update(set_to_index=1, scroll_to_index=1)
                 winfo.rec_image_slider_set = 5-1
