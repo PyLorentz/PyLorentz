@@ -24,7 +24,7 @@ button_keys = ["__Fiji_Browse__", "__Fiji_Set__", "__Fiji_Reset__",
                "__BUJ_Clear_Unflip_Mask__", "__BUJ_Clear_Flip_Mask__",
 
                "__REC_Image_Dir_Browse__", "__REC_Set_Img_Dir__", "__REC_Reset_Img_Dir__",
-               "__REC_View__", "__REC_Save_TIE__", "__REC_Run_TIE__",
+               "__REC_Save_TIE__", "__REC_Run_TIE__",
                "__REC_Erase_Mask__", "__REC_Mask__",
                "__REC_Load_FLS2__", "__REC_Load_FLS1__", "__REC_Reset_FLS__", "__REC_Load_Stack__",
                "__REC_Set_FLS__"
@@ -824,9 +824,9 @@ def reconstruct_tab(style, DEFAULTS):
                      sg.Col([[sg.Button('Run', **style.styles('__REC_Run_TIE__'))],
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]])],
                              [spacer],
-                             [sg.Button('View Image', **style.styles('__REC_View__')),
+                             [sg.Text('Images:', pad=((64, 0), (0, 0))),
                               sg.Listbox(['Stack', 'Color', 'MagX', 'MagY', 'Mag', 'Electr. Phase', 'Mag. Phase',
-                                          'Electr. Deriv.', 'Mag. Deriv.', 'In Focus'],
+                                          'Electr. Deriv.', 'Mag. Deriv.', 'In Focus', 'Default Stack'],
                                           **style.styles('__REC_Image_List__')),
                               sg.Slider(**style.styles('__REC_Image_Slider__'))]]
 

@@ -186,12 +186,12 @@ def init_rec(winfo, window):
     winfo.rec_file_queue = {}
     winfo.rec_queue_disable_list = []
     winfo.rec_defocus_slider_set = 0
-    winfo.rec_image_slider_set = 5
+    winfo.rec_image_slider_set = 6
     winfo.rec_image_slider_dict = {'Stack': 0, 'Color': 1,
                                    'MagX': 2, 'MagY': 3, 'Mag': 4,
                                    'Electr. Phase': 5, 'Mag. Phase': 6,
                                    'Electr. Deriv.': 7, 'Mag. Deriv.': 8,
-                                   'In Focus': 9}
+                                   'In Focus': 9, 'Default Stack': 10}
 
     # Declare transformation timers and related variables
     winfo.rec_transform = (0, 0, 0, None)
@@ -330,7 +330,7 @@ def reset(winfo, window, current_tab):
         metadata_change(window, ['__REC_Stack__', '__REC_Image__', '__REC_FLS1__', '__REC_FLS2__'], reset=True)
         toggle(window, ['__REC_Set_Img_Dir__', '__REC_FLS_Combo__', '__REC_TFS_Combo__',
                         '__REC_Stack__', '__REC_FLS1__', '__REC_FLS2__', '__REC_Set_FLS__',
-                        '__REC_Mask__', '__REC_View__', '__REC_Image__'], state='Def')
+                        '__REC_Mask__', '__REC_Image__'], state='Def')
         window['__REC_Def_Combo__'].update(values=['None'])
         window['__REC_Def_List__'].update(values=['None'])
         window['__REC_Symmetrize__'].update(value=False)
@@ -2480,7 +2480,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         enable_list = []
         active_keys = ['__REC_Image_Dir_Path__', '__REC_Set_Img_Dir__', '__REC_Image_Dir_Browse__',
                        '__REC_FLS_Combo__', '__REC_Load_FLS1__', '__REC_Set_FLS__',
-                       '__REC_Load_FLS2__', '__REC_Load_Stack__', '__REC_View__', '__REC_Image_List__',
+                       '__REC_Load_FLS2__', '__REC_Load_Stack__', '__REC_Image_List__',
                        '__REC_M_Volt__', '__REC_Def_Combo__', '__REC_QC_Input__',
                        "__REC_Reset_FLS__", "__REC_TFS_Combo__",
                        '__REC_Mask_Size__', '__REC_Mask__', "__REC_Erase_Mask__",
@@ -2490,6 +2490,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                        '__REC_Reset_Img_Dir__']
 
         if window['__REC_Set_Img_Dir__'].metadata['State'] == 'Set':
+            enable_list.extend(["__REC_Reset_FLS__"])
             if window['__REC_Set_FLS__'].metadata['State'] == 'Def':
                 enable_list.extend(['__REC_FLS_Combo__', "__REC_TFS_Combo__", '__REC_M_Volt__'])
                 if (window['__REC_FLS_Combo__'].Get() == 'Two' and
@@ -2502,35 +2503,30 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 if (window['__REC_Stack__'].metadata['State'] == 'Set' and
                         window['__REC_FLS1__'].metadata['State'] == 'Set' and
                         window['__REC_FLS2__'].metadata['State'] == 'Set' and
-                        window['__REC_View__'].metadata['State'] == 'Def' and
                         len(winfo.rec_file_queue) == 0):
                     enable_list.extend(['__REC_Set_FLS__'])
-            elif (window['__REC_Set_FLS__'].metadata['State'] == 'Set' and
-                  window['__REC_View__'].metadata['State'] == 'Def'):
-                enable_list.extend(['__REC_Mask__', '__REC_Erase_Mask__'])
+            elif window['__REC_Set_FLS__'].metadata['State'] == 'Set':
+                enable_list.extend(['__REC_Mask__', '__REC_Erase_Mask__',
+                                    '__REC_Data_Prefix__', '__REC_Def_Combo__',
+                                    '__REC_QC_Input__', "__REC_Derivative__",
+                                    "__REC_Colorwheel__"])
                 if window['__REC_Mask__'].metadata['State'] == 'Def':
-                    enable_list.extend(['__REC_Def_Combo__', '__REC_QC_Input__',
-                                        '__REC_Run_TIE__', "__REC_Derivative__",
-                                        '__REC_Data_Prefix__'])
+                    enable_list.extend(['__REC_Run_TIE__'])
                 else:
                     enable_list.extend(['__REC_Mask_Size__', "__REC_transform_y__",
                                         "__REC_transform_x__",  "__REC_transform_rot__"])
             if winfo.rec_tie_results is not None:
                 enable_list.extend(['__REC_Save_TIE__'])
-            if (window['__REC_Set_FLS__'].metadata['State'] == 'Set' and
-                  window['__REC_Mask__'].metadata['State'] == 'Def'):
-                enable_list.extend(["__REC_Colorwheel__"])
+            # if (window['__REC_Set_FLS__'].metadata['State'] == 'Set' and
+            #       window['__REC_Mask__'].metadata['State'] == 'Def'):
+            #     enable_list.extend([])
             if (window['__REC_Stack__'].metadata['State'] == 'Set' and
                     window['__REC_Mask__'].metadata['State'] == 'Def'):
-                enable_list.extend(['__REC_View__', "__REC_Image_List__"])
+                enable_list.extend(["__REC_Image_List__"])
 
-            if ((window['__REC_View__'].metadata['State'] == 'Set' and
-                 window['__REC_Image_List__'].get()[0] == 'Stack') or
-                 window['__REC_Mask__'].metadata['State'] == 'Set'):
+            if (window['__REC_Image_List__'].get()[0] in ['Stack', 'Default Stack'] or
+                window['__REC_Mask__'].metadata['State'] == 'Set'):
                 enable_list.extend(["__REC_Slider__"])
-            elif (window['__REC_View__'].metadata['State'] == 'Def' and
-                    window['__REC_Mask__'].metadata['State'] == 'Def'):
-                enable_list.extend(["__REC_Reset_FLS__"])
 
         elif window['__REC_Set_Img_Dir__'].metadata['State'] == 'Def':
             enable_list.extend(['__REC_Image_Dir_Path__', '__REC_Set_Img_Dir__',
@@ -2549,7 +2545,6 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Grab important elements
     graph = window['__REC_Graph__']
     colorwheel_graph =  window['__REC_Colorwheel_Graph__']
-    view_button = window['__REC_View__']
     mask_button = window['__REC_Mask__']
 
     # Pull in image data from struct object
@@ -2566,11 +2561,10 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Import event handler names (overlaying, etc.)
     adjust = mask_button.metadata['State'] == 'Set' and (winfo.rec_past_transform != transform or
                                                          winfo.rec_past_mask != mask_transform)
-    change_img = (winfo.rec_last_image_choice !=
-                  values['__REC_Image_List__'][0])
+    change_img = winfo.rec_last_image_choice != values['__REC_Image_List__'][0]
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
-              and (window['__REC_View__'].metadata['State'] == 'Set' or
+              and (values['__REC_Image_List__'][0] in ['Stack', 'Default Stack'] or
                    window['__REC_Mask__'].metadata['State'] == 'Set')
               and winfo.true_element == "__REC_Graph__")
     scroll_defocus = (event in event in ['MouseWheel:Up', 'MouseWheel:Down'] and
@@ -2596,11 +2590,38 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         stack_path = window['__REC_Stack_Staging__'].Get()
         update_values(window, [('__REC_Stack_Staging__', 'None')])
         if os.path.exists(stack_path):
-            target_key = '__REC_Stack__'
-            load_keys = ["__REC_Load_Stack__"]
             image_key = 'REC_Stack'
-            winfo.rec_file_queue[event] = (stack_path, image_key, target_key,
-                                           current_tab, load_keys, None, None)
+            graph = window['__REC_Graph__']
+            graph_size = graph.get_size()
+            uint8_data, flt_data, size = g_help.load_image(stack_path, graph_size, stack=True)
+            if uint8_data:
+                stack = Stack(uint8_data, flt_data, size, stack_path)
+                slider_range = (0, stack.z_size - 1)
+                slider_val = 0
+                winfo.rec_images[image_key] = stack
+                display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size,
+                                                  graph.get_size()[0])
+                metadata_change(window, [('__REC_Stack__', stack.shortname)])
+                toggle(window, ['__REC_Stack__', '__REC_Image__'], state="Set")
+                update_slider(window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
+                winfo.rec_last_image_choice = 'Stack'
+                if winfo.rec_files1:
+                    if winfo.rec_files1 and winfo.rec_files2:
+                        if slider_val < len(winfo.rec_files1):
+                            prefix = 'unflip'
+                            im_name = winfo.rec_files1[slider_val]
+                        elif slider_val >= len(winfo.rec_files1):
+                            prefix = 'flip'
+                            im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
+                    else:
+                        prefix = ''
+                        im_name = winfo.rec_files1[slider_val]
+                    metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
+                else:
+                    metadata_change(window, [('__REC_Image__', f'Image {slider_val + 1}')])
+                print(f'The file {stack.shortname} was loaded.')
+            else:
+                print('Error loading stack.')
         else:
             print('This pathname is incorrect.')
 
@@ -2679,7 +2700,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         winfo.rec_file_queue = {}
         winfo.rec_queue_disable_list = []
         winfo.rec_defocus_slider_set = 0
-        winfo.rec_image_slider_set = 5
+        winfo.rec_image_slider_set = 6
 
         # Image selection
         winfo.rec_tie_results = None
@@ -2696,7 +2717,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         metadata_change(window, ['__REC_FLS1__', '__REC_FLS2__', '__REC_Stack__'], reset=True)
         toggle(window, ['__REC_FLS_Combo__', '__REC_TFS_Combo__', '__REC_Stack__',
                         '__REC_FLS1__', '__REC_FLS2__', '__REC_Set_FLS__',
-                        '__REC_Mask__', '__REC_View__'], state='Def')
+                        '__REC_Mask__'], state='Def')
         window['__REC_Def_Combo__'].update(values=['None'])
         window['__REC_Def_List__'].update(values=['None'])
         window['__REC_FLS1_Text__'].update(value=window['__REC_FLS1_Text__'].metadata['Two'])
@@ -2756,14 +2777,13 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                         print('Error with Voltage.')
                         raise
 
-                    if window['__REC_View__'].metadata['State'] == 'Set':
-                        if tfs_value == 'Single':
-                            prefix = ''
-                        else:
-                            prefix = 'unflip'
-                        im_name = files1[0]
-                        display_img = images['REC_Stack'].byte_data[0]
-                        metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
+                    if tfs_value == 'Single':
+                        prefix = 'tfs'
+                    else:
+                        prefix = 'unflip'
+                    im_name = files1[0]
+                    display_img = images['REC_Stack'].byte_data[0]
+                    metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
 
                     stack1, stack2, ptie = load_data(path, fls1_path, stack_name, flip, fls2_path)
                     string_vals = []
@@ -2799,102 +2819,21 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             print('There was an incompatibility between the fls contents and the')
             print('files within the directories.')
 
-    # View the image stack created from alignment
-    elif event == '__REC_View__':
-        # Look at which image to view
-        image_choice = window['__REC_Image_List__'].get()[0]
-        tfs_value = window['__REC_TFS_Combo__'].Get()
-        disabled = False
-        if image_choice == 'Stack':
-            image_key = 'REC_Stack'
-            disabled = '__REC_Load_Stack__' in winfo.rec_file_queue
-        elif image_choice == 'Color':
-            image_key = 'color_b'
-            im_name = 'Color'
-        elif image_choice == 'MagX':
-            image_key = 'bxt'
-            im_name = 'X-Comp. of Mag. Induction'
-        elif image_choice == 'MagY':
-            image_key = 'byt'
-            im_name = 'Y-Comp. of Mag. Induction'
-        elif image_choice == 'Mag':
-            image_key = 'bbt'
-            im_name = 'Magnitude of Mag. Induction'
-        elif image_choice == 'Mag. Phase':
-            image_key = 'phase_m'
-            im_name = 'Magnetic Phase Shift (radians)'
-        elif image_choice == 'Electr. Phase':
-            image_key = 'phase_e'
-            im_name = 'Electrostatic Phase Shift (radians)'
-        elif image_choice == 'Mag. Deriv.':
-            image_key = 'dIdZ_m'
-            im_name = 'Intensity Deriv. for Mag. Phase'
-        elif image_choice == 'Electr. Deriv.':
-            image_key = 'dIdZ_e'
-            im_name = 'Intensity Deriv. for Electr. Phase'
-        elif image_choice == 'In Focus':
-            image_key = 'inf_im'
-            im_name = 'In-focus image'
-        if view_button.metadata['State'] == 'Def':
-            slider_val = int(values["__REC_Slider__"])
-            if image_key in images and not disabled and image_key == 'REC_Stack' and images[image_key] is not None:
-                stack = images[image_key]
-                slider_range = (0, stack.z_size - 1)
-                if winfo.rec_files1:
-                    if winfo.rec_files1 and winfo.rec_files2:
-                        if slider_val < len(winfo.rec_files1):
-                            prefix = 'unflip'
-                            im_name = winfo.rec_files1[slider_val]
-                        elif slider_val >= len(winfo.rec_files1):
-                            prefix = 'flip'
-                            im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
-                    else:
-                        prefix = ''
-                        im_name = winfo.rec_files1[slider_val]
-                    metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
-                else:
-                    metadata_change(window, [('__REC_Image__', f'Image {slider_val+1}')])
-
-                display_img = stack.byte_data[slider_val]
-                toggle(window, ['__REC_Image__', '__REC_View__'], state='Set')
-                update_slider(window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
-                winfo.rec_last_image_choice = image_choice
-
-            elif image_key in images and not disabled and images[image_key] is not None:
-                toggle(window, ['__REC_Image__', '__REC_View__'], state='Set')
-                image = images[image_key]
-                display_img = image.byte_data
-                if image_key == 'color_b':
-                    display_img2 = winfo.rec_colorwheel
-                else:
-                    colorwheel_graph.Erase()
-                update_slider(window, [('__REC_Slider__', {"value": slider_val})])
-
-                # Update window
-                metadata_change(window, [('__REC_Image__', f'{winfo.rec_def_val} {im_name}')])
-                winfo.rec_last_image_choice = image_choice
-            else:
-                print("Tried loading unavailable image.")
-        elif view_button.metadata['State'] == 'Set':
-            graph.Erase()
-            colorwheel_graph.Erase()
-            metadata_change(window, ['__REC_Image__'], reset=True)
-            toggle(window, ['__REC_Image__'])
-            toggle(window, ['__REC_View__'])
-
-        winfo.rec_last_image_choice = image_choice
-
     # Change the slider
     elif event == '__REC_Slider__':
+        stack_choice = window['__REC_Image_List__'].get()[0]
+        if stack_choice == 'Stack':
+            adjustment = False
+        elif stack_choice == 'Default Stack':
+            adjustment = True
         stack_key = 'REC_Stack'
         stack = images[stack_key]
         slider_val = int(values["__REC_Slider__"])
-        tfs_value = window['__REC_TFS_Combo__'].Get()
 
         # Update window
-        if window['__REC_View__'].metadata['State'] == 'Set':
+        if not adjustment:
             display_img = stack.byte_data[slider_val]
-        elif window['__REC_Mask__'].metadata['State'] == 'Set':
+        elif adjustment:
             display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
 
         if winfo.rec_files1:
@@ -2915,10 +2854,12 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Scroll through stacks in the graph area
     elif scroll:
         stack_choice = window['__REC_Image_List__'].get()[0]
-        tfs_value = window['__REC_TFS_Combo__'].Get()
-        if stack_choice == 'Stack' or window['__REC_Mask__'].metadata['State'] == 'Set':
-            stack_key = 'REC_Stack'
-            stack = images[stack_key]
+        if stack_choice == 'Stack':
+            adjustment = True
+        elif stack_choice == 'Default Stack':
+            adjustment = False
+        if stack_choice in ['Stack', 'Default Stack'] or window['__REC_Mask__'].metadata['State'] == 'Set':
+            stack = images['REC_Stack']
             slider_val = int(values["__REC_Slider__"])
             max_slider_val = stack.z_size - 1
             # Scroll up or down
@@ -2928,10 +2869,11 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 slider_val = max(0, slider_val-1)
 
             # Update the window
-            if window['__REC_View__'].metadata['State'] == 'Set':
+            if not adjustment:
                 display_img = stack.byte_data[slider_val]
-            elif window['__REC_Mask__'].metadata['State'] == 'Set':
-                display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
+            elif window['__REC_Mask__'].metadata['State'] == 'Set' or adjustment:
+                display_img = g_help.adjust_image(stack.flt_data[slider_val], transform,
+                                                  stack.x_size, graph.get_size()[0])
 
             update_slider(window, [('__REC_Slider__', {"value": slider_val})])
             if winfo.rec_files1:
@@ -2943,7 +2885,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                         prefix = 'flip'
                         im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
                 else:
-                    prefix = ''
+                    prefix = 'tfs'
                     im_name = winfo.rec_files1[slider_val]
                 metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
             else:
@@ -2951,7 +2893,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
     # Scroll through image options
     elif scroll_images:
-        max_slider_val = 5
+        max_slider_val = 6
         if event in ['MouseWheel:Down', 'MouseWheel:Up']:
             slider_set = winfo.rec_image_slider_set
             if event == 'MouseWheel:Up':
@@ -2983,11 +2925,16 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Changing view stack combo
     elif change_img:
         list_values = window['__REC_Image_List__'].GetListValues()
+        last_index = None
         if winfo.rec_last_image_choice is not None:
             last_index = list_values.index(winfo.rec_last_image_choice)
         image_choice = values['__REC_Image_List__'][0]
         if image_choice == 'Stack':
             image_key = 'REC_Stack'
+            adjustment = True
+        elif image_choice == 'Default Stack':
+            image_key = 'REC_Stack'
+            adjustment = False
         elif image_choice == 'Color':
             image_key = 'color_b'
             im_name = 'Color'
@@ -3015,9 +2962,11 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         elif image_choice == 'In Focus':
             image_key = 'inf_im'
             im_name = 'In-focus image'
-        if window['__REC_View__'].metadata['State'] == 'Set':
-            # Stack set
-            if image_key in images and image_choice == 'Stack' and images[image_key] is not None:
+        if values['__REC_TFS_Combo__'][0] == 'Single' and image_key in ['dIdZ_e', 'phase_e']:
+            window['__REC_Image_List__'].update(set_to_index=last_index)
+            print('Electric information not available for single TFS.')
+        else:
+            if image_key in images and image_choice in ['Stack', 'Default Stack'] and images[image_key] is not None:
                 stack = images[image_key]
                 slider_val = 0
                 slider_range = (0, stack.z_size - 1)
@@ -3037,7 +2986,10 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                     metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
                 else:
                     metadata_change(window, [('__REC_Image__', f'Image {slider_val + 1}')])
-                display_img = stack.byte_data[slider_val]
+                if adjustment:
+                    display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
+                else:
+                    display_img = stack.byte_data[slider_val]
                 colorwheel_graph.Erase()
                 update_slider(window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range}),
                                        ])
@@ -3050,42 +3002,34 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 else:
                     colorwheel_graph.Erase()
                 metadata_change(window, [('__REC_Image__', f'{winfo.rec_def_val} {im_name}')])
-            else:
+            elif last_index is not None:
                 window['__REC_Image_List__'].update(set_to_index=last_index)
                 print("Image is not available to view. Check PYTIE is run.")
                 if values['__REC_TFS_Combo__'] == 'Single':
                     print("For a single TFS, electric deriv. and phase are not available.")
-        else:
-            if values['__REC_TFS_Combo__'][0] == 'Single' and image_key in ['dIdZ_e', 'phase_e']:
-                window['__REC_Image_List__'].update(set_to_index=last_index)
-                print('Electric information not available for single TFS.')
+
         winfo.rec_last_image_choice = image_choice
 
     # Start making reconstruct subregion
     elif event == '__REC_Mask__':
-        if mask_button.metadata['State'] == 'Def':
-            # Get the stack to view
-            stack = images['REC_Stack']
-            slider_range = (0, stack.z_size - 1)
-            slider_val = int(values["__REC_Slider__"])
-            display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
-
-            # Update window
-            if winfo.rec_files1:
-                if winfo.rec_files1 and winfo.rec_files2:
-                    if slider_val < len(winfo.rec_files1):
-                        prefix = 'unflip'
-                        im_name = winfo.rec_files1[slider_val]
-                    elif slider_val >= len(winfo.rec_files1):
-                        prefix = 'flip'
-                        im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
-                else:
-                    prefix = ''
+        stack = images['REC_Stack']
+        slider_range = (0, stack.z_size - 1)
+        slider_val = int(values["__REC_Slider__"])
+        display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
+        if winfo.rec_files1:
+            if winfo.rec_files1 and winfo.rec_files2:
+                if slider_val < len(winfo.rec_files1):
+                    prefix = 'unflip'
                     im_name = winfo.rec_files1[slider_val]
-                metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
+                elif slider_val >= len(winfo.rec_files1):
+                    prefix = 'flip'
+                    im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
             else:
-                metadata_change(window, [('__REC_Image__', f'Image {slider_val + 1}')])
-            toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Set')
+                prefix = 'tfs'
+                im_name = winfo.rec_files1[slider_val]
+            metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
+        if mask_button.metadata['State'] == 'Def':
+            toggle(window, ['__REC_Mask__'], state='Set')
             update_slider(window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
 
             # winfo.rec_mask = float(window['__REC_Mask_Size__'].Get())
@@ -3094,10 +3038,13 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
         # Quit mask making make_mask_button
         elif mask_button.metadata['State'] == 'Set':
-            graph.Erase()
-            toggle(window, ['__REC_Mask__', '__REC_Image__'], state='Def')
-            metadata_change(window, ['__REC_Image__'], reset=True)
+            toggle(window, ['__REC_Mask__'], state='Def')
             draw_mask = False
+        colorwheel_graph.Erase()
+        window['__REC_Image_List__'].update(set_to_index=0, scroll_to_index=0)
+        update_slider(window, [('__REC_Image_Slider__', {"value": 6})])
+        winfo.rec_last_image_choice = 'Stack'
+        winfo.rec_image_slider_set = 6
 
     # Clicking on graph and making markers for mask
     elif event in ['__REC_Graph__', '__REC_Graph__+UP'] and mask_button.metadata['State'] == 'Set':
@@ -3255,10 +3202,10 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 display_img = winfo.rec_images['color_b'].byte_data
                 display_img2 = winfo.rec_colorwheel
                 metadata_change(window, [('__REC_Image__', f'{def_val} Color')])
-                toggle(window, ['__REC_Image__', '__REC_View__'], state='Set')
-                update_slider(window, [('__REC_Image_Slider__', {"value": 5-1})])
+                toggle(window, ['__REC_Image__'], state='Set')
+                update_slider(window, [('__REC_Image_Slider__', {"value": 6-1})])
                 window['__REC_Image_List__'].update(set_to_index=1, scroll_to_index=1)
-                winfo.rec_image_slider_set = 5-1
+                winfo.rec_image_slider_set = 6-1
                 winfo.rec_last_image_choice = 'Color'
                 winfo.rec_ptie = ptie
             except:
@@ -3321,8 +3268,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             image = Image(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), 'color_b')
             image.byte_data = g_help.vis_1_im(image)
             winfo.rec_images['color_b'] = image
-            if (window['__REC_Image_List__'].get()[0] == 'Color' and
-                window['__REC_View__'].metadata['State'] == 'Set'):
+            if window['__REC_Image_List__'].get()[0] == 'Color':
                 display_img = image.byte_data
                 display_img2 = winfo.rec_colorwheel
     winfo.rec_last_colorwheel_choice = colorwheel_choice

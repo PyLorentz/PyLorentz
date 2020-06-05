@@ -537,10 +537,6 @@ class WindowStyle(object):
                 val.update(enable_events=True, disabled=True, pad=((30, 0), (28, 0)))
             elif key == '__REC_Save_TIE__':
                 val.update(enable_events=True, disabled=True, pad=((28, 0), (8, 0)))
-            elif key == '__REC_View__':
-                val.update(disabled=True, enable_events=True, pad=((45, 0), (7, 7)),
-                           metadata={'Set': 'Hide Image', 'Def': 'View Image',
-                                     'State': 'Def'})
             elif key == '__REC_Set_Img_Dir__':
                 val.update(pad=((3, 0), (7, 0)), metadata={'State': 'Def'})
             elif key == '__REC_Reset_Img_Dir__':
@@ -633,10 +629,10 @@ class WindowStyle(object):
                            disabled=True, enable_events=True, orientation='vertical',
                            default_value=0, metadata={'slider_range': (0, 0)})
             elif key == '__REC_Image_Slider__':
-                val.update(range=(0, 5), disable_number_display=True,
+                val.update(range=(0, 6), disable_number_display=True,
                            pad=((0, 0), (1, 0)), size=(7, 16),
                            enable_events=True, orientation='vertical',
-                           default_value=5, metadata={'slider_range': (0, 5)})
+                           default_value=6, metadata={'slider_range': (0, 6)})
             elif key == '__REC_Defocus_Slider__':
                 val.update(range=(0, 0), disable_number_display=True,
                            pad=((0, 0), (1, 0)), size=(4, 16),
