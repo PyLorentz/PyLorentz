@@ -1,18 +1,16 @@
-import io
-import os
-import matplotlib as mpl
-import warnings
-with warnings.catch_warnings() as w:
-    warnings.simplefilter('ignore')
-    import hyperspy.api as hs
+import hyperspy.api as hs
+from io import BytesIO
+from matplotlib import cm as mpl_cm
+from warnings import catch_warnings, simplefilter
+with catch_warnings() as w:
+    simplefilter('ignore')
 from PIL import Image
-import sys
+from sys import platform as sys_platform
 import subprocess
 from align import join
-import numpy as np
-import math
-import time
-import cv2 as cv
+from numpy import uint8 as np_uint8
+from numpy import array, zeros, flipud
+from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 
 # Miscellaneous to potentially apply later
 # https://imagejdocu.tudor.lu/plugin/utilities/python_dm3_reader/start
@@ -24,15 +22,27 @@ def load_image(img_path, graph_size, stack=False):
     """Load in an image"""
 
     try:
-        # Load data
+        # Path has correct value
+        correct_end = False
+        for end in ['.tif', '.tiff', '.dm3', '.dm4', '.bmp']:
+            if img_path.endswith(end):
+                correct_end = True
+        if not correct_end:
+            print('Trying to load incorrect filetype. Acceptable values "tif", "tiff", "dm3", "dm4", and "bmp".')
+            raise
         uint8_data, float_data = {}, {}
+        # Load data
         img = hs.load(img_path)
         img_data = img.data
         z_size = 1
-        if stack:
-            z_size, x_size, y_size = img_data.shape
+        shape = img_data.shape
+        if stack and len(shape) > 1:
+            z_size, x_size, y_size = shape
+        elif not stack:
+            x_size, y_size = shape
         else:
-            x_size, y_size = img_data.shape
+            print('Do not try loading a single image to stack.')
+            raise
         for z in range(z_size):
             if stack:
                 temp_data = img_data[z, :, :]
@@ -46,6 +56,8 @@ def load_image(img_path, graph_size, stack=False):
     except (IndexError, TypeError, NameError):
         print('You tried loading a file that is not recognized. Try a different file type.')
         return None, None, None
+    except:
+        return None, None, None
 
 
 def convert_float_unint8(float_array, graph_size, uint8_data=None, float_data=None, z=0):
@@ -56,7 +68,7 @@ def convert_float_unint8(float_array, graph_size, uint8_data=None, float_data=No
     if float_data is None:
         float_data = {}
     if float_array is not None:
-        scaled_float_array = cv.resize(float_array, graph_size, interpolation=cv.INTER_AREA)
+        scaled_float_array = resize(float_array, graph_size, interpolation=INTER_AREA)
         resized_data = scaled_float_array - scaled_float_array.min()
         maximum = resized_data.max()
         if maximum == 0:
@@ -64,7 +76,7 @@ def convert_float_unint8(float_array, graph_size, uint8_data=None, float_data=No
         inv_max = 1/maximum
         scaled_float_array = resized_data * inv_max
         uint8_array = scaled_float_array * 255
-        uint8_array = uint8_array.astype(np.uint8)
+        uint8_array = uint8_array.astype(np_uint8)
         uint8_data[z] = uint8_array
         float_data[z] = scaled_float_array
     return uint8_data, float_data
@@ -79,18 +91,18 @@ def make_rgba(data, adjust=False, d_theta=0, d_x=0, d_y=0, h_flip=None, color=No
         # Apply colormap and convert to uint8 datatype
         if color == 'None':
             data = data * 255
-            data = data.astype(np.uint8)
+            data = data.astype(np_uint8)
         elif color:
-            cm = mpl.cm.get_cmap(color)
+            cm = mpl_cm.get_cmap(color)
             data = cm(data, bytes=True)
         else:
-            cm = mpl.cm.get_cmap('Spectral')    # spectral, bwr,twilight, twilight_shifted, hsv shows good contrast
+            cm = mpl_cm.get_cmap('Spectral')    # spectral, bwr,twilight, twilight_shifted, hsv shows good contrast
             data = cm(data, bytes=True)
 
 
         # Apply horizontal flip if necessary
         if h_flip:
-            data = cv.flip(data, 1)
+            data = flip(data, 1)
 
         # Convert to PIL Image
         rgba_img = Image.fromarray(data).convert('RGBA')
@@ -117,7 +129,7 @@ def make_rgba(data, adjust=False, d_theta=0, d_x=0, d_y=0, h_flip=None, color=No
 
 
 def convert_to_bytes(img):
-    byte_img = io.BytesIO()
+    byte_img = BytesIO()
     img.save(byte_img, format='ppm')
     byte_img = byte_img.getvalue()
     return byte_img
@@ -188,11 +200,11 @@ def slice(image, size):
 # ------ Run FIJI Macros ------ #
 def run_macro(ijm_macro_script, image_dir, fiji_path):
     # check fiji path
-    if sys.platform.startswith('win'):
+    if sys_platform.startswith('win'):
         add_on = "/ImageJ-win64"
-    elif sys.platform.startswith('darwin'):
+    elif sys_platform.startswith('darwin'):
         add_on = "/Contents/MacOS/ImageJ-macosx"
-    elif sys.platform.startswith('linux'):
+    elif sys_platform.startswith('linux'):
         add_on = "/ImageJ-linux64"
     fiji_path = fiji_path + add_on
 
@@ -202,11 +214,8 @@ def run_macro(ijm_macro_script, image_dir, fiji_path):
         f.close()
 
     cmd = join([fiji_path, "--ij2", "--headless", "--console", "-macro ", macro_file], " ")
-    proc = subprocess.Popen(cmd, shell=True) #stdout=subprocess.PIPE
-    return proc
-    # # output = None
-    # while True:
-    #     continue
+    return cmd
+
 
 
 # ------ Mask Interaction on Graph ------ #
@@ -256,16 +265,16 @@ def create_mask(winfo, filenames, ref_img):
     graph = winfo.window['__BUJ_Graph__']
     sizex, sizey = graph.CanvasSize
     coords = winfo.buj_mask_coords
-    img = np.zeros((sizex, sizey), np.uint8)
-    pts = np.array(coords)
-    img = cv.fillPoly(img, pts=[pts], color=(255, 255, 255))
+    img = zeros((sizex, sizey), np_uint8)
+    pts = array(coords)
+    img = fillPoly(img, pts=[pts], color=(255, 255, 255))
 
     orig_sizex, orig_sizey = ref_img.lat_dims
 
-    img = cv.resize(img, (orig_sizex, orig_sizey), interpolation=cv.INTER_NEAREST)
-    img = np.flipud(img)
+    img = resize(img, (orig_sizex, orig_sizey), interpolation=INTER_NEAREST)
+    img = flipud(img)
     for filename in filenames:
-        cv.imwrite(f"{filename}", img)
+        imwrite(f"{filename}", img)
 
 
 def draw_square_mask(winfo, graph):

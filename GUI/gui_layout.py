@@ -1,7 +1,7 @@
 import PySimpleGUI as sg
-import sys
+from sys import platform
 from align import join
-from gui_styling import pad
+from gui_styling import get_icon, pad
 
 # "Perform the 'Linear Stack Alignment with SIFT' Fiji plugin. To understand the alignment parameters, go to: https://imagej.net/Feature_Extraction.")
 # """Perform the 'bUnwarpJ' Fiji plugin. """
@@ -19,7 +19,7 @@ button_keys = ["__Fiji_Browse__", "__Fiji_Set__", "__Fiji_Reset__",
                "__BUJ_Set_Img_Dir__", "__BUJ_Reset_Img_Dir__",
                "__BUJ_Load_Unflip_Stack__", "__BUJ_Load_Flip_Stack__",
                "__BUJ_Elastic_Align__", "__BUJ_Unflip_Align__", "__BUJ_Flip_Align__",
-               "__BUJ_Adjust__", "__BUJ_View_Stack__", "__BUJ_Make_Mask__", "__BUJ_Reset_Mask__",
+               "__BUJ_Adjust__", "__BUJ_View__", "__BUJ_Make_Mask__", "__BUJ_Reset_Mask__",
                "__BUJ_Load_Mask__",
                "__BUJ_Clear_Unflip_Mask__", "__BUJ_Clear_Flip_Mask__",
 
@@ -35,7 +35,7 @@ checkbox_keys = ["__LS_horizontal_flip__", "__LS_interp__",
 combo_keys = ["__LS_exp_transf__","__LS_FLS_Combo__", "__LS_TFS_Combo__",
               "__BUJ_reg_mode__", "__BUJ_init_def__", "__BUJ_final_def__",
               "__BUJ_FLS_Combo__", "__BUJ_TFS_Combo__",
-              "__BUJ_LS_exp_transf__", "__BUJ_exp_transf__", "__BUJ_Stack_Choice__", "__BUJ_Mask_View__",
+              "__BUJ_LS_exp_transf__", "__BUJ_exp_transf__", "__BUJ_Mask_View__",
               "__REC_Def_Combo__", "__REC_FLS_Combo__", "__REC_TFS_Combo__",
               "__REC_Derivative__", "__REC_Colorwheel__"]
 column_keys = ["__BUJ_Load_Mask_Col__"]
@@ -69,7 +69,8 @@ input_keys = ["__Fiji_Path__", "__LS_Image_Dir_Path__", "__LS_igb__",
               "__REC_FLS1__", "__REC_FLS2__", "__REC_Stack__", "__REC_Stack_Staging__",
               "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__", "__REC_Data_Prefix__"
               ]
-listbox_keys = ["__REC_Image_List__", "__REC_Def_List__"]
+listbox_keys = ["__BUJ_Image_Choice__",
+                "__REC_Image_List__", "__REC_Def_List__"]
 # multiline_keys = ["__REC_Def_Multi__"] #"__LS_Log__", "__BUJ_Log__"
 # output_keys = ["__LS_Log__", "__BUJ_Log__"]
 radio_keys = ["__LS_full_align__", "__LS_param_test__", '__LS_unflip_reference__', '__LS_flip_reference__',
@@ -104,7 +105,6 @@ keys = {'button': button_keys,
     'text': text_keys}
 
 
-
 # ------------------------------------------------ Layout ------------------------------------------------ #
 # -------------------------------------------- (DON"T CHANGE) -------------------------------------------- #
 
@@ -112,9 +112,9 @@ keys = {'button': button_keys,
 def menu_bar():
     """Menu bar layout (kind of pointless at the moment)"""
 
-    menu_def = [['&File', ['&Open', '&Save', '&Exit', 'Properties']],
-                ['Log', ['Main', 'Fiji Output']],
-                ['&Help', '&About...'], ]
+    menu_def = [['PyLo', ['About', 'Exit']],
+                ['Log', ['Show::Log', 'Hide::Log']],
+                ['Procedure Help', ['Test']]]
     return sg.Menu(menu_def)
 
 
@@ -158,7 +158,7 @@ def home_tab(style, DEFAULTS):
     '''
     contact = 'Contact: tcote@anl.gov, ammcray@anl.gov'
 
-    if sys.platform in ['win32', 'Windows']:
+    if platform in ['win32', 'Windows']:
         fiji_button = sg.FolderBrowse("Browse", **style.styles('__Fiji_Browse__'))
     else:
         fiji_button = sg.FileBrowse("Browse", **style.styles('__Fiji_Browse__'))
@@ -586,11 +586,20 @@ def align_tab(style, DEFAULTS):
             align_frame : list of list of PySimpleGUI Elements
                 The layout for the bunwarpj alignment frame.
             """
+
+
             spacer1a = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
             spacer1b = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
             spacer1c = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
-
             spacer2 = sg.Graph((760, 1), (0, 0), (760, 1), pad=((10, 0), (3, 2)), background_color='black')
+
+            bunwarp_graph = [[sg.Text("1. Image Directory:", pad=((5, 0), (0, 0))),
+                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__BUJ_Image_Dir_Path__')),
+                              sg.FolderBrowse("Browse", **style.styles('__BUJ_Image_Dir_Browse__')),
+                              sg.Button('Set', **style.styles('__BUJ_Set_Img_Dir__')),
+                              sg.Button('Reset', **style.styles('__BUJ_Reset_Img_Dir__'))],
+                             [sg.Graph((512, 512), (0, 0), (511, 511), **style.styles('__BUJ_Graph__'))]]
+
             bunwarp_test = [[sg.Text('2b. Linear Stack SIFT Alignment', font=style.fonts['heading'], pad=(0, 5))],
 
                             [sg.Text('Unflip:'),
@@ -641,12 +650,6 @@ def align_tab(style, DEFAULTS):
                             [spacer1c],
                             [sg.Text('5c. Registration', pad=((54, 5), (0, 0)), font=style.fonts['heading'])],
                             [sg.Button('bUnwarpJ Alignment', **style.styles('__BUJ_Elastic_Align__'))]]
-            bunwarp_graph = [[sg.Text("1. Image Directory:", pad=((5, 0), (0, 0))),
-                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__BUJ_Image_Dir_Path__')),
-                              sg.FolderBrowse("Browse", **style.styles('__BUJ_Image_Dir_Browse__')),
-                              sg.Button('Set', **style.styles('__BUJ_Set_Img_Dir__')),
-                              sg.Button('Reset', **style.styles('__BUJ_Reset_Img_Dir__'))],
-                             [sg.Graph((512, 512), (0, 0), (511, 511), **style.styles('__BUJ_Graph__'))]]
 
             files_column = [[sg.Text('Image:  1.', pad=((5, 0), (0, 0))),
                              sg.Input(**style.styles('__BUJ_Image1__'))],
@@ -660,10 +663,10 @@ def align_tab(style, DEFAULTS):
                             [sg.Text('BUJ.', pad=((37, 0), (0, 5))),
                              sg.Input(**style.styles('__BUJ_Stack__'))]]
 
-            stack_view_column = [[sg.Button('View Stack', **style.styles('__BUJ_View_Stack__')),
+            stack_view_column = [[sg.Text(" ", pad=((20, 0), (10, 0))), sg.Slider(**style.styles('__BUJ_Stack_Slider__'))],
+                                 [sg.Button('View Image', **style.styles('__BUJ_View__')),
                                   sg.Text(':'),
-                                  sg.Combo(('Unflip LS', 'Flip LS', 'bUnwarpJ'), **style.styles('__BUJ_Stack_Choice__'))],
-                                 [sg.Text(" ", pad=((20, 0), (0, 0))), sg.Slider(**style.styles('__BUJ_Stack_Slider__'))]]
+                                  sg.Listbox(['Unflip LS', 'Flip LS', 'bUnwarpJ'], **style.styles('__BUJ_Image_Choice__'))]]
             align_frame = [[sg.Column(bunwarp_graph), sg.Column(bunwarp_test)],
                            [spacer2],
                            [sg.Column(files_column), sg.Column(stack_view_column)]]
@@ -683,7 +686,6 @@ def align_tab(style, DEFAULTS):
             sift_par_tab = sg.Tab("2a. Linear SIFT", layout=bunwarp_ls_sift_p_frame(), font=style.fonts['tab'])
             feat_ext_par_tab = sg.Tab("5a. Feature Extract", layout=buj_feat_ext_p_frame(), font=style.fonts['tab'])
             bunwarp_par_tab = sg.Tab("5b. bUnwarpJ", layout=bunwarp_p_frame(), font=style.fonts['tab'])
-            # bunwarp_log = sg.Multiline(">> Starting Log\n", **style.styles("__BUJ_Log__"))
             align_frame = sg.Frame(layout=bunwarp_al_frame(), title='Alignment',
                                    relief=sg.RELIEF_SUNKEN, pad=((0, 5), (0, 2)), font=('Times New Roman', 19))
             param_tabgroup = [[sg.TabGroup([[sift_par_tab, feat_ext_par_tab, bunwarp_par_tab]], tab_location='topleft',
@@ -891,7 +893,8 @@ def window_ly(style, DEFAULTS):
     window_layout = [[menu], [invisible_graph, pages]]
     window = sg.Window('PyLorentz', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
                        resizable=True, size=(style.window_width, style.window_height), use_default_focus=False,
-                       icon=style.icon, finalize=True)
+                       icon=get_icon(), finalize=True)
+    # window.TKroot.iconbitmap(style.icon_path)
     return window
 
 
@@ -1012,3 +1015,16 @@ def save_window_ly(event, image_dir, orientations, tfs=None):
     layout = [[sg.Col(col1), sg.Col(col2)]]
     return layout, im_type, file_paths, orientations
 
+
+def output_ly():
+    main_output = sg.Tab('Main', [[sg.Multiline('', key='MAIN_OUTPUT', size=(400, 300), autoscroll=True)]])
+    fiji_output = sg.Tab('FIJI', [[sg.Multiline('', key='FIJI_OUTPUT', size=(400, 300), autoscroll=True)]])
+    reconstruct_output = sg.Tab('Reconstruct', [[sg.Multiline('', key='RECON_OUTPUT', size=(300, 400), autoscroll=True)]])
+    pages = sg.TabGroup([[main_output, fiji_output, reconstruct_output]], tab_location='topleft',
+                          theme=sg.THEME_CLASSIC,
+                          enable_events=True, key="output_tabgroup")
+    window_layout = [[pages]]
+    window = sg.Window('Output', window_layout, default_element_size=(12, 1), disable_close=True,
+                       resizable=True, size=(360, 400), use_default_focus=False, alpha_channel=0,
+                       icon=get_icon(), finalize=True)
+    return window

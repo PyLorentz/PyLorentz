@@ -1,5 +1,4 @@
-import time
-import os
+from os import path as os_path
 
 ########################################################
 # Path manipulation and converting strings into macros #
@@ -126,12 +125,12 @@ def read_fls(path1, path2, fls_files,
     # Check if image path exists and break if any path is nonexistent
     for file in flatten_list(files1):
         full_path = join([path1, file], '/')
-        if not os.path.exists(full_path):
+        if not os_path.exists(full_path):
             return
     if files2:
         for file in flatten_list(files2):
             full_path = join([path2, file], '/')
-            if not os.path.exists(full_path):
+            if not os_path.exists(full_path):
                 return
     return files1, files2
 
@@ -639,46 +638,6 @@ def format_macro(all_macros):
     return full_macro
 
 
-def order_slices(datafolder, all_files, ref, reference):
-    """ Order filenames in a stack for display in the GUI."""
-
-    ordered_files = []
-    for i in range(len(all_files)):
-        if i == 0:
-            flip = 'unflip'
-        elif i == 1:
-            flip = 'flip'
-        for j in range(len(all_files[i])):
-            # Add if unflip reference and unflip overfocus
-            if j == 1:
-                if reference == flip:
-                    ordered_files.append(ref)
-                else:
-                    name = all_files[i][j][0]
-                    name = join([datafolder, flip, name], '/')
-                    ordered_files.append(name)
-            elif j == 0:
-                for name in all_files[i][j][::-1]:
-                    name = join([datafolder, flip, name], '/')
-                    ordered_files.append(name)
-            # Add if overfocused
-            elif j == 2:
-                for name in all_files[i][j]:
-                    name = join([datafolder, flip, name], '/')
-                    ordered_files.append(name)
-    return ordered_files
-
-
-def order_single_slices(files, path):
-
-    ordered_files = []
-    sorted_files = files[0][::-1] + files[1][:] + files[2][:]
-    for file in sorted_files:
-        name = join([path, file], '/')
-        ordered_files.append(name)
-    return ordered_files
-
-
 def run_ls_align(datafolder, reference='unflip', check_sift=False, sift_params=None, transform_params=None,
                  stack_name='uf_aligned_ls_stack.tif', tfs_value='Unflip/Flip', fls_value='Two', fls_files=None):
     """ Aligns all 'dm3' files in the 'datafolder' and saves an aligned Tiff
@@ -718,7 +677,6 @@ def run_ls_align(datafolder, reference='unflip', check_sift=False, sift_params=N
     # ij.py.run_macro(full_ls_macro)
 
     # Return list of ordered filenames (to display in GUI)
-    # ordered_slice_names = order_slices(datafolder, all_files, ref, reference)
     return full_ls_macro  #, ordered_slice_names
 
 
@@ -729,7 +687,6 @@ def run_single_ls_align(datafolder, reference='', sift_params=None,
     """
 
     # Initiate timing and pre-alignment processing.
-    # time_start = time.time()
 
     # Grab image data
     path1 = join([datafolder, 'unflip'], '/')
@@ -762,7 +719,6 @@ def run_single_ls_align(datafolder, reference='', sift_params=None,
 
     # Return list of ordered filenames (to display in GUI)
     # ordered_slice_names = order_single_slices(files, path)
-    # time_stop = time.time()
     # print(f'Completed task. Aligned in {round(time_stop - time_start)} seconds!')
     return full_ls_macro
 
