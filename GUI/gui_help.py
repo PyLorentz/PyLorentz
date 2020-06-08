@@ -28,7 +28,7 @@ def load_image(img_path, graph_size, stack=False):
             if img_path.endswith(end):
                 correct_end = True
         if not correct_end:
-            print('Trying to load incorrect filetype. Acceptable values "tif", "tiff", "dm3", "dm4", and "bmp".')
+            print('Trying to load an incorrect filetype. Acceptable values "tif", "tiff", "dm3", "dm4", and "bmp".')
             raise
         uint8_data, float_data = {}, {}
         # Load data

@@ -3,7 +3,7 @@ import PySimpleGUI as sg
 from os import path as os_path, remove as os_remove, mknod as os_mknod
 import subprocess
 from platform import system as platform
-# from io import StringIO
+from io import StringIO
 from align import check_setup, join as al_join, run_bUnwarp_align, run_ls_align, run_single_ls_align
 import gui_help as g_help
 from gui_styling import WindowStyle, get_icon, window_scaling
@@ -480,11 +480,11 @@ def shorten_name(path, ind=1):
 
     """
     check_string = path
-    print('path: ', path)
+    # print('path: ', path)
     for i in range(ind):
         index = check_string.rfind('/') - 1
         check_string = check_string[:index]
-        print(check_string)
+        # print(check_string)
     shortname = path[index+2:]
     return shortname
 
@@ -736,7 +736,7 @@ def file_loading(winfo, window, filename, active_key, image_key, target_key,
                     print(f'The file {stack.shortname} was loaded.')
                 else:
                     # Incorrect file loaded, don't keep iterating through it
-                    print('An incorrect file was loaded. Either there was a file type error')
+                    print('An incorrect file was loaded. Either there was a file type error', end=' ')
                     print('or, if a stack, the number of files may not equal that expected from the fls.')
                 remove = True
             except ValueError:
@@ -2903,15 +2903,15 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
                 except:
                     print('Something went wrong loading in image data.')
-                    print('1. Check to make sure the fls file(s) match the aligned file chosen.')
-                    print('   Otherwise PYTIE will search the wrong directories.')
+                    print('1. Check to make sure the fls file(s) match the aligned file chosen.', end=' ')
+                    print('Otherwise PYTIE will search the wrong directories.')
                     print('2. Check to see voltage is numerical and above 0.')
                     raise
             else:
-                print('The number of expected files does not match the')
+                print('The number of expected files does not match the', end=' ')
                 print('current stack.')
         else:
-            print('There was an incompatibility between the fls contents and the')
+            print('There was an incompatibility between the fls contents and the', end=' ')
             print('files within the directories.')
 
     # Change the slider
@@ -3619,89 +3619,89 @@ def event_handler(winfo, window):
     # Set up the output log window and redirecting std_out
     output_window = output_ly()
     output_window.Hide()
-    # log_line = -1
-    # log_path = '../GUI/log.txt'
-    # with open(log_path, 'w+') as f:
-        # with redirect_stdout(f):
-    # Run event loop
-    bound_click = True
-    close = None
-    while True:
-        # Capture events
-        event, values = window.Read(timeout=200)
-        if event == 'Show::Log' and not winfo.output_window_active:
-            winfo.output_window_active = True
-            output_window.Reappear()
-            output_window.UnHide()
+    window.UnHide()
+    log_line = -1
+    with StringIO() as buf:
+        with redirect_stdout(buf):
 
-        elif event == 'Hide::Log' and winfo.output_window_active:
-            winfo.output_window_active = False
-            output_window.Hide()
-            output_window.Disappear()
-
-        # Break out of event loop
-        if event is None or close == 'close':  # always,  always give a way out!
-            winfo.kill_proc = ['LS', 'BUJ']
-            load_file_queue(winfo, window)
-            window.close()
-            output_window.close()
-            # sys.stdout = original_std_out
-            break
-
-        # if event != '__TIMEOUT__' and 'HOVER' not in event:
-        #     print(event)
-
-        # Disable window clicks if creating mask or setting subregion
-        if ((winfo.true_element == '__BUJ_Graph__' and bound_click and
-             window['__BUJ_Make_Mask__'].metadata['State'] == 'Set') or
-            (winfo.true_element == '__REC_Graph__' and bound_click and
-             window['__REC_Mask__'].metadata['State'] == 'Set')):
-            window.TKroot.unbind("<Button-1>")
-            bound_click = False
-        elif ((not bound_click and winfo.true_element != '__BUJ_Graph__') and
-              (not bound_click and winfo.true_element != '__REC_Graph__')):
-            winfo.window.bind("<Button-1>", 'Window Click')
+            # Run event loop
             bound_click = True
+            close = None
+            while True:
+                # Capture events
+                event, values = window.Read(timeout=200)
+                if event == 'Show::Log' and not winfo.output_window_active:
+                    winfo.output_window_active = True
+                    output_window.Reappear()
+                    output_window.UnHide()
 
-        # Make sure input element that just display names can't be typed in
-        if event in keys['read_only_inputs']:
-            state = window[event].metadata['State']
-            text = window[event].metadata[state]
-            window[event].update(value=text)
+                elif event == 'Hide::Log' and winfo.output_window_active:
+                    winfo.output_window_active = False
+                    output_window.Hide()
+                    output_window.Disappear()
 
-        # Check which tab is open and execute events regarding that tab
-        current_tab = winfo.current_tab = get_open_tab(winfo, winfo.pages)
-        if current_tab == "home_tab":
-            run_home_tab(winfo, window, event, values)
-        elif current_tab == "ls_tab":
-            run_ls_tab(winfo, window, current_tab, event, values)
-        elif current_tab == "bunwarpj_tab":
-            run_bunwarpj_tab(winfo, window, current_tab, event, values)
-        elif current_tab == "reconstruct_tab":
-            run_reconstruct_tab(winfo, window, current_tab, event, values)
+                # Break out of event loop
+                if event is None or close == 'close':  # always,  always give a way out!
+                    winfo.kill_proc = ['LS', 'BUJ']
+                    load_file_queue(winfo, window)
+                    window.close()
+                    output_window.close()
+                    value = buf.read()
+                    break
 
-        # Load files and run sub-processes
-        load_file_queue(winfo, window)
+                # if event != '__TIMEOUT__' and 'HOVER' not in event:
+                #     print(event)
 
-        # Set the focus of the GUI to reduce interferences
-        set_pretty_focus(winfo, window, event)
+                # Disable window clicks if creating mask or setting subregion
+                if ((winfo.true_element == '__BUJ_Graph__' and bound_click and
+                     window['__BUJ_Make_Mask__'].metadata['State'] == 'Set') or
+                    (winfo.true_element == '__REC_Graph__' and bound_click and
+                     window['__REC_Mask__'].metadata['State'] == 'Set')):
+                    window.TKroot.unbind("<Button-1>")
+                    bound_click = False
+                elif ((not bound_click and winfo.true_element != '__BUJ_Graph__') and
+                      (not bound_click and winfo.true_element != '__REC_Graph__')):
+                    winfo.window.bind("<Button-1>", 'Window Click')
+                    bound_click = True
 
-        # Change color of any loaded images/files
-        for key in keys['read_only_inputs']:
-            if window[key].metadata['State'] == 'Set':
-                window[key].update(text_color='green')
-            elif window[key].metadata['State'] == 'Def':
-                window[key].update(text_color='black')
+                # Make sure input element that just display names can't be typed in
+                if event in keys['read_only_inputs']:
+                    state = window[event].metadata['State']
+                    text = window[event].metadata[state]
+                    window[event].update(value=text)
+
+                # Check which tab is open and execute events regarding that tab
+                current_tab = winfo.current_tab = get_open_tab(winfo, winfo.pages)
+                if current_tab == "home_tab":
+                    run_home_tab(winfo, window, event, values)
+                elif current_tab == "ls_tab":
+                    run_ls_tab(winfo, window, current_tab, event, values)
+                elif current_tab == "bunwarpj_tab":
+                    run_bunwarpj_tab(winfo, window, current_tab, event, values)
+                elif current_tab == "reconstruct_tab":
+                    run_reconstruct_tab(winfo, window, current_tab, event, values)
+
+                # Load files and run sub-processes
+                load_file_queue(winfo, window)
+
+                # Set the focus of the GUI to reduce interferences
+                set_pretty_focus(winfo, window, event)
+
+                # Change color of any loaded images/files
+                for key in keys['read_only_inputs']:
+                    if window[key].metadata['State'] == 'Set':
+                        window[key].update(text_color='green')
+                    elif window[key].metadata['State'] == 'Def':
+                        window[key].update(text_color='black')
+
 
                 # Redirecting stdout
-                # sys.stdout.flush()
-                # with open(log_path, 'r') as log_file:
-                #     for i, line in enumerate(log_file):
-                #         print(i, log_line, line)
-                #         if i > log_line:
-                #             output_window['MAIN_OUTPUT'].update(value=line, append=True)
-                #             log_line = i
-                #             output_window.Refresh()
+                sys.stdout.flush()
+                characters = buf.getvalue()
+                for i, line in enumerate(characters):
+                    if log_line < i:
+                        log_line = i
+                        output_window['MAIN_OUTPUT'].update(value=f'{line}', append=True)
 
 
 def run_GUI(DEFAULTS):
