@@ -1,7 +1,7 @@
 import PySimpleGUI as sg
 from sys import platform
 from align import join
-from gui_styling import get_icon, pad
+from gui_styling import pad
 
 # "Perform the 'Linear Stack Alignment with SIFT' Fiji plugin. To understand the alignment parameters, go to: https://imagej.net/Feature_Extraction.")
 # """Perform the 'bUnwarpJ' Fiji plugin. """
@@ -137,24 +137,22 @@ def home_tab(style, DEFAULTS):
         The layout for the hometab.
     """
 
-    title = '''PYTIE Phase Reconstruction'''
-    version = '''Version 0.7.0'''
+    title = '''PyLorentz Phase Reconstruction'''
+    version = '''Version 1.0.0'''
     authors = '''Authors: Tim Cote, Arthur McCray, CD Phatak'''
     readme = '''
-    Welcome to this program! Here you can reconstruct
-    the magnetic phase of a material using through-focal
-    series of TEM images.
+    This program is meant for reconstructing magnetic
+    and electrostatic phase information of a material 
+    using through-focal series of LTEM images.
 
     The layout of this program allows you to first align
-    any Digital Micrograph images of your object using a
-    Python <-> ImageJ interface. This can be done under
-    the 'Align Stacks' tab.
+    a series of Digital Micrograph images of your sample
+    using a call to FIJI's Linear Sift or bUnwarpJ  
+    processes. This is done under the 'Registration'
+    tab.
 
     The phase reconstruction can be performed underneath
     the 'Phase Reconstruction' tab.
-
-    You may visualize resulting reconstructions in the
-    'Visualize' tab.
     '''
     contact = 'Contact: tcote@anl.gov, ammcray@anl.gov'
 
@@ -162,18 +160,22 @@ def home_tab(style, DEFAULTS):
         fiji_button = sg.FolderBrowse("Browse", **style.styles('__Fiji_Browse__'))
     else:
         fiji_button = sg.FileBrowse("Browse", **style.styles('__Fiji_Browse__'))
-    fiji_install_text = sg.Text("Fiji Installation:", pad=pad(350, 0, 20, 0))
+    arrow1 = sg.Text("\u2193", pad=pad(240, 0, 20, 0))
+    arrow2 = sg.Text("\u2193", pad=pad(0, 0, 20, 0))
+    fiji_install_text = sg.Text(" Select Fiji Installation to access 'Registration' tab ", pad=pad(0, 0, 25, 0))
     fiji_input = sg.Input(DEFAULTS['fiji_dir'], **style.styles('__Fiji_Path__'))
     fiji_set = sg.Button('Set Fiji', **style.styles('__Fiji_Set__'))
     fiji_reset = sg.Button('Reset Fiji', **style.styles('__Fiji_Reset__'))
 
-    layout = [[sg.T(title, **style.styles('home_title'))],
-              [sg.T(version, **style.styles('home_version'))],
-              [sg.T(authors, **style.styles('home_authors'))],
-              [sg.T(readme, **style.styles('home_readme'))],
-              [sg.T(contact, **style.styles('home_contact'))],
-              [fiji_install_text],
-              [fiji_button,  fiji_input, fiji_set, fiji_reset]]
+    layout = [[sg.Col([[sg.T(title, **style.styles('home_title'))],
+                       [sg.T(version, **style.styles('home_version'))],
+                       [sg.T(authors, **style.styles('home_authors'))],
+                       [sg.T(readme, **style.styles('home_readme'))],
+                       [sg.T(contact, **style.styles('home_contact'))],
+                       [arrow1, fiji_install_text, arrow2],
+                       [fiji_button,  fiji_input, fiji_set, fiji_reset]]),
+               ]] #sg.Graph((300, 300), (0, 0), (299, 299), background_color='grey', key='home_graph',
+                        # pad=pad(80, 0, 110, 0))
     metadata = {"parent_tabgroup": "pages_tabgroup",
                 "child_tabgroup": None}
 
@@ -893,8 +895,7 @@ def window_ly(style, DEFAULTS):
     window_layout = [[menu], [invisible_graph, pages]]
     window = sg.Window('PyLorentz', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
                        resizable=True, size=(style.window_width, style.window_height), use_default_focus=False,
-                       icon=get_icon(), finalize=True)
-    # window.TKroot.iconbitmap(style.icon_path)
+                       finalize=True)
     return window
 
 
@@ -1025,7 +1026,7 @@ def output_ly():
                           theme=sg.THEME_CLASSIC,
                           enable_events=True, key="output_tabgroup")
     window_layout = [[pages]]
-    window = sg.Window('Output', window_layout, default_element_size=(12, 1), disable_close=True,
+    window = sg.Window('Log', window_layout, default_element_size=(12, 1), disable_close=True,
                        resizable=True, size=(400, 300), use_default_focus=False, alpha_channel=0,
-                       icon=get_icon(), finalize=True)
+                       finalize=True)
     return window

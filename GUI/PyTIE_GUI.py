@@ -6,7 +6,7 @@ from platform import system as platform
 from io import StringIO
 from align import check_setup, join as al_join, run_bUnwarp_align, run_ls_align, run_single_ls_align
 import gui_help as g_help
-from gui_styling import WindowStyle, get_icon, window_scaling
+from gui_styling import WindowStyle, window_scaling #get_icon,
 from gui_layout import window_ly, keys, save_window_ly, output_ly
 from numpy import setdiff1d
 from matplotlib import colors
@@ -14,6 +14,9 @@ from matplotlib import colors
 from sys import path as sys_path
 from contextlib import redirect_stdout
 import sys
+import shlex
+from threading import Thread
+from queue import Queue, Empty
 sys_path.append("../PyTIE/")
 from microscopes import Microscope
 from TIE_helper import *
@@ -209,7 +212,7 @@ def init_rec(winfo, window):
     winfo.rec_mask_markers = []
 
 
-def init(winfo, window):
+def init(winfo, window, output_window):
     """Initialize all window and event variables
 
     Parameters
@@ -226,6 +229,7 @@ def init(winfo, window):
     """
     # --- Set up window and tabs --- #
     winfo.window = window
+    winfo.output_window = output_window
     winfo.window_active = True
     winfo.output_window_active = False
     winfo.invis_graph = window.FindElement("__invisible_graph__")
@@ -236,8 +240,12 @@ def init(winfo, window):
     # --- Set up FIJI/ImageJ --- #
     winfo.fiji_path = ""
     winfo.fiji_queue = []
+    winfo.fiji_log_line = -1
+    winfo.fiji_thread_queue = None
+    winfo.fiji_thread = None
     winfo.proc = None
     winfo.kill_proc = []
+
 
     # --- Set up FIJI/ImageJ --- #
     winfo.rotxy_timers = 0, 0, 0
@@ -480,16 +488,14 @@ def shorten_name(path, ind=1):
 
     """
     check_string = path
-    # print('path: ', path)
     for i in range(ind):
         index = check_string.rfind('/') - 1
         check_string = check_string[:index]
-        # print(check_string)
     shortname = path[index+2:]
     return shortname
 
 
-def get_open_tab(winfo, tabgroup):
+def get_open_tab(winfo, tabgroup, event):
     """Recursively determine which tab is open.
 
     Parameters
@@ -512,8 +518,18 @@ def get_open_tab(winfo, tabgroup):
     tab_dict = tab.metadata
     child_tabgroup = tab_dict["child_tabgroup"]
     if child_tabgroup:
-        tab_key = get_open_tab(winfo, child_tabgroup)
+        tab_key = get_open_tab(winfo, child_tabgroup, event)
         return tab_key
+    if 'tab' in event:
+        if tab_key == "home_tab":
+            tab = 'Home'
+        elif tab_key == "ls_tab":
+            tab = 'Lin. SIFT'
+        elif tab_key == "bunwarpj_tab":
+            tab = 'bUnwarpJ'
+        elif tab_key == "reconstruct_tab":
+            tab = 'Reconstruct'
+        print(f'*** Current Tab: {tab} ***')
     return tab_key
 
 
@@ -708,17 +724,14 @@ def file_loading(winfo, window, filename, active_key, image_key, target_key,
                 warnings.filterwarnings('error')
                 # Load images and convert to uint8 using numpy and hyperspy,
                 if active_key.startswith('__REC'):
-                    graph_size = window['__REC_Graph__'].get_size()
-                    uint8_data, flt_data, size = g_help.load_image(filename, graph_size, stack=True)
-                    reset = not window['__REC_Image_Dir_Path__'].metadata['State'] == 'Set'
+                    graph_size_key, reset_key, prefix = '__REC_Graph__', '__REC_Set_Img_Dir__', 'LS: '
                 elif active_key.startswith('__BUJ'):
-                    graph_size = window['__BUJ_Graph__'].get_size()
-                    uint8_data, flt_data, size = g_help.load_image(filename, graph_size, stack=True)
-                    reset = not window['__BUJ_Image_Dir_Path__'].metadata['State'] == 'Set'
+                    graph_size_key, reset_key, prefix = '__BUJ_Graph__', '__BUJ_Set_Img_Dir__', 'BUJ: '
                 elif active_key.startswith('__LS'):
-                    graph_size = window['__LS_Graph__'].get_size()
-                    uint8_data, flt_data, size = g_help.load_image(filename, graph_size, stack=True)
-                    reset = not window['__LS_Image_Dir_Path__'].metadata['State'] == 'Set'
+                    graph_size_key, reset_key, prefix = '__LS_Graph__', '__LS_Set_Img_Dir__', 'REC: '
+                graph_size = window[graph_size_key].get_size()
+                uint8_data, flt_data, size = g_help.load_image(filename, graph_size, stack=True, prefix=prefix)
+                reset = not window[reset_key].metadata['State'] == 'Set'
 
                 # Check if data was successfully converted to uint8
                 # Save the stack in the correct image dictionary
@@ -733,14 +746,14 @@ def file_loading(winfo, window, filename, active_key, image_key, target_key,
                         winfo.rec_images[image_key] = stack
                     metadata_change(window, [(target_key, stack.shortname)])
                     toggle(window, [target_key], state="Set")
-                    print(f'The file {stack.shortname} was loaded.')
+                    print(f'{prefix}The file {stack.shortname} was loaded.')
                 else:
                     # Incorrect file loaded, don't keep iterating through it
-                    print('An incorrect file was loaded. Either there was a file type error', end=' ')
+                    print(f'{prefix}An incorrect file was loaded. Either there was a file type error', end=' ')
                     print('or, if a stack, the number of files may not equal that expected from the fls.')
                 remove = True
             except ValueError:
-                print('Value Error, had to remove item from queue.')
+                print(f'{prefix}Value Error, had to remove item from queue.')
                 remove = True
             # This warning captures the case when a file might be present after
             # creation but hasn't fully loaded
@@ -748,9 +761,14 @@ def file_loading(winfo, window, filename, active_key, image_key, target_key,
                 disable_elem_list = disable_elem_list + conflict_keys
     # Path doesn't exist, remove item from queue
     else:
-        print('There is no valid image name here.')
+        print(f'{prefix}There is no valid image name here.')
         remove = True
     return remove, disable_elem_list
+
+
+def readlines(process, queue):
+    while process.poll() is None:
+        queue.put(process.stdout.readline())
 
 
 def load_file_queue(winfo, window):
@@ -778,6 +796,13 @@ def load_file_queue(winfo, window):
     delete_indices = []
     for i in range(len(winfo.fiji_queue)):
         filename, active_key, image_key, target_key, conflict_keys, cmd = winfo.fiji_queue[i]
+        if active_key.startswith('__LS'):
+            prefix = 'LS: '
+        elif active_key.startswith('__BUJ'):
+            prefix = 'BUJ: '
+        elif active_key.startswith('__REC'):
+            prefix = 'REC: '
+
         # Zero-eth alignment and no process running
         if i == 0 and winfo.proc is None:
             if winfo.kill_proc:
@@ -785,27 +810,47 @@ def load_file_queue(winfo, window):
                     if item in active_key:
                         delete_indices.append(i)
                 if i in delete_indices:
-                    print(f'The {active_key} process was removed.')
+                    print(f'{prefix}The {active_key} process was removed.')
             if i not in delete_indices:
-                winfo.proc = subprocess.Popen(cmd, shell=True)
+                winfo.proc = subprocess.Popen(shlex.split(cmd), shell=False, stdout=subprocess.PIPE,
+                                              universal_newlines=True, bufsize=1)
+                winfo.fiji_thread_queue = Queue()
+                winfo.fiji_thread = Thread(target=readlines, args=(winfo.proc, winfo.fiji_thread_queue), daemon=True)
+                winfo.fiji_thread.start()
                 disable_elem_list = disable_elem_list + conflict_keys
+                if active_key in ["__LS_Run_Align__", "__BUJ_Unflip_Align__", "__BUJ_Flip_Align__",]:
+                    type = 'Linear SIFT'
+                elif active_key in [ "__BUJ_Elastic_Align__"]:
+                    type = 'bUnwarpJ'
+                prompt = f'--- Starting {type} Alignment ---'
+                print(prefix, prompt)
+                winfo.output_window['FIJI_OUTPUT'].update(value=f'{prompt}\n', append=True)
+
         # Zero-eth alignment and process currently running
         elif i == 0 and winfo.proc is not None:
             # Poll the process
             poll = winfo.proc.poll()
+            # Get information from the FIJI thread
+            try:
+                line = winfo.fiji_thread_queue.get_nowait()  # False for non-blocking, raises Empty if empty
+                winfo.output_window['FIJI_OUTPUT'].update(value=f'{line}', append=True)
+            except Empty:
+                pass
+
             # Kill the process for whatever reason
             remove = False
             if winfo.kill_proc:
                 for item in winfo.kill_proc:
                     if item in active_key:
                         try:
+                            # Terminate subprocess
                             winfo.proc.terminate()
                         except OSError:
                             pass
                         remove = True
                         poll = True
                 if remove:
-                    print(f'The {active_key} process was removed.')
+                    print(f'{prefix}The {active_key} process was removed.')
             # Process is finished, file was made and saved
             if os_path.exists(filename) and poll is not None and not remove:
                 num_files = None
@@ -814,11 +859,23 @@ def load_file_queue(winfo, window):
             # Process finished but nothing made
             elif poll is not None:
                 remove = True
-                print('FIJI did not complete its task successfully!')
+                print(f'{prefix}FIJI did not complete its task successfully!')
             # Decide whether the alignment should be removed from the queue
             if remove:
                 delete_indices.append(i)
+                # Reset the process that is finished
+                try:
+                    if not winfo.fiji_thread.is_alive():
+                        winfo.fiji_thread.join()
+                    winfo.proc.close()
+                except:
+                    pass
                 winfo.proc = None
+                winfo.fiji_thread = None
+                winfo.fiji_thread_queue = None
+                prompt = '--- FIJI has closed ---'
+                print(prefix, prompt)
+                winfo.output_window['FIJI_OUTPUT'].update(value=f'{prompt}\n\n', append=True)
             else:
                 disable_elem_list = disable_elem_list + conflict_keys
         elif i > 0:
@@ -828,7 +885,7 @@ def load_file_queue(winfo, window):
                     if item in next_active:
                         delete_indices.append(i)
                 if i in delete_indices:
-                    print(f'The {next_active} process was removed.')
+                    print(f'{prefix}The {next_active} process was removed.')
             if i not in delete_indices:
                 disable_elem_list = disable_elem_list + conflict_keys
     if delete_indices:
@@ -840,7 +897,7 @@ def load_file_queue(winfo, window):
 
     # new_buj_queue = winfo.buj_file_queue
     for j in range(len(winfo.buj_file_queue)):
-        filename, active_key, image_key, target_key, conflict_keys, num_files = winfo.buj_file_queue[i]
+        filename, active_key, image_key, target_key, conflict_keys, num_files = winfo.buj_file_queue[j]
         remove2, disable_elem_list = file_loading(winfo, window, filename, active_key, image_key,
                                                   target_key, conflict_keys, num_files, disable_elem_list)
     winfo.buj_file_queue = []
@@ -1232,15 +1289,16 @@ def run_home_tab(winfo, window, event, values):
     -------
     None
     """
-
+    prefix = 'HOM: '
     # Get directories for Fiji and images
     if event == '__Fiji_Set__':
         winfo.fiji_path = values['__Fiji_Path__']
         if not os_path.exists(winfo.fiji_path):
-            print('This Fiji path is incorrect, try again.')
+            print(f'{prefix}This Fiji path is incorrect, try again.')
         else:
-            print('Fiji path is set, you may now proceed to registration.')
+            print(f'{prefix}Fiji path is set, you may now proceed to registration.')
             disable_elements(window, ['__Fiji_Path__', '__Fiji_Set__', '__Fiji_Browse__'])
+            window.Refresh()
             enable_elements(window, ['align_tab'])
     elif event == '__Fiji_Reset__':
         update_values(window, [('__Fiji_Path__', '')])
@@ -1342,6 +1400,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
     image_dir = winfo.ls_image_dir
     images = winfo.ls_images
     display_img = None
+    prefix = 'LS: '
 
     # Import event handler names (overlaying, etc.)
     overlay = adjust_button.metadata['State'] == 'Set' and winfo.ls_past_transform != transform
@@ -1357,9 +1416,9 @@ def run_ls_tab(winfo, window, current_tab, event, values):
         if os_path.exists(image_dir):
             winfo.ls_image_dir = image_dir
             toggle(window, ['__LS_Set_Img_Dir__'], state='Set')
-            print(f'The path is set: {image_dir}.')
+            print(f'{prefix}The path is set: {image_dir}.')
         else:
-            print('This pathname is incorrect.')
+            print(f'{prefix}This pathname is incorrect.')
 
     elif event == '__LS_FLS_Combo__' or event == '__LS_TFS_Combo__':
         winfo.ls_fls_files = [None, None]
@@ -1430,7 +1489,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
             metadata_change(window, [(target_key, fls.shortname)])
             toggle(window, [target_key], state='Set')
         else:
-            print('Pathname is incorrect or none selected.')
+            print(f'{prefix}Pathname is incorrect or none selected.')
 
     # Reset FLS
     elif event == '__LS_Reset_FLS__':
@@ -1464,7 +1523,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
         # Re-init reconstruct
         update_slider(window, [('__LS_Stack_Slider__', {'value': 0,
                                                         'slider_range': (0, 0)})])
-        print('FLS reset.')
+        print(f'{prefix}FLS reset.')
 
     # Set the fls files and load in images
     elif event == '__LS_Set_FLS__':
@@ -1475,7 +1534,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
             fls_file_names = [winfo.ls_fls_files[0].path, winfo.ls_fls_files[1].path]
         else:
             fls_file_names = [winfo.ls_fls_files[0].path, None]
-        check = check_setup(image_dir, tfs_value, fls_value, fls_file_names)
+        check = check_setup(image_dir, tfs_value, fls_value, fls_file_names, prefix=' LS:')
         if check:
             # Set the image dir button
             path1, path2, files1, files2 = check[1:]
@@ -1484,14 +1543,14 @@ def run_ls_tab(winfo, window, current_tab, event, values):
             # Prepare reference data
             ref1 = files1[len(files1)//2]
             ref1_path = al_join([path1, ref1], '/')
-            uint8_1, flt_data_1, size_1 = g_help.load_image(ref1_path, graph.get_size())
+            uint8_1, flt_data_1, size_1 = g_help.load_image(ref1_path, graph.get_size(), prefix=' LS: ')
             uint8_2 = None
             if tfs_value == 'Single':
                 ref2_path = None
             else:
                 ref2 = files2[len(files2)//2]
                 ref2_path = al_join([path2, ref2], '/')
-                uint8_2, flt_data_2, size_2 = g_help.load_image(ref2_path, graph.get_size())
+                uint8_2, flt_data_2, size_2 = g_help.load_image(ref2_path, graph.get_size(), prefix=' LS: ')
 
             # Load image data as numpy arrays for uint8, numerical val, and size
             if uint8_1:
@@ -1519,9 +1578,9 @@ def run_ls_tab(winfo, window, current_tab, event, values):
                 winfo.ls_images['image2'] = image2
                 winfo.ls_files1 = files1
                 winfo.ls_files2 = files2
-                print('Directory properly set-up.')
+                print(f'{prefix}Directory properly set-up.')
         else:
-            print('Look at Help Tab for correct file setup.')
+            print(f'{prefix}Look at Help Tab for correct file setup.')
 
     # Change reference state between flip/unflip images
     elif change_ref:
@@ -1560,7 +1619,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
                 toggle(window, ['__LS_Adjust__', '__LS_Image2__'], state='Set')
 
         else:
-            print('No flip data to adjust, make sure to set your working directory.')
+            print(f'{prefix}No flip data to adjust, make sure to set your working directory.')
 
     # Run Linear SIFT alignment
     elif event == '__LS_Run_Align__':
@@ -1582,7 +1641,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
                 filename, overwrite_signal = run_save_window(winfo, event, image_dir, tfs=tfs_value)
                 save = overwrite_signal[0]
                 if filename == 'close' or not filename or not save:
-                    print('Exited save screen without saving image.')
+                    print(f'{prefix}Exited save screen without saving image.')
                     save = False
                 else:
                     filename = filename[0]
@@ -1609,7 +1668,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
                 winfo.fiji_queue.append((filename, event, image_key, target_key,
                                          conflict_keys, cmd))
         else:
-            print('A valid directory has not been set.')
+            print(f'{prefix}A valid directory has not been set.')
 
     # View the loaded image stack
     elif event == '__LS_View_Stack__':
@@ -1858,6 +1917,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
     image_dir = winfo.buj_image_dir
     images = winfo.buj_images
     display_img = None
+    prefix = 'BUJ: '
     draw_mask_points, draw_mask_polygon = False, False
 
     # Import event handler names (overlaying, etc.)
@@ -1879,9 +1939,9 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
         if os_path.exists(image_dir):
             winfo.buj_image_dir = image_dir
             toggle(window, ['__BUJ_Set_Img_Dir__'], state='Set')
-            print(f'The path is set: {image_dir}.')
+            print(f'{prefix}The path is set: {image_dir}.')
         else:
-            print('This pathname is incorrect.')
+            print(f'{prefix}This pathname is incorrect.')
 
     elif event == '__BUJ_FLS_Combo__':
         winfo.buj_fls_files = [None, None]
@@ -1926,7 +1986,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             metadata_change(window, [(target_key, fls.shortname)])
             toggle(window, [target_key], state='Set')
         else:
-            print('Pathname is incorrect or none selected.')
+            print(f'{prefix}Pathname is incorrect or none selected.')
 
     # Set the fls files and load in images
     elif event == '__BUJ_Set_FLS__':
@@ -1934,7 +1994,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
         tfs_value = 'Unflip/Flip'
 
         fls_file_names = [winfo.buj_fls_files[0].path, winfo.buj_fls_files[1].path]
-        check = check_setup(image_dir, tfs_value, fls_value, fls_file_names)
+        check = check_setup(image_dir, tfs_value, fls_value, fls_file_names, prefix='BUJ: ')
         if check:
             # Set the image dir button
             path1, path2, files1, files2 = check[1:]
@@ -1943,11 +2003,11 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             # Prepare reference data
             ref1 = files1[len(files1)//2]
             ref1_path = al_join([path1, ref1], '/')
-            uint8_1, flt_data_1, size_1 = g_help.load_image(ref1_path, graph.get_size())
+            uint8_1, flt_data_1, size_1 = g_help.load_image(ref1_path, graph.get_size(), prefix=' LS: ')
 
             ref2 = files2[len(files2)//2]
             ref2_path = al_join([path2, ref2], '/')
-            uint8_2, flt_data_2, size_2 = g_help.load_image(ref2_path, graph.get_size())
+            uint8_2, flt_data_2, size_2 = g_help.load_image(ref2_path, graph.get_size(), prefix=' LS: ')
 
             # Load image data as numpy arrays for uint8, numerical val, and size
             if uint8_1 and uint8_2:
@@ -1969,9 +2029,9 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                 winfo.buj_images['image2'] = image2
                 winfo.buj_files1 = files1
                 winfo.buj_files2 = files2
-                print('Directory properly set-up.')
+                print(f'{prefix}Directory properly set-up.')
         else:
-            print('Look at Help Tab for correct file setup.')
+            print(f'{prefix}Look at Help Tab for correct file setup.')
 
     # Set the fls files and load in images
     elif event == '__BUJ_Reset_FLS__':
@@ -2012,7 +2072,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
         # Re-init reconstruct
         update_slider(window, [('__BUJ_Stack_Slider__', {'value': 0,
                                                          'slider_range': (0, 0)})])
-        print('FLS reset.')
+        print(f'{prefix}FLS reset.')
 
     # Change reference state between flip/unflip images
     elif change_ref:
@@ -2050,7 +2110,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                 metadata_change(window, [('__BUJ_Image2__', al_join([orient2, img_1.shortname], '/'))])
                 toggle(window, ['__BUJ_Adjust__', '__BUJ_Image2__'], state='Set')
         else:
-            print('Unable to adjust, make sure to set your working directory.')
+            print(f'{prefix}Unable to adjust, make sure to set your working directory.')
 
     # Run Linear SIFT alignments
     elif event in ['__BUJ_Flip_Align__', '__BUJ_Unflip_Align__']:
@@ -2063,7 +2123,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             filename, overwrite_signal = run_save_window(winfo, event, image_dir, [orient])
             save = overwrite_signal[0]
             if filename == 'close' or not filename or not save:
-                print('Exited save screen without saving image.')
+                print(f'{prefix}Exited save screen without saving image.')
                 save = False
 
             # Create the file
@@ -2091,7 +2151,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                 image_key = f'BUJ_{orient}_stack'
                 winfo.fiji_queue.append((filename, event, image_key, target_key, conflict_keys, cmd))
         else:
-            print('A valid directory has not been set.')
+            print(f'{prefix}A valid directory has not been set.')
 
     # Load in the stacks from Unflip or Flip
     elif event in ['__BUJ_Unflip_Stage_Load__', '__BUJ_Flip_Stage_Load__']:
@@ -2149,7 +2209,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                 toggle(window, ['__BUJ_Image1__', '__BUJ_View__'], state='Set')
                 update_slider(window, [('__BUJ_Stack_Slider__', {"value": slider_val, "slider_range": slider_range})])
             else:
-                print("Tried loading unavailable stack, you must perform an alignment.")
+                print(f"{prefix}Tried loading unavailable stack, you must perform an alignment.")
 
         elif view_stack_button.metadata['State'] == 'Set':
             # Update window
@@ -2267,7 +2327,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                 list_vals = window['__BUJ_Image_Choice__'].GetListValues()
                 ind = list_vals.index(stack_choice)
                 window['__BUJ_Image_Choice__'].update(set_to_index=ind)
-                print("Stack is not available to view. Must load or create alignment.")
+                print(f"{prefix}Stack is not available to view. Must load or create alignment.")
 
     # Start making bunwarpJ masks
     elif event == '__BUJ_Make_Mask__':
@@ -2286,11 +2346,11 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                     shortname = images[image_key].shortname
                 elif mask_choice == 'Overlay':
                     if orientation == 'unflip':
-                        img_1 = images['flip']
-                        img_2 = images['unflip']
+                        img_1 = images['image2']
+                        img_2 = images['image1']
                     elif orientation == 'flip':
-                        img_1 = images['unflip']
-                        img_2 = images['flip']
+                        img_1 = images['image1']
+                        img_2 = images['image2']
                     display_img = g_help.overlay_images(img_1, img_2, transform, img_1.x_size, graph.get_size()[0])
                     shortname = 'overlay'
                 toggle(window, ['__BUJ_Make_Mask__'])
@@ -2350,18 +2410,18 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                             toggle(window, ['__BUJ_Unflip_Mask_Inp__'], state='Set')
                         if flag[0] or flag[1]:
                             if flag[0]:
-                                print(f'Successfully saved unflip mask!')
+                                print(f'{prefix}Successfully saved unflip mask!')
                             if flag[1]:
-                                print(f'Successfully saved flip mask!')
+                                print(f'{prefix}Successfully saved flip mask!')
                         else:
-                            print(f'No masks were saved!')
+                            print(f'{prefix}No masks were saved!')
                     else:
-                        print(f'Exited without saving files!')
+                        print(f'{prefix}Exited without saving files!')
                 else:
-                    print('Mask was not finished, make sure to double-click and close mask.')
+                    print(f'{prefix}Mask was not finished, make sure to double-click and close mask.')
                 g_help.erase_marks(winfo, graph, current_tab, full_erase=True)
         else:
-            print('No flip data to adjust, make sure to set your working directory.')
+            print(f'{prefix}No flip data to adjust, make sure to set your working directory.')
 
     # Loading a mask
     elif event == '__BUJ_Mask_Stage_Load__':
@@ -2445,7 +2505,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             winfo.buj_graph_double_click = True
             draw_mask_polygon = True
         else:
-            print("Not enough vertices to close mask.")
+            print(f"{prefix}Not enough vertices to close mask.")
 
     # Remove all mask coordinates from the graph and mask file
     elif event == '__BUJ_Reset_Mask__':
@@ -2471,7 +2531,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             save = True
             save1, save2 = overwrite_signals[0], overwrite_signals[1]
             if filenames == 'close' or not filenames or not (save1 and save2):
-                print('Exited save screen without saving image.')
+                print(f'{prefix}Exited save screen without saving image.')
                 save = False
             if save:
                 src1, src2 = filenames[0], filenames[1]
@@ -2493,9 +2553,9 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                                  '__BUJ_Load_Unflip_Stack__', '__BUJ_Elastic_Align__']
                 winfo.fiji_queue.append((src2, event, image_key, target_key, conflict_keys, cmd))
             else:
-                print(f'Exited without saving files!')
+                print(f'{prefix}Exited without saving files!')
         else:
-            print("Both unflip and flip stacks are not loaded")
+            print(f"{prefix}Both unflip and flip stacks are not loaded")
 
     # If clear mask, remove from dictionaries
     elif event in ["__BUJ_Clear_Flip_Mask__", "__BUJ_Clear_Unflip_Mask__"]:
@@ -2650,7 +2710,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
     # if 'TIMEOUT' not in event:
     #     print(event)
-
+    prefix = 'REC: '
     display_img = None
     display_img2 = None
 
@@ -2677,9 +2737,9 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         if os_path.exists(image_dir):
             winfo.rec_image_dir = image_dir
             toggle(window, ['__REC_Set_Img_Dir__'], state='Set')
-            print(f'The path is set: {image_dir}.')
+            print(f'{prefix}The path is set: {image_dir}.')
         else:
-            print('This pathname is incorrect.')
+            print(f'{prefix}This pathname is incorrect.')
 
     # Load Stack
     elif event == '__REC_Stack_Staging__':
@@ -2689,7 +2749,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             image_key = 'REC_Stack'
             graph = window['__REC_Graph__']
             graph_size = graph.get_size()
-            uint8_data, flt_data, size = g_help.load_image(stack_path, graph_size, stack=True)
+            uint8_data, flt_data, size = g_help.load_image(stack_path, graph_size, stack=True, prefix=' LS: ')
             if uint8_data:
                 stack = Stack(uint8_data, flt_data, size, stack_path)
                 slider_range = (0, stack.z_size - 1)
@@ -2716,9 +2776,9 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                     metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
                 else:
                     metadata_change(window, [('__REC_Image__', f'Image {slider_val + 1}')])
-                print(f'The file {stack.shortname} was loaded.')
+                print(f'{prefix}The file {stack.shortname} was loaded.')
         else:
-            print('This pathname is incorrect.')
+            print(f'{prefix}This pathname is incorrect.')
 
     # Set number of FLS files to use
     elif event == '__REC_FLS_Combo__' or event == '__REC_TFS_Combo__':
@@ -2782,7 +2842,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             metadata_change(window, [(target_key, fls.shortname)])
             toggle(window, [target_key], state='Set')
         else:
-            print('Pathname is incorrect or none selected.')
+            print(f'{prefix}Pathname is incorrect or none selected.')
 
     # Set number of FLS files to use
     elif event == '__REC_Reset_FLS__':
@@ -2830,7 +2890,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                                ('__REC_Image_Slider__', {'value': winfo.rec_image_slider_set})])
         window['__REC_Image_List__'].update(set_to_index=0, scroll_to_index=0)
         window['__REC_Def_List__'].update(set_to_index=0, scroll_to_index=0)
-        print('FLS and reconstruct data reset.')
+        print(f'{prefix}FLS and reconstruct data reset.')
 
     # Set which image you will be working with FLS files
     elif event == '__REC_Set_FLS__':
@@ -2845,7 +2905,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             fls_file_names = [winfo.rec_fls_files[0].path, winfo.rec_fls_files[1].path]
         else:
             fls_file_names = [winfo.rec_fls_files[0].path, None]
-        check = check_setup(image_dir, tfs_value, fls_value, fls_file_names)
+        check = check_setup(image_dir, tfs_value, fls_value, fls_file_names, prefix='REC: ')
         if check:
             path1, path2, files1, files2 = check[1:]
             fls_1 = winfo.rec_fls_files[0]
@@ -2869,7 +2929,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                     if float(window['__REC_M_Volt__'].get()) > 0:
                         accel_volt = float(window['__REC_M_Volt__'].get()) * 1e3
                     else:
-                        print('Error with Voltage.')
+                        print(f'{prefix}Error with Voltage.')
                         raise
 
                     if tfs_value == 'Single':
@@ -2902,16 +2962,16 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                     toggle(window, elem_list=['__REC_Set_FLS__'])
 
                 except:
-                    print('Something went wrong loading in image data.')
-                    print('1. Check to make sure the fls file(s) match the aligned file chosen.', end=' ')
+                    print(f'{prefix}Something went wrong loading in image data.')
+                    print(f'{prefix}1. Check to make sure the fls file(s) match the aligned file chosen.', end=' ')
                     print('Otherwise PYTIE will search the wrong directories.')
-                    print('2. Check to see voltage is numerical and above 0.')
+                    print(f'{prefix}2. Check to see voltage is numerical and above 0.')
                     raise
             else:
-                print('The number of expected files does not match the', end=' ')
+                print(f'{prefix}The number of expected files does not match the', end=' ')
                 print('current stack.')
         else:
-            print('There was an incompatibility between the fls contents and the', end=' ')
+            print(f'{prefix}There was an incompatibility between the fls contents and the', end=' ')
             print('files within the directories.')
 
     # Change the slider
@@ -3059,7 +3119,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             im_name = 'In-focus image'
         if values['__REC_TFS_Combo__'][0] == 'Single' and image_key in ['dIdZ_e', 'phase_e']:
             window['__REC_Image_List__'].update(set_to_index=last_index)
-            print('Electric information not available for single TFS.')
+            print(f'{prefix}Electric information not available for single TFS.')
         else:
             if image_key in images and image_choice in ['Stack', 'Default Stack'] and images[image_key] is not None:
                 stack = images[image_key]
@@ -3099,9 +3159,9 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 metadata_change(window, [('__REC_Image__', f'{winfo.rec_def_val} {im_name}')])
             elif last_index is not None:
                 window['__REC_Image_List__'].update(set_to_index=last_index)
-                print("Image is not available to view. Check PYTIE is run.")
+                print(f"{prefix}Image is not available to view. Check PYTIE is run.")
                 if values['__REC_TFS_Combo__'] == 'Single':
-                    print("For a single TFS, electric deriv. and phase are not available.")
+                    print(f"{prefix}For a single TFS, electric deriv. and phase are not available.")
 
         winfo.rec_last_image_choice = image_choice
 
@@ -3222,7 +3282,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
         # Make sure the image is square
         if round(right*scale_x) - round(left*scale_x) != round(bottom*scale_y) - round(top*scale_y):
-            print('The crop region was not square. Fixing.')
+            print(f'{prefix}The crop region was not square. Fixing.')
             if round(right*scale_x) - round(left*scale_x) < round(bottom*scale_y) - round(top*scale_y):
                 if (round(right*scale_x) - round(left*scale_x)) % 2 != 0:
                     if right == reg_width:
@@ -3249,11 +3309,11 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         ptie.crop['bottom'], ptie.crop['top'] = round(bottom*scale_y), round(top*scale_y)
 
         if not qc_passed:
-            print('QC value should be an integer or float and not negative. Change value.')
+            print(f'{prefix}QC value should be an integer or float and not negative. Change value.')
             update_values(window, [('__REC_QC_Input__', '0.00')])
         else:
             try:
-                print(f'Reconstructing for defocus value: {ptie.defvals[def_ind]} nm')
+                print(f'{prefix}Reconstructing for defocus value: {ptie.defvals[def_ind]} nm')
                 rot, x_trans, y_trans = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
                 x_trans, y_trans = x_trans*scale_x, y_trans*scale_y
                 ptie.rotation, ptie.x_transl, ptie.y_transl = rot, int(x_trans), int(y_trans)
@@ -3308,7 +3368,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                 winfo.rec_last_image_choice = 'Color'
                 winfo.rec_ptie = ptie
             except:
-                print('There was an error when running TIE.')
+                print(f'{prefix}There was an error when running TIE.')
                 raise
 
     # Save PyTIE
@@ -3322,13 +3382,13 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                                                                                      tfs=tfs)
             save = overwrite_signals[0]
             if filenames == 'close' or not filenames or not save or not save_tie:
-                print(f'Exited without saving files!')
+                print(f'{prefix}Exited without saving files!')
             elif save:
                 save_results(winfo.rec_def_val, winfo.rec_tie_results, winfo.rec_ptie,
                              prefix, winfo.rec_sym, winfo.rec_qc, save=save_tie, v=2,
                              directory=im_dir, long_deriv=False)
         else:
-            print("Reconstruction results haven't been generated.")
+            print(f"{prefix}Reconstruction results haven't been generated.")
 
     # Adjust stack and related variables
     if adjust:
@@ -3547,7 +3607,7 @@ def run_save_window(winfo, event, image_dir, orientations=None, defocus=None, tf
     """
     # Create layout of save window
     window_layout, im_type, file_paths, orientations = save_window_ly(event, image_dir, orientations, tfs=tfs)
-    save_win = sg.Window('Save Window', window_layout, icon=style.icon, finalize=True)
+    save_win = sg.Window('Save Window', window_layout, finalize=True) #icon=get_icon(),
     winfo.save_win = save_win
     winfo.window.Hide()
     true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
@@ -3613,15 +3673,19 @@ def event_handler(winfo, window):
     -------
     None
     """
-    # Initialize window, bindings, and event variables
-    init(winfo, window)
-
-    # Set up the output log window and redirecting std_out
+    # Create output_window
     output_window = output_ly()
     output_window.Hide()
-    window.UnHide()
+
+   # Initialize window, bindings, and event variables
+    init(winfo, window, output_window)
+
+    # fiji_log = '../GUI/fiji_log.txt'
+    # window['home_graph'].DrawImage(filename='../GUI/PyLo_Icon-1.png', location=(0, 299))
+
+    # Set up the output log window and redirecting std_out
     log_line = -1
-    with StringIO() as buf:
+    with StringIO() as buf, StringIO() as winfo.fiji_buf:
         with redirect_stdout(buf):
 
             # Run event loop
@@ -3634,7 +3698,8 @@ def event_handler(winfo, window):
                     winfo.output_window_active = True
                     output_window.Reappear()
                     output_window.UnHide()
-
+                elif event == 'Show::Log' and winfo.output_window_active:
+                    output_window.BringToFront()
                 elif event == 'Hide::Log' and winfo.output_window_active:
                     winfo.output_window_active = False
                     output_window.Hide()
@@ -3646,7 +3711,6 @@ def event_handler(winfo, window):
                     load_file_queue(winfo, window)
                     window.close()
                     output_window.close()
-                    value = buf.read()
                     break
 
                 # if event != '__TIMEOUT__' and 'HOVER' not in event:
@@ -3671,7 +3735,7 @@ def event_handler(winfo, window):
                     window[event].update(value=text)
 
                 # Check which tab is open and execute events regarding that tab
-                current_tab = winfo.current_tab = get_open_tab(winfo, winfo.pages)
+                current_tab = winfo.current_tab = get_open_tab(winfo, winfo.pages, event)
                 if current_tab == "home_tab":
                     run_home_tab(winfo, window, event, values)
                 elif current_tab == "ls_tab":
@@ -3683,6 +3747,7 @@ def event_handler(winfo, window):
 
                 # Load files and run sub-processes
                 load_file_queue(winfo, window)
+                # Redirecting fiji stdout
 
                 # Set the focus of the GUI to reduce interferences
                 set_pretty_focus(winfo, window, event)
@@ -3694,14 +3759,12 @@ def event_handler(winfo, window):
                     elif window[key].metadata['State'] == 'Def':
                         window[key].update(text_color='black')
 
-
-                # Redirecting stdout
                 sys.stdout.flush()
-                characters = buf.getvalue()
-                for i, line in enumerate(characters):
+                for i, line in enumerate(buf.getvalue()):
                     if log_line < i:
                         log_line = i
-                        output_window['MAIN_OUTPUT'].update(value=f'{line}', append=True)
+                        output_window['MAIN_OUTPUT'].update(value=line, append=True)
+
 
 
 def run_GUI(DEFAULTS):

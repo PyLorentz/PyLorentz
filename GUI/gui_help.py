@@ -18,7 +18,7 @@ from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 
 
 # ------ Image Loading and Visualization ------ #
-def load_image(img_path, graph_size, stack=False):
+def load_image(img_path, graph_size, stack=False, prefix=''):
     """Load in an image"""
 
     try:
@@ -28,7 +28,7 @@ def load_image(img_path, graph_size, stack=False):
             if img_path.endswith(end):
                 correct_end = True
         if not correct_end:
-            print('Trying to load an incorrect filetype. Acceptable values "tif", "tiff", "dm3", "dm4", and "bmp".')
+            print(f'{prefix}Trying to load an incorrect filetype. Acceptable values "tif", "tiff", "dm3", "dm4", and "bmp".')
             raise
         uint8_data, float_data = {}, {}
         # Load data
@@ -41,7 +41,7 @@ def load_image(img_path, graph_size, stack=False):
         elif not stack:
             x_size, y_size = shape
         else:
-            print('Do not try loading a single image to stack.')
+            print(f'{prefix}Do not try loading a single image to stack.')
             raise
         for z in range(z_size):
             if stack:
@@ -54,7 +54,7 @@ def load_image(img_path, graph_size, stack=False):
         # Return dictionary of uint8 data, a scaled float array, and the shape of the image/stack
         return uint8_data, float_data, (x_size, y_size, z_size)
     except (IndexError, TypeError, NameError):
-        print('You tried loading a file that is not recognized. Try a different file type.')
+        print(f'{prefix}You tried loading a file that is not recognized. Try a different file type.')
         return None, None, None
     except:
         return None, None, None
@@ -214,6 +214,8 @@ def run_macro(ijm_macro_script, image_dir, fiji_path):
         f.close()
 
     cmd = join([fiji_path, "--ij2", "--headless", "--console", "-macro ", macro_file], " ")
+    # cmd = [fiji_path, "--ij2", "--headless", "--console", "-macro ", macro_file]
+
     return cmd
 
 

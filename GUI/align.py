@@ -135,7 +135,7 @@ def read_fls(path1, path2, fls_files,
     return files1, files2
 
 
-def check_setup(datafolder, tfs_value, fls_value, fls_files):
+def check_setup(datafolder, tfs_value, fls_value, fls_files, prefix=''):
     """Check to see all images filenames in .fls exists in
     the datafolder"""
 
@@ -154,11 +154,10 @@ def check_setup(datafolder, tfs_value, fls_value, fls_files):
         files1, files2 = file_result
         return True, path1, path2, flatten_list(files1), flatten_list(files2)
     else:
-        print('Task failed because the number of files extracted from the')
-        print('directory does not match the number of files expected from')
-        print('the .fls file. Check that filenames in the flip or unflip')
-        print('path match and all files exist in the right directories.')
-        print("\nTask failed!")
+        print(f'{prefix}Task failed because the number of files extracted from the directory', end=' ')
+        print(f'{prefix}does not match the number of files expected from the .fls file.')
+        print(f'{prefix}Check that filenames in the flip or unflip', end=' ')
+        print(f'{prefix}path match and all files exist in the right directories.')
         return False
 
 
@@ -643,10 +642,6 @@ def run_ls_align(datafolder, reference='unflip', check_sift=False, sift_params=N
     """ Aligns all 'dm3' files in the 'datafolder' and saves an aligned Tiff
     stack in the datafolder.
     """
-
-    # Acknowledge if parameters are being tested.
-    if check_sift:
-        print('Checking SIFT parameters ...\n')
 
     if tfs_value == 'Unflip/Flip':
         path1 = join([datafolder, 'unflip'], '/')
