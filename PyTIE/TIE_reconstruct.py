@@ -56,6 +56,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
             Saves the images to ptie.data_loc/images/
         long_deriv: Bool. Whether to use the longitudinal derivative (True) or 
             central difference method (False). Default False. 
+            __Currently has bugs__. Qualitatively looks alright but quantitatively
+            is not accurate. 
         v: Int. Verbosity. 
             0 : no output
             1 : Default output
@@ -556,8 +558,6 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=No
 
     for key, value in results.items():
         # save either all or just some of the images
-        if key not in b_keys:
-            continue
         if value is None: 
             continue
 
