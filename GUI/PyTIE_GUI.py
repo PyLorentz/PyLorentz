@@ -1,6 +1,6 @@
 import warnings
 import PySimpleGUI as sg
-from os import path as os_path, remove as os_remove, mknod as os_mknod
+from os import path as os_path, remove as os_remove
 import subprocess
 import multiprocessing
 from platform import system as platform
@@ -3755,7 +3755,6 @@ def event_handler(winfo, window):
                     winfo.kill_proc = ['LS', 'BUJ']
                     load_file_queue(winfo, window)
                     if winfo.ptie_init_thread is not None:
-                        winfo.ptie_init_thread = None
                         if winfo.ptie_init_thread.is_alive():
                             winfo.ptie_init_thread.join()
                         print('--- Stopped Loading PTIE Params ---')
