@@ -2,7 +2,6 @@ import warnings
 import PySimpleGUI as sg
 from os import path as os_path, remove as os_remove
 import subprocess
-import multiprocessing
 from platform import system as platform
 from io import StringIO
 from align import check_setup, join as al_join, run_bUnwarp_align, run_ls_align, run_single_ls_align
@@ -3851,6 +3850,7 @@ def run_GUI(DEFAULTS):
 
     # Create the layouts
     style = WindowStyle()
+    window_scaling()
     window = window_ly(style, DEFAULTS)
 
     if platform() == 'Darwin':

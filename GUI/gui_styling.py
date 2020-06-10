@@ -4,9 +4,6 @@ from sys import platform as sys_platform
 
 
 # ---------  Window Scaling  --------- #
-
-
-
 def window_scaling():
     """Properly set the scaling to look
     similar across OS."""
