@@ -115,7 +115,7 @@ def menu_bar():
     menu_def = [['PyLo', ['About', 'Exit']],
                 ['Log', ['Show::Log', 'Hide::Log']],
                 ['Procedure Help', ['Test']]]
-    return sg.Menu(menu_def, font='Times 12')
+    return sg.Menu(menu_def, font='Times 17')
 
 
 # ----------------------- Home Tab ----------------------- #
