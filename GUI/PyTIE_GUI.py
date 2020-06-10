@@ -2,6 +2,7 @@ import warnings
 import PySimpleGUI as sg
 from os import path as os_path, remove as os_remove, mknod as os_mknod
 import subprocess
+import multiprocessing
 from platform import system as platform
 from io import StringIO
 from align import check_setup, join as al_join, run_bUnwarp_align, run_ls_align, run_single_ls_align
@@ -236,6 +237,9 @@ def init(winfo, window, output_window):
     winfo.tabnames = ["Home", "Registration", "Linear Stack Alignment with SIFT", "bUnwarpJ", "Phase Reconstruction"]
     winfo.pages = "pages_tabgroup"
     winfo.current_tab = "home_tab"
+    winfo.buf = None
+    winfo.ptie_init_thread = None
+    winfo.ptie_recon_thread = None
 
     # --- Set up FIJI/ImageJ --- #
     winfo.fiji_path = ""
@@ -771,6 +775,10 @@ def readlines(process, queue):
         queue.put(process.stdout.readline())
 
 
+def tie_readlines(process, queue):
+    pass
+
+
 def load_file_queue(winfo, window):
     """Loop through unloaded images and check whether they
     exist. If they do, load that file and remove it from the
@@ -818,11 +826,13 @@ def load_file_queue(winfo, window):
                 winfo.fiji_thread = Thread(target=readlines, args=(winfo.proc, winfo.fiji_thread_queue), daemon=True)
                 winfo.fiji_thread.start()
                 disable_elem_list = disable_elem_list + conflict_keys
+
                 if active_key in ["__LS_Run_Align__", "__BUJ_Unflip_Align__", "__BUJ_Flip_Align__",]:
-                    type = 'Linear SIFT'
+                    align_type = 'Linear SIFT'
                 elif active_key in [ "__BUJ_Elastic_Align__"]:
-                    type = 'bUnwarpJ'
-                prompt = f'--- Starting {type} Alignment ---'
+                    align_type = 'bUnwarpJ'
+                print('--- Opening FIJI ---')
+                prompt = f'--- Starting {align_type} Alignment ---'
                 print(prefix, prompt)
                 winfo.output_window['FIJI_OUTPUT'].update(value=f'{prompt}\n', append=True)
 
@@ -1265,6 +1275,195 @@ def enable_elements(window, elem_list):
             window[elem_key].Update(readonly=True)
         else:
             window[elem_key].Update(disabled=False)
+
+
+def ptie_init_thread(winfo, path, fls1_path, fls2_path, stack_name,
+                     files1, files2, flip, tfs_value):
+    try:
+        if float(winfo.window['__REC_M_Volt__'].get()) > 0:
+            accel_volt = float(winfo.window['__REC_M_Volt__'].get()) * 1e3
+        else:
+            print(f'REC: Error with Voltage.')
+            raise
+
+        stack1, stack2, ptie = load_data(path, fls1_path, stack_name, flip, fls2_path)
+        string_vals = []
+        for def_val in ptie.defvals:
+            val = str(def_val)
+            string_vals.append(val)
+
+        if tfs_value == 'Single':
+            prefix = 'tfs'
+        else:
+            prefix = 'unflip'
+        im_name = files1[0]
+        # display_img = images['REC_Stack'].byte_data[0]
+        metadata_change(winfo.window, [('__REC_Image__', f'{prefix}/{im_name}')])
+
+        length_slider = len(string_vals)
+        winfo.window['__REC_Def_Combo__'].update(values=string_vals)
+        winfo.window['__REC_Def_List__'].update(ptie.defvals, set_to_index=0,
+                                          scroll_to_index=0)
+        winfo.window['__REC_Def_List__'].metadata['length'] = length_slider
+        update_slider(winfo.window, [('__REC_Defocus_Slider__', {"slider_range": (0, max(length_slider - 3, 0)),
+                                                           "value": 0})])
+        winfo.rec_defocus_slider_set = 0
+        winfo.rec_ptie = ptie
+        winfo.rec_microscope = Microscope(E=accel_volt, Cs=200.0e3, theta_c=0.01e-3, def_spr=80.0)
+        winfo.rec_files1 = files1
+        winfo.rec_files2 = files2
+        enable_elements(winfo.window, ["__REC_Reset_FLS__", "__REC_Reset_Img_Dir__"])
+        toggle(winfo.window, elem_list=['__REC_Set_FLS__'])
+    except:
+        print(f'REC: Something went wrong loading in image data.')
+        print(f'REC: 1. Check to make sure the fls file(s) match the aligned file chosen.', end=' ')
+        print('Otherwise PYTIE will search the wrong directories.')
+        print(f'REC: 2. Check to see voltage is numerical and above 0.')
+        raise
+    enable_elements(winfo.window, ["__REC_Reset_FLS__", "__REC_Reset_Img_Dir__"])
+    winfo.ptie_init_thread = None
+    print('--- Exited PTIE Initialization ---')
+
+def ptie_recon_thread(winfo, window, graph, colorwheel_graph, images, current_tab):
+    ptie = winfo.rec_ptie
+    microscope = winfo.rec_microscope
+    def_val = float(window['__REC_Def_Combo__'].Get())
+    def_ind = ptie.defvals.index(def_val)
+    dataname = 'example'
+    hsv = window['__REC_Colorwheel__'].get() == 'HSV'
+    save = False
+
+    sym = window['__REC_Symmetrize__'].Get()
+    qc = window['__REC_QC_Input__'].Get()
+    qc_passed = True
+    if g_help.represents_float(qc):
+        qc = float(qc)
+        if qc < 0:
+            qc_passed = False
+        elif qc == 0:
+            qc = None
+    else:
+        qc_passed = False
+
+    # Longitudinal deriv
+    deriv_val = window['__REC_Derivative__'].get()
+    if deriv_val == 'Longitudinal Deriv.':
+        longitudinal_deriv = True
+    elif deriv_val == 'Central Diff.':
+        longitudinal_deriv = False
+
+    # Set crop data
+    bottom, top, left, right = None, None, None, None
+    for i in range(len(winfo.rec_mask_coords)):
+        x, y = winfo.rec_mask_coords[i]
+        if right is None or x > right:
+            right = x
+        if left is None or x < left:
+            left = x
+        if bottom is None or graph.get_size()[1] - y > bottom:
+            bottom = graph.get_size()[1] - y
+        if top is None or graph.get_size()[1] - y < top:
+            top = graph.get_size()[1] - y
+    if (bottom, top, left, right) == (None, None, None, None):
+        bottom, top, left, right = graph.get_size()[1], 0, 0, graph.get_size()[0]
+
+    # Scaling the image from the graph region to the regular sized image
+    reg_width, reg_height = images['REC_Stack'].lat_dims
+    scale_x, scale_y = reg_width / graph.get_size()[0], reg_height / graph.get_size()[1]
+
+    # Make sure the image is square
+    if round(right * scale_x) - round(left * scale_x) != round(bottom * scale_y) - round(top * scale_y):
+        print(f'REC: The crop region was not square. Fixing.')
+        if round(right * scale_x) - round(left * scale_x) < round(bottom * scale_y) - round(top * scale_y):
+            if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
+                if right == reg_width:
+                    left -= 1
+                else:
+                    right += 1
+            elif (round(bottom * scale_y) - round(top * scale_y)) % 2 != 0:
+                bottom -= 1
+        if round(right * scale_x) - round(left * scale_x) > round(bottom * scale_y) - round(top * scale_y):
+            if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
+                right -= 1
+                if right == reg_width:
+                    left -= 1
+                else:
+                    right += 1
+            elif (round(bottom * scale_y) - round(top * scale_y)) % 2 != 0:
+                if bottom == reg_height:
+                    top -= 1
+                else:
+                    bottom += 1
+
+    # Set ptie crop
+    ptie.crop['right'], ptie.crop['left'] = round(right * scale_x), round(left * scale_x)
+    ptie.crop['bottom'], ptie.crop['top'] = round(bottom * scale_y), round(top * scale_y)
+
+    if not qc_passed:
+        print(f'REC: QC value should be an integer or float and not negative. Change value.')
+        update_values(window, [('__REC_QC_Input__', '0.00')])
+    else:
+        try:
+            print(f'REC: Reconstructing for defocus value: {ptie.defvals[def_ind]} nm')
+            rot, x_trans, y_trans = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
+            x_trans, y_trans = x_trans * scale_x, y_trans * scale_y
+            ptie.rotation, ptie.x_transl, ptie.y_transl = rot, int(x_trans), int(y_trans)
+            results = TIE(def_ind, ptie, microscope,
+                          dataname, sym, qc, hsv, save,
+                          longitudinal_deriv, v=0)
+
+            # This will need to consider like the cropping region
+            winfo.rec_tie_results = results
+            winfo.rec_def_val = def_val
+            winfo.rec_sym = sym
+            winfo.rec_qc = qc
+            winfo.graph_slice = (round(right * scale_x) - round(left * scale_x),
+                                 round(bottom * scale_x) - round(top * scale_x))
+
+            loaded_green_list = []
+            for key in results:
+                float_array = results[key]
+                if key == 'color_b':
+                    float_array = g_help.slice(float_array, winfo.graph_slice)
+                    colorwheel_type = window['__REC_Colorwheel__'].get()
+                    rad1, rad2 = colorwheel_graph.get_size()
+                    if colorwheel_type == 'HSV':
+                        cwheel_hsv = colorwheel_HSV(rad1, background='black')
+                        cwheel = colors.hsv_to_rgb(cwheel_hsv)
+                    elif colorwheel_type == '4-Fold':
+                        cwheel = colorwheel_RGB(rad1)
+                    uint8_colorwheel, float_colorwheel = g_help.convert_float_unint8(cwheel, (rad1, rad2))
+                    rgba_colorwheel = g_help.make_rgba(uint8_colorwheel[0])
+                    winfo.rec_colorwheel = g_help.convert_to_bytes(rgba_colorwheel)
+                uint8_data, float_data = {}, {}
+                uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
+                                                                     uint8_data, float_data)
+                if uint8_data:
+                    image = Image(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), f'/{key}')
+                    image.byte_data = g_help.vis_1_im(image)
+                    winfo.rec_images[key] = image
+                    loaded_green_list.append(key)
+                else:
+                    winfo.rec_images[key] = None
+
+            # Update window
+            list_color_indices = rec_get_listbox_ind_from_key(loaded_green_list)
+            change_list_ind_color(window, current_tab, [('__REC_Image_List__', list_color_indices)])
+            redraw_graph(graph, winfo.rec_images['color_b'].byte_data)
+            redraw_graph(colorwheel_graph, winfo.rec_colorwheel)
+            metadata_change(window, [('__REC_Image__', f'{def_val} Color')])
+            toggle(window, ['__REC_Image__'], state='Set')
+            update_slider(window, [('__REC_Image_Slider__', {"value": 6 - 1})])
+            window['__REC_Image_List__'].update(set_to_index=1, scroll_to_index=1)
+            winfo.rec_image_slider_set = 6 - 1
+            winfo.rec_last_image_choice = 'Color'
+            winfo.rec_ptie = ptie
+        except:
+            print(f'REC: There was an error when running TIE.')
+            raise
+    enable_elements(winfo.window, ["__REC_Reset_FLS__", "__REC_Reset_Img_Dir__"])
+    winfo.ptie_recon_thread = None
+    print('--- Exited Reconstruction ---')
 
 
 # -------------- Home Tab Event Handler -------------- #
@@ -2648,7 +2847,8 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                        '__REC_Reset_Img_Dir__']
 
         if window['__REC_Set_Img_Dir__'].metadata['State'] == 'Set':
-            enable_list.extend(["__REC_Reset_FLS__"])
+            if winfo.ptie_recon_thread is None and winfo.ptie_init_thread is None:
+                enable_list.extend(["__REC_Reset_FLS__"])
             if window['__REC_Set_FLS__'].metadata['State'] == 'Def':
                 enable_list.extend(['__REC_FLS_Combo__', "__REC_TFS_Combo__", '__REC_M_Volt__'])
                 if (window['__REC_FLS_Combo__'].Get() == 'Two' and
@@ -2674,9 +2874,6 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
                                         "__REC_transform_x__",  "__REC_transform_rot__"])
             if winfo.rec_tie_results is not None:
                 enable_list.extend(['__REC_Save_TIE__'])
-            # if (window['__REC_Set_FLS__'].metadata['State'] == 'Set' and
-            #       window['__REC_Mask__'].metadata['State'] == 'Def'):
-            #     enable_list.extend([])
             if (window['__REC_Stack__'].metadata['State'] == 'Set' and
                     window['__REC_Mask__'].metadata['State'] == 'Def'):
                 enable_list.extend(["__REC_Image_List__"])
@@ -2688,7 +2885,8 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         elif window['__REC_Set_Img_Dir__'].metadata['State'] == 'Def':
             enable_list.extend(['__REC_Image_Dir_Path__', '__REC_Set_Img_Dir__',
                                 '__REC_Image_Dir_Browse__'])
-        enable_list.extend(['__REC_Reset_Img_Dir__'])
+        if winfo.ptie_recon_thread is None and winfo.ptie_init_thread is None:
+            enable_list.extend(['__REC_Reset_Img_Dir__'])
 
         disable_list = setdiff1d(active_keys, enable_list)
         enable_elements(window, enable_list)
@@ -2710,6 +2908,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
     # if 'TIMEOUT' not in event:
     #     print(event)
+
     prefix = 'REC: '
     display_img = None
     display_img2 = None
@@ -2847,6 +3046,12 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Set number of FLS files to use
     elif event == '__REC_Reset_FLS__':
         # Reset FLS but don't reset loaded stack
+        if winfo.ptie_init_thread is not None and winfo.ptie_init_thread.is_alive():
+            winfo.ptie_init_thread.join()
+            winfo.ptie_init_thread = None
+        if winfo.ptie_recon_thread is not None and winfo.ptie_recon_thread.is_alive():
+            winfo.ptie_recon_thread.join()
+            winfo.ptie_recon_thread = None
         winfo.rec_images = {}
         winfo.rec_fls_files = [None, None]
         winfo.rec_ptie = None
@@ -2925,48 +3130,13 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             # Load ptie params
             if ((2*len(files1) == images['REC_Stack'].z_size and tfs_value == 'Unflip/Flip') or
                     (len(files1) == images['REC_Stack'].z_size and tfs_value == 'Single')):
-                try:
-                    if float(window['__REC_M_Volt__'].get()) > 0:
-                        accel_volt = float(window['__REC_M_Volt__'].get()) * 1e3
-                    else:
-                        print(f'{prefix}Error with Voltage.')
-                        raise
 
-                    if tfs_value == 'Single':
-                        prefix = 'tfs'
-                    else:
-                        prefix = 'unflip'
-                    im_name = files1[0]
-                    display_img = images['REC_Stack'].byte_data[0]
-                    metadata_change(window, [('__REC_Image__', f'{prefix}/{im_name}')])
-
-                    stack1, stack2, ptie = load_data(path, fls1_path, stack_name, flip, fls2_path)
-                    string_vals = []
-                    for def_val in ptie.defvals:
-                        val = str(def_val)
-                        string_vals.append(val)
-                    length_slider = len(string_vals)
-                    window['__REC_Def_Combo__'].update(values=string_vals)
-                    window['__REC_Def_List__'].update(ptie.defvals, set_to_index=0,
-                                                                    scroll_to_index=0)
-                    window['__REC_Def_List__'].metadata['length'] = length_slider
-                    update_slider(window, [('__REC_Defocus_Slider__', {"slider_range": (0, max(length_slider-3, 0)),
-                                                                       "value": 0})])
-                    winfo.rec_defocus_slider_set = 0
-
-
-                    winfo.rec_ptie = ptie
-                    winfo.rec_microscope = Microscope(E=accel_volt, Cs=200.0e3, theta_c=0.01e-3, def_spr=80.0)
-                    winfo.rec_files1 = files1
-                    winfo.rec_files2 = files2
-                    toggle(window, elem_list=['__REC_Set_FLS__'])
-
-                except:
-                    print(f'{prefix}Something went wrong loading in image data.')
-                    print(f'{prefix}1. Check to make sure the fls file(s) match the aligned file chosen.', end=' ')
-                    print('Otherwise PYTIE will search the wrong directories.')
-                    print(f'{prefix}2. Check to see voltage is numerical and above 0.')
-                    raise
+                winfo.ptie_init_thread = Thread(target=ptie_init_thread,
+                                                args=(winfo, path, fls1_path, fls2_path, stack_name,
+                                                      files1, files2, flip, tfs_value),
+                                                daemon=True)
+                print('--- Start PTIE Initialization ---')
+                winfo.ptie_init_thread.start()
             else:
                 print(f'{prefix}The number of expected files does not match the', end=' ')
                 print('current stack.')
@@ -3234,142 +3404,11 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
     # Run PyTIE
     elif event == '__REC_Run_TIE__':
-        ptie = winfo.rec_ptie
-        microscope = winfo.rec_microscope
-        def_val = float(window['__REC_Def_Combo__'].Get())
-        def_ind = ptie.defvals.index(def_val)
-        dataname = 'example'
-        hsv = window['__REC_Colorwheel__'].get() == 'HSV'
-        save = False
-
-        sym = window['__REC_Symmetrize__'].Get()
-        qc = window['__REC_QC_Input__'].Get()
-        qc_passed = True
-        if g_help.represents_float(qc):
-            qc = float(qc)
-            if qc < 0:
-                qc_passed = False
-            elif qc == 0:
-                qc = None
-        else:
-            qc_passed = False
-
-        # Longitudinal deriv
-        deriv_val = window['__REC_Derivative__'].get()
-        if deriv_val == 'Longitudinal Deriv.':
-            longitudinal_deriv = True
-        elif deriv_val == 'Central Diff.':
-            longitudinal_deriv = False
-
-        # Set crop data
-        bottom, top, left, right = None, None, None, None
-        for i in range(len(winfo.rec_mask_coords)):
-            x, y = winfo.rec_mask_coords[i]
-            if right is None or x > right:
-                right = x
-            if left is None or x < left:
-                left = x
-            if bottom is None or graph.get_size()[1] - y > bottom:
-                bottom = graph.get_size()[1] - y
-            if top is None or graph.get_size()[1] - y < top:
-                top = graph.get_size()[1] - y
-        if (bottom, top, left, right) == (None, None, None, None):
-            bottom, top, left, right = graph.get_size()[1], 0, 0, graph.get_size()[0]
-
-        # Scaling the image from the graph region to the regular sized image
-        reg_width, reg_height = images['REC_Stack'].lat_dims
-        scale_x, scale_y = reg_width/graph.get_size()[0], reg_height/graph.get_size()[1]
-
-        # Make sure the image is square
-        if round(right*scale_x) - round(left*scale_x) != round(bottom*scale_y) - round(top*scale_y):
-            print(f'{prefix}The crop region was not square. Fixing.')
-            if round(right*scale_x) - round(left*scale_x) < round(bottom*scale_y) - round(top*scale_y):
-                if (round(right*scale_x) - round(left*scale_x)) % 2 != 0:
-                    if right == reg_width:
-                        left -= 1
-                    else:
-                        right += 1
-                elif (round(bottom*scale_y) - round(top*scale_y)) % 2 != 0:
-                    bottom -= 1
-            if round(right * scale_x) - round(left * scale_x) > round(bottom * scale_y) - round(top * scale_y):
-                if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
-                    right -= 1
-                    if right == reg_width:
-                        left -= 1
-                    else:
-                        right += 1
-                elif (round(bottom * scale_y) - round(top * scale_y)) % 2 != 0:
-                    if bottom == reg_height:
-                        top -= 1
-                    else:
-                        bottom += 1
-
-        # Set ptie crop
-        ptie.crop['right'], ptie.crop['left'] = round(right*scale_x), round(left*scale_x)
-        ptie.crop['bottom'], ptie.crop['top'] = round(bottom*scale_y), round(top*scale_y)
-
-        if not qc_passed:
-            print(f'{prefix}QC value should be an integer or float and not negative. Change value.')
-            update_values(window, [('__REC_QC_Input__', '0.00')])
-        else:
-            try:
-                print(f'{prefix}Reconstructing for defocus value: {ptie.defvals[def_ind]} nm')
-                rot, x_trans, y_trans = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
-                x_trans, y_trans = x_trans*scale_x, y_trans*scale_y
-                ptie.rotation, ptie.x_transl, ptie.y_transl = rot, int(x_trans), int(y_trans)
-                results = TIE(def_ind, ptie, microscope,
-                              dataname, sym, qc, hsv, save,
-                              longitudinal_deriv, v=0)
-
-                # This will need to consider like the cropping region
-                winfo.rec_tie_results = results
-                winfo.rec_def_val = def_val
-                winfo.rec_sym = sym
-                winfo.rec_qc = qc
-                winfo.graph_slice = (round(right*scale_x) - round(left*scale_x),
-                                     round(bottom*scale_x) - round(top*scale_x))
-
-                loaded_green_list = []
-                for key in results:
-                    float_array = results[key]
-                    if key == 'color_b':
-                        float_array = g_help.slice(float_array, winfo.graph_slice)
-                        colorwheel_type = window['__REC_Colorwheel__'].get()
-                        rad1, rad2 = colorwheel_graph.get_size()
-                        if colorwheel_type == 'HSV':
-                            cwheel_hsv = colorwheel_HSV(rad1, background='black')
-                            cwheel = colors.hsv_to_rgb(cwheel_hsv)
-                        elif colorwheel_type == '4-Fold':
-                            cwheel = colorwheel_RGB(rad1)
-                        uint8_colorwheel, float_colorwheel = g_help.convert_float_unint8(cwheel, (rad1, rad2))
-                        rgba_colorwheel = g_help.make_rgba(uint8_colorwheel[0])
-                        winfo.rec_colorwheel = g_help.convert_to_bytes(rgba_colorwheel)
-                    uint8_data, float_data = {}, {}
-                    uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
-                                                                         uint8_data, float_data)
-                    if uint8_data:
-                        image = Image(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), f'/{key}')
-                        image.byte_data = g_help.vis_1_im(image)
-                        winfo.rec_images[key] = image
-                        loaded_green_list.append(key)
-                    else:
-                        winfo.rec_images[key] = None
-
-                # Update window
-                list_color_indices = rec_get_listbox_ind_from_key(loaded_green_list)
-                change_list_ind_color(window, current_tab, [('__REC_Image_List__', list_color_indices)])
-                display_img = winfo.rec_images['color_b'].byte_data
-                display_img2 = winfo.rec_colorwheel
-                metadata_change(window, [('__REC_Image__', f'{def_val} Color')])
-                toggle(window, ['__REC_Image__'], state='Set')
-                update_slider(window, [('__REC_Image_Slider__', {"value": 6-1})])
-                window['__REC_Image_List__'].update(set_to_index=1, scroll_to_index=1)
-                winfo.rec_image_slider_set = 6-1
-                winfo.rec_last_image_choice = 'Color'
-                winfo.rec_ptie = ptie
-            except:
-                print(f'{prefix}There was an error when running TIE.')
-                raise
+        winfo.ptie_recon_thread = Thread(target=ptie_recon_thread,
+                                         args=(winfo, window, graph, colorwheel_graph, images, current_tab),
+                                         daemon=True)
+        print('--- Starting Reconstruction ---')
+        winfo.ptie_recon_thread.start()
 
     # Save PyTIE
     elif event == '__REC_Save_TIE__':
@@ -3434,6 +3473,12 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
     # Reset page
     if event == "__REC_Reset_Img_Dir__":
+        if winfo.ptie_init_thread is not None and winfo.ptie_init_thread.is_alive():
+            winfo.ptie_init_thread.join()
+            winfo.ptie_init_thread = None
+        if winfo.ptie_recon_thread is not None and winfo.ptie_recon_thread.is_alive():
+            winfo.ptie_recon_thread.join()
+            winfo.ptie_recon_thread = None
         reset(winfo, window, current_tab)
 
     # Enable any elements if need be
@@ -3684,9 +3729,9 @@ def event_handler(winfo, window):
     # window['home_graph'].DrawImage(filename='../GUI/PyLo_Icon-1.png', location=(0, 299))
 
     # Set up the output log window and redirecting std_out
-    log_line = -1
-    with StringIO() as buf, StringIO() as winfo.fiji_buf:
-        with redirect_stdout(buf):
+    log_line = 0
+    with StringIO() as winfo.buf, StringIO() as winfo.fiji_buf:
+        with redirect_stdout(winfo.buf):
 
             # Run event loop
             bound_click = True
@@ -3709,6 +3754,16 @@ def event_handler(winfo, window):
                 if event is None or close == 'close':  # always,  always give a way out!
                     winfo.kill_proc = ['LS', 'BUJ']
                     load_file_queue(winfo, window)
+                    if winfo.ptie_init_thread is not None:
+                        winfo.ptie_init_thread = None
+                        if winfo.ptie_init_thread.is_alive():
+                            winfo.ptie_init_thread.join()
+                        print('--- Stopped Loading PTIE Params ---')
+                    if winfo.ptie_recon_thread is not None:
+                        if winfo.ptie_recon_thread.is_alive():
+                            winfo.ptie_recon_thread.join()
+                        winfo.ptie_recon_thread = None
+                        print('--- Exited Reconstruction ---')
                     window.close()
                     output_window.close()
                     break
@@ -3759,11 +3814,22 @@ def event_handler(winfo, window):
                     elif window[key].metadata['State'] == 'Def':
                         window[key].update(text_color='black')
 
+
                 sys.stdout.flush()
-                for i, line in enumerate(buf.getvalue()):
-                    if log_line < i:
+                output_txt = winfo.buf.getvalue().split('\n')
+                # output_window['MAIN_OUTPUT'].update(value=f'[{len(output_txt)}, {log_line}]\n', append=True)
+                i = 0
+                for line in output_txt:
+                    if log_line <= i:
                         log_line = i
-                        output_window['MAIN_OUTPUT'].update(value=line, append=True)
+                        if not(line.isspace() or line.strip() == ''):
+                            if (not (line.startswith('REC') or line.startswith('LS') or
+                                      line.startswith('BUJ') or line.startswith('HOM') or
+                                      line.startswith('***')) and line != '\n'):
+                                line = 'REC: ' + line
+                            output_window['MAIN_OUTPUT'].update(value=f'{line}\n', append=True)
+                    i += 1
+
 
 
 

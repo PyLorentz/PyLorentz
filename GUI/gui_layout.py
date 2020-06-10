@@ -1018,15 +1018,13 @@ def save_window_ly(event, image_dir, orientations, tfs=None):
 
 
 def output_ly():
-    main_output = sg.Tab('Main', [[sg.Multiline('', key='MAIN_OUTPUT', size=(400, 300), autoscroll=True, disabled=True)]])
-    fiji_output = sg.Tab('FIJI', [[sg.Multiline('', key='FIJI_OUTPUT', size=(400, 300), autoscroll=True, disabled=True)]])
-    reconstruct_output = sg.Tab('Reconstruct', [[sg.Multiline('', key='RECON_OUTPUT', size=(400, 300),
-                                                              autoscroll=True, disabled=True)]])
-    pages = sg.TabGroup([[main_output, fiji_output, reconstruct_output]], tab_location='topleft',
+    main_output = sg.Tab('Main', [[sg.Multiline('', key='MAIN_OUTPUT', size=(600, 300), autoscroll=True, disabled=True)]])
+    fiji_output = sg.Tab('FIJI', [[sg.Multiline('', key='FIJI_OUTPUT', size=(600, 300), autoscroll=True, disabled=True)]])
+    pages = sg.TabGroup([[main_output, fiji_output]], tab_location='topleft',
                           theme=sg.THEME_CLASSIC,
                           enable_events=True, key="output_tabgroup")
     window_layout = [[pages]]
     window = sg.Window('Log', window_layout, default_element_size=(12, 1), disable_close=True,
-                       resizable=True, size=(400, 300), use_default_focus=False, alpha_channel=0,
+                       resizable=True, size=(600, 300), use_default_focus=False, alpha_channel=0,
                        finalize=True)
     return window
