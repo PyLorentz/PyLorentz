@@ -115,7 +115,7 @@ def menu_bar():
     menu_def = [['PyLo', ['About', 'Exit']],
                 ['Log', ['Show::Log', 'Hide::Log']],
                 ['Procedure Help', ['Test']]]
-    return sg.Menu(menu_def, font='Times 17')
+    return sg.Menu(menu_def, font='Times 15')
 
 
 # ----------------------- Home Tab ----------------------- #
@@ -829,7 +829,7 @@ def reconstruct_tab(style, DEFAULTS):
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]])],
                              [spacer],
                              [sg.Text('Images:', pad=((64, 0), (0, 0))),
-                              sg.Listbox(['Stack', 'Color', 'MagX', 'MagY', 'Mag', 'Electr. Phase', 'Mag. Phase',
+                              sg.Listbox(['Stack', 'Color', 'MagX', 'MagY', 'Magnitude Mag', 'Electr. Phase', 'Mag. Phase',
                                           'Electr. Deriv.', 'Mag. Deriv.', 'In Focus', 'Default Stack'],
                                           **style.styles('__REC_Image_List__')),
                               sg.Slider(**style.styles('__REC_Image_Slider__'))]]

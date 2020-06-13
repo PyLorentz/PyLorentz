@@ -1,5 +1,5 @@
 import PySimpleGUI as sg
-from sys import platform as sys_platform
+# from sys import platform as sys_platform
 
 
 
