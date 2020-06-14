@@ -37,9 +37,9 @@ def load_image(img_path, graph_size, stack=False, prefix=''):
         z_size = 1
         shape = img_data.shape
         if stack and len(shape) > 1:
-            z_size, x_size, y_size = shape
+            z_size, y_size, x_size = shape
         elif not stack:
-            x_size, y_size = shape
+            y_size, x_size = shape
         else:
             print(f'{prefix}Do not try loading a single image to stack.')
             raise
