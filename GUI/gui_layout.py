@@ -146,11 +146,11 @@ def home_tab(style, DEFAULTS):
     authors = '''Authors: Tim Cote, Arthur McCray, CD Phatak'''
     readme = '''PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions:
 
-PyTIE – Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE).
+* PyTIE – Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE).
 
-SimLTEM – Simulating phase shift and LTEM images from a given magnetization. (Unavailable in GUI)
+* SimLTEM – Simulating phase shift and LTEM images from a given magnetization. (Unavailable in GUI)
 
-GUI/Align – Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE.
+* GUI/Align – Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE.
                 
                 
 This GUI should be used as a means to improve potential alignment of LTEM images utilizing Fiji alignment protocols as well as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PYTIE.
