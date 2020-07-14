@@ -156,7 +156,7 @@ def home_tab(style, DEFAULTS):
 This GUI should be used as a means to improve potential alignment of LTEM images utilizing Fiji alignment protocols as well as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PYTIE.
 
 '''
-    contact = 'Contact: tcote@anl.gov, ammcray@anl.gov'
+    contact = 'Contact: tcote@anl.gov, amccray@anl.gov'
 
     if platform in ['win32', 'Windows']:
         fiji_button = sg.FolderBrowse("Browse", **style.styles('__Fiji_Browse__'))
