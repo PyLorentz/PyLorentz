@@ -94,7 +94,7 @@ class WindowStyle(object):
         spinner_gif = f'{python_dir}/spinner.gif'
         background_img =  f'{python_dir}/background.png'
         theme_background = sg.theme_background_color()
-        # B_f = self.fonts['body']
+        B_f = self.fonts['body']
         # H_f = self.fonts['heading']
         # Tab_f = self.fonts['tab']
 
@@ -124,13 +124,14 @@ class WindowStyle(object):
                 val.update(pad=pad(16, 0, 10, 0), size=(30, 1))
             # Text elements
             elif key == 'home_title':
-                val.update(pad=pad(226, 0, 100, 5), font=T_f)
+                val.update(pad=pad(226, 0, 70, 5), font=T_f)
             elif key == 'home_version':
                 val.update(pad=((326, 0), (0, 0)), font=bH_f)
             elif key == 'home_authors':
                 val.update(pad=((219, 0), (0, 0)))
             elif key == 'home_readme':
-                val.update(pad=((205, 0), (5, 5)), justification='l')
+                val.update(pad=((215, 0), (5, 5)), size=(42, 16),
+                           font=B_f, background_color='#e4eaf5')
             elif key == 'home_contact':
                 val.update(pad=pad(235, 0, 20, 40))
             return val

@@ -144,20 +144,18 @@ def home_tab(style, DEFAULTS):
     title = '''PyLorentz Phase Reconstruction'''
     version = '''Version 1.0.0'''
     authors = '''Authors: Tim Cote, Arthur McCray, CD Phatak'''
-    readme = '''
-    This program is meant for reconstructing magnetic
-    and electrostatic phase information of a material 
-    using through-focal series of LTEM images.
+    readme = '''PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions:
 
-    The layout of this program allows you to first align
-    a series of Digital Micrograph images of your sample
-    using a call to FIJI's Linear Sift or bUnwarpJ  
-    processes. This is done under the 'Registration'
-    tab.
+PyTIE – Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE).
 
-    The phase reconstruction can be performed underneath
-    the 'Phase Reconstruction' tab.
-    '''
+SimLTEM – Simulating phase shift and LTEM images from a given magnetization. (Unavailable in GUI)
+
+GUI/Align – Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE.
+                
+                
+This GUI should be used as a means to improve potential alignment of LTEM images utilizing Fiji alignment protocols as well as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PYTIE.
+
+'''
     contact = 'Contact: tcote@anl.gov, ammcray@anl.gov'
 
     if platform in ['win32', 'Windows']:
@@ -173,7 +171,8 @@ def home_tab(style, DEFAULTS):
     fiji_reset = sg.Button('Reset Fiji', **style.styles('__Fiji_Reset__'))
     fiji_def_set = sg.Button('Set as Default', key='__Fiji_Def_Set__', pad=pad(10, 0, 10, 0))
     fiji_def_reset = sg.Button('Reset Default',  key='__Fiji_Def_Reset__', pad=pad(10, 0, 10, 0))
-    browser_button = sg.FolderBrowse("Browse", key="__Browser_Browse__", pad=pad(164, 0, 10, 0), target='__Browser_Path__')
+    browser_button = sg.FolderBrowse("Browse", key="__Browser_Browse__", pad=pad(164, 0, 10, 0),
+                                     target='__Browser_Path__')
     browser_def_text = sg.Text('You can set the default browser working directory below.', pad=pad(230, 0, 10, 0))
     browser_wd_input = sg.Input(DEFAULTS['browser_dir'], key='__Browser_Path__', pad=pad(16, 0, 10, 0), size=(30, 1))
     browser_def_set = sg.Button('Set as Default', key='__Browser_Set__', pad=pad(10, 0, 10, 0))
@@ -182,7 +181,7 @@ def home_tab(style, DEFAULTS):
     layout = [[sg.Col([[sg.T(title, **style.styles('home_title'))],
                        [sg.T(version, **style.styles('home_version'))],
                        [sg.T(authors, **style.styles('home_authors'))],
-                       [sg.T(readme, **style.styles('home_readme'))],
+                       [sg.Multiline(readme, **style.styles('home_readme'))],
                        [sg.T(contact, **style.styles('home_contact'))],
                        [arrow1, fiji_install_text, arrow2],
                        [fiji_button,  fiji_input, sg.Col([[fiji_set, fiji_reset],

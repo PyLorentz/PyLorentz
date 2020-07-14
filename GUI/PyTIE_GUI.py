@@ -1796,8 +1796,6 @@ def run_home_tab(winfo, window, event, values):
     # Get directories for Fiji and images
     if event == '__Fiji_Set__':
         winfo.fiji_path = values['__Fiji_Path__']
-        print(repr(winfo.fiji_path))
-        print(os_path.exists(winfo.fiji_path))
         if not os_path.exists(winfo.fiji_path) or 'Fiji' not in winfo.fiji_path:
             print(f'{prefix}This Fiji path is incorrect, try again.')
         else:
