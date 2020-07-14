@@ -4331,8 +4331,8 @@ def event_handler(winfo, window):
                     set_pretty_focus(winfo, window, 'Window Click')
 
 
-                if event != '__TIMEOUT__' and 'HOVER' not in event:
-                    print('Event:', event)
+                # if event != '__TIMEOUT__' and 'HOVER' not in event:
+                #     print('Event:', event)
 
 
                 # Disable window clicks if creating mask or setting subregion
@@ -4424,8 +4424,8 @@ def event_handler(winfo, window):
                 # Copying and pasting text from output windows
                 if winfo.output_window_active:
                     output_event, output_values = output_window.Read(timeout=0)
-                    if output_event != '__TIMEOUT__':
-                        print('Output Event:', output_event)
+                    # if output_event != '__TIMEOUT__':
+                    #     print('Output Event:', output_event)
                     if output_event in ['MAIN_OUTPUT+FOCUS_IN+', 'FIJI_OUTPUT+FOCUS_IN+']:
                         key = output_event[:-10]
                         widget = winfo.output_window[key].Widget
@@ -4498,7 +4498,6 @@ def run_GUI():
 
     # Create the layouts
     DEFAULTS = defaults()
-    # print(DEFAULTS)
     sg.theme('BlueMono')
     background_color = sg.theme_background_color()
     sg.SetOptions(margins=(0, 0), element_padding=((0, 0), (0, 0)),
