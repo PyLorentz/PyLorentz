@@ -1,108 +1,112 @@
 import PySimpleGUI as sg
 from sys import platform
 from align import join
-from gui_styling import pad
+from gui_styling import pad, window_scaling, WindowStyle
 
 # "Perform the 'Linear Stack Alignment with SIFT' Fiji plugin. To understand the alignment parameters, go to: https://imagej.net/Feature_Extraction.")
 # """Perform the 'bUnwarpJ' Fiji plugin. """
 
 # ---------------- Element Keys ---------------- #
-button_keys = ["__Fiji_Browse__", "__Fiji_Set__", "__Fiji_Reset__",
+def element_keys():
+    button_keys = ["__Fiji_Browse__", "__Browser_Browse__", "__Fiji_Set__", "__Fiji_Reset__",
+                   "__Fiji_Def_Set__", "__Fiji_Def_Reset__",
 
-               "__LS_Image_Dir_Browse__", "__LS_Load_FLS1__", "__LS_Load_FLS2__",
-               "__LS_Set_Img_Dir__", "__LS_Reset_Img_Dir__", "__LS_Run_Align__", "__LS_Adjust__",
-               "__LS_View_Stack__", "__LS_Set_FLS__",
-               "__LS_Reset_FLS__",
+                   "__LS_Image_Dir_Browse__", "__LS_Load_FLS1__", "__LS_Load_FLS2__",
+                   "__LS_Set_Img_Dir__", "__LS_Reset_Img_Dir__", "__LS_Run_Align__", "__LS_Adjust__",
+                   "__LS_View_Stack__", "__LS_Set_FLS__",
+                   "__LS_Reset_FLS__",
 
-               "__BUJ_Image_Dir_Browse__", "__BUJ_Set_FLS__", "__BUJ_Load_FLS1__",
-               "__BUJ_Load_FLS2__", "__BUJ_Reset_FLS__",
-               "__BUJ_Set_Img_Dir__", "__BUJ_Reset_Img_Dir__",
-               "__BUJ_Load_Unflip_Stack__", "__BUJ_Load_Flip_Stack__",
-               "__BUJ_Elastic_Align__", "__BUJ_Unflip_Align__", "__BUJ_Flip_Align__",
-               "__BUJ_Adjust__", "__BUJ_View__", "__BUJ_Make_Mask__", "__BUJ_Reset_Mask__",
-               "__BUJ_Load_Mask__",
-               "__BUJ_Clear_Unflip_Mask__", "__BUJ_Clear_Flip_Mask__",
+                   "__BUJ_Image_Dir_Browse__", "__BUJ_Set_FLS__", "__BUJ_Load_FLS1__",
+                   "__BUJ_Load_FLS2__", "__BUJ_Reset_FLS__",
+                   "__BUJ_Set_Img_Dir__", "__BUJ_Reset_Img_Dir__",
+                   "__BUJ_Load_Unflip_Stack__", "__BUJ_Load_Flip_Stack__",
+                   "__BUJ_Elastic_Align__", "__BUJ_Unflip_Align__", "__BUJ_Flip_Align__",
+                   "__BUJ_Adjust__", "__BUJ_View__", "__BUJ_Make_Mask__", "__BUJ_Reset_Mask__",
+                   "__BUJ_Load_Mask__",
+                   "__BUJ_Clear_Unflip_Mask__", "__BUJ_Clear_Flip_Mask__",
 
-               "__REC_Image_Dir_Browse__", "__REC_Set_Img_Dir__", "__REC_Reset_Img_Dir__",
-               "__REC_Save_TIE__", "__REC_Run_TIE__",
-               "__REC_Erase_Mask__", "__REC_Mask__",
-               "__REC_Load_FLS2__", "__REC_Load_FLS1__", "__REC_Reset_FLS__", "__REC_Load_Stack__",
-               "__REC_Set_FLS__"
-               ]
-checkbox_keys = ["__LS_horizontal_flip__", "__LS_interp__",
-                 "__BUJ_horizontal_flip__", "__BUJ_LS_interp__", "__BUJ_filter__",
-                 "__REC_Symmetrize__"]
-combo_keys = ["__LS_exp_transf__","__LS_FLS_Combo__", "__LS_TFS_Combo__",
-              "__BUJ_reg_mode__", "__BUJ_init_def__", "__BUJ_final_def__",
-              "__BUJ_FLS_Combo__", "__BUJ_TFS_Combo__",
-              "__BUJ_LS_exp_transf__", "__BUJ_exp_transf__", "__BUJ_Mask_View__",
-              "__REC_Def_Combo__", "__REC_FLS_Combo__", "__REC_TFS_Combo__",
-              "__REC_Derivative__", "__REC_Colorwheel__"]
-column_keys = ["__BUJ_Load_Mask_Col__"]
-graph_keys = ["__LS_Graph__",
-              "__BUJ_Graph__",
-              "__REC_Graph__", "__REC_Colorwheel_Graph__",
-              "__invisible_graph__"]
-input_keys = ["__Fiji_Path__", "__LS_Image_Dir_Path__", "__LS_igb__",
-              "__LS_spso__", "__LS_min_im__", "__LS_max_im__", "__LS_fds__", "__LS_fdob__",
-              "__LS_cncr__", "__LS_max_al_err__", "__LS_inlier_rat__", "__LS_transform_x__",
-              "__LS_transform_y__", "__LS_transform_rot__",
-              "__LS_FLS1__", "__LS_FLS1_Staging__", "__LS_FLS2_Staging__", "__LS_FLS2__",
-              "__LS_Image1__", "__LS_Image2__", "__LS_Stack__",
+                   "__REC_Image_Dir_Browse__", "__REC_Set_Img_Dir__", "__REC_Reset_Img_Dir__",
+                   "__REC_Save_TIE__", "__REC_Run_TIE__",
+                   "__REC_Erase_Mask__", "__REC_Mask__",
+                   "__REC_Load_FLS2__", "__REC_Load_FLS1__", "__REC_Reset_FLS__", "__REC_Load_Stack__",
+                   "__REC_Set_FLS__"
+                   ]
+    checkbox_keys = ["__LS_horizontal_flip__", "__LS_interp__",
+                     "__BUJ_horizontal_flip__", "__BUJ_LS_interp__", "__BUJ_filter__",
+                     "__REC_Symmetrize__"]
+    combo_keys = ["__LS_exp_transf__","__LS_FLS_Combo__", "__LS_TFS_Combo__",
+                  "__BUJ_reg_mode__", "__BUJ_init_def__", "__BUJ_final_def__",
+                  "__BUJ_FLS_Combo__", "__BUJ_TFS_Combo__",
+                  "__BUJ_LS_exp_transf__", "__BUJ_exp_transf__", "__BUJ_Mask_View__",
+                  "__REC_Def_Combo__", "__REC_FLS_Combo__", "__REC_TFS_Combo__",
+                  "__REC_Derivative__", "__REC_Colorwheel__"]
+    column_keys = ["__BUJ_Load_Mask_Col__"]
+    graph_keys = ["__LS_Graph__",
+                  "__BUJ_Graph__",
+                  "__REC_Graph__", "__REC_Colorwheel_Graph__",
+                  "__invisible_graph__"]
+    input_keys = ["__Fiji_Path__", "__Browser_Path__", "__LS_Image_Dir_Path__", "__LS_igb__",
+                  "__LS_spso__", "__LS_min_im__", "__LS_max_im__", "__LS_fds__", "__LS_fdob__",
+                  "__LS_cncr__", "__LS_max_al_err__", "__LS_inlier_rat__", "__LS_transform_x__",
+                  "__LS_transform_y__", "__LS_transform_rot__",
+                  "__LS_FLS1__", "__LS_FLS1_Staging__", "__LS_FLS2_Staging__", "__LS_FLS2__",
+                  "__LS_Image1__", "__LS_Image2__", "__LS_Stack__",
 
-              "__BUJ_Unflip_Stage_Load__", "__BUJ_Flip_Stage_Load__",
-              "__BUJ_LS_igb__", "__BUJ_LS_spso__", "__BUJ_LS_min_im__", "__BUJ_LS_max_im__",
-              "__BUJ_LS_fds__", "__BUJ_LS_fdob__", "__BUJ_LS_cncr__", "__BUJ_LS_max_al_err__",
-              "__BUJ_LS_inlier_rat__", "__BUJ_igb__", "__BUJ_spso__", "__BUJ_min_im__",
-              "__BUJ_max_im__", "__BUJ_fds__", "__BUJ_fdob__", "__BUJ_cncr__",
-              "__BUJ_max_al_err__", "__BUJ_inlier_rat__", "__BUJ_min_num_inlier__",
-              "__BUJ_FLS1__", "__BUJ_FLS1_Staging__", "__BUJ_FLS2_Staging__", "__BUJ_FLS2__",
-              "__BUJ_Image_Dir_Path__", "__BUJ_div_w__", "__BUJ_curl_w__",
-              "__BUJ_land_w__", "__BUJ_img_w__", "__BUJ_cons_w__", "__BUJ_stop_thresh__",
-              "__BUJ_transform_x__", "__BUJ_transform_y__", "__BUJ_transform_rot__",
-              "__BUJ_Image1__", "__BUJ_Image2__", "__BUJ_Stack__",
-              "__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__", "__BUJ_Unflip_Mask_Inp__", "__BUJ_Flip_Mask_Inp__",
+                  "__BUJ_Unflip_Stage_Load__", "__BUJ_Flip_Stage_Load__",
+                  "__BUJ_LS_igb__", "__BUJ_LS_spso__", "__BUJ_LS_min_im__", "__BUJ_LS_max_im__",
+                  "__BUJ_LS_fds__", "__BUJ_LS_fdob__", "__BUJ_LS_cncr__", "__BUJ_LS_max_al_err__",
+                  "__BUJ_LS_inlier_rat__", "__BUJ_igb__", "__BUJ_spso__", "__BUJ_min_im__",
+                  "__BUJ_max_im__", "__BUJ_fds__", "__BUJ_fdob__", "__BUJ_cncr__",
+                  "__BUJ_max_al_err__", "__BUJ_inlier_rat__", "__BUJ_min_num_inlier__",
+                  "__BUJ_FLS1__", "__BUJ_FLS1_Staging__", "__BUJ_FLS2_Staging__", "__BUJ_FLS2__",
+                  "__BUJ_Image_Dir_Path__", "__BUJ_div_w__", "__BUJ_curl_w__",
+                  "__BUJ_land_w__", "__BUJ_img_w__", "__BUJ_cons_w__", "__BUJ_stop_thresh__",
+                  "__BUJ_transform_x__", "__BUJ_transform_y__", "__BUJ_transform_rot__",
+                  "__BUJ_Image1__", "__BUJ_Image2__", "__BUJ_Stack__",
+                  "__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__", "__BUJ_Unflip_Mask_Inp__", "__BUJ_Flip_Mask_Inp__",
 
-              "__REC_Image_Dir_Path__", "__REC_Image__", "__REC_QC_Input__",
-              "__REC_transform_y__", "__REC_transform_x__",
-              "__REC_transform_rot__", "__REC_Mask_Size__",
-              "__REC_FLS1__", "__REC_FLS2__", "__REC_Stack__", "__REC_Stack_Staging__",
-              "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__", "__REC_Data_Prefix__"
-              ]
-listbox_keys = ["__BUJ_Image_Choice__",
-                "__REC_Image_List__", "__REC_Def_List__"]
-# multiline_keys = ["__REC_Def_Multi__"] #"__LS_Log__", "__BUJ_Log__"
-# output_keys = ["__LS_Log__", "__BUJ_Log__"]
-radio_keys = ["__LS_full_align__", "__LS_param_test__", '__LS_unflip_reference__', '__LS_flip_reference__',
-              "__BUJ_unflip_reference__", "__BUJ_flip_reference__"]
-slider_keys = ["__LS_Stack_Slider__",
-               "__BUJ_Stack_Slider__", "__BUJ_img_subsf__",
-               "__REC_Slider__", "__REC_Image_Slider__", "__REC_Defocus_Slider__"]
-tab_keys = ["ls_tab", "bunwarpj_tab", "reconstruct_tab", "home_tab", "align_tab"]
-tabgroup_keys = ["align_tabgroup", "pages_tabgroup"]
-text_keys = ["home_title", "home_version", "home_authors", "home_readme", "home_contact",
-             "__LS_FLS1_Text__", "__LS_FLS2_Text__", "__BUJ_FLS1_Text__", "__BUJ_FLS2_Text__",
-             '__REC_FLS2_Text__', '__REC_FLS2_Text__', '__REC_Mask_Text__']
-read_only_inputs_keys = ["__LS_Image1__", "__LS_Image2__", "__LS_Stack__",
-                         "__BUJ_Image1__", "__BUJ_Image2__", "__BUJ_Stack__",
-                         "__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__",
-                         "__REC_Image__"
-                         ]
-keys = {'button': button_keys,
-    'checkbox': checkbox_keys,
-    'combo': combo_keys,
-    'colum': column_keys,
-    'graph': graph_keys,
-    'input': input_keys,
-    'read_only_inputs': read_only_inputs_keys,
-    'listbox': listbox_keys,
-    # 'multiline': multiline_keys,
-    # 'output': output_keys,
-    'radio': radio_keys,
-    'slider': slider_keys,
-    'tab': tab_keys,
-    'tabgroup': tabgroup_keys,
-    'text': text_keys}
+                  "__REC_Image_Dir_Path__", "__REC_Image__", "__REC_QC_Input__",
+                  "__REC_transform_y__", "__REC_transform_x__",
+                  "__REC_transform_rot__", "__REC_Mask_Size__",
+                  "__REC_FLS1__", "__REC_FLS2__", "__REC_Stack__", "__REC_Stack_Stage__",
+                  "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__", "__REC_Data_Prefix__"
+                  ]
+    listbox_keys = ["__BUJ_Image_Choice__",
+                    "__REC_Image_List__", "__REC_Def_List__"]
+    # multiline_keys = ["__REC_Def_Multi__"] #"__LS_Log__", "__BUJ_Log__"
+    # output_keys = ["__LS_Log__", "__BUJ_Log__"]
+    radio_keys = ["__LS_full_align__", "__LS_param_test__", '__LS_unflip_reference__', '__LS_flip_reference__',
+                  "__BUJ_unflip_reference__", "__BUJ_flip_reference__"]
+    slider_keys = ["__LS_Stack_Slider__",
+                   "__BUJ_Stack_Slider__", "__BUJ_img_subsf__",
+                   "__REC_Slider__", "__REC_Image_Slider__", "__REC_Defocus_Slider__"]
+    tab_keys = ["ls_tab", "bunwarpj_tab", "reconstruct_tab", "home_tab", "align_tab"]
+    tabgroup_keys = ["align_tabgroup", "pages_tabgroup"]
+    text_keys = ["home_title", "home_version", "home_authors", "home_readme", "home_contact",
+                 "__LS_FLS1_Text__", "__LS_FLS2_Text__", "__BUJ_FLS1_Text__", "__BUJ_FLS2_Text__",
+                 '__REC_FLS2_Text__', '__REC_FLS2_Text__', '__REC_Mask_Text__']
+    read_only_inputs_keys = ["__LS_Image1__", "__LS_Image2__", "__LS_Stack__",
+                             "__BUJ_Image1__", "__BUJ_Image2__", "__BUJ_Stack__",
+                             "__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__",
+                             "__REC_Image__"
+                             ]
+    keys = {'button': button_keys,
+        'checkbox': checkbox_keys,
+        'combo': combo_keys,
+        'colum': column_keys,
+        'graph': graph_keys,
+        'input': input_keys,
+        'read_only_inputs': read_only_inputs_keys,
+        'listbox': listbox_keys,
+        # 'multiline': multiline_keys,
+        # 'output': output_keys,
+        'radio': radio_keys,
+        'slider': slider_keys,
+        'tab': tab_keys,
+        'tabgroup': tabgroup_keys,
+        'text': text_keys}
+
+    return keys
 
 
 # ------------------------------------------------ Layout ------------------------------------------------ #
@@ -113,8 +117,8 @@ def menu_bar():
     """Menu bar layout (kind of pointless at the moment)"""
 
     menu_def = [['PyLo', ['About', 'Exit']],
-                ['Log', ['Show::Log', 'Hide::Log']],
-                ['Procedure Help', ['Test']]]
+                ['Log', ['Show (Control-l)::Log', 'Hide (Control-h)::Log']],
+                ['Procedure Help', ['Go to README']]]
     return sg.Menu(menu_def, font='Times 15')
 
 
@@ -160,12 +164,20 @@ def home_tab(style, DEFAULTS):
         fiji_button = sg.FolderBrowse("Browse", **style.styles('__Fiji_Browse__'))
     else:
         fiji_button = sg.FileBrowse("Browse", **style.styles('__Fiji_Browse__'))
+
     arrow1 = sg.Text("\u2193", pad=pad(240, 0, 20, 0))
     arrow2 = sg.Text("\u2193", pad=pad(0, 0, 20, 0))
-    fiji_install_text = sg.Text(" Select Fiji Installation to access 'Registration' tab ", pad=pad(0, 0, 25, 0))
+    fiji_install_text = sg.Text(" Select Fiji Installation to access 'Registration' tab. ", pad=pad(0, 0, 15, 0))
     fiji_input = sg.Input(DEFAULTS['fiji_dir'], **style.styles('__Fiji_Path__'))
     fiji_set = sg.Button('Set Fiji', **style.styles('__Fiji_Set__'))
     fiji_reset = sg.Button('Reset Fiji', **style.styles('__Fiji_Reset__'))
+    fiji_def_set = sg.Button('Set as Default', key='__Fiji_Def_Set__', pad=pad(10, 0, 10, 0))
+    fiji_def_reset = sg.Button('Reset Default',  key='__Fiji_Def_Reset__', pad=pad(10, 0, 10, 0))
+    browser_button = sg.FolderBrowse("Browse", key="__Browser_Browse__", pad=pad(164, 0, 10, 0), target='__Browser_Path__')
+    browser_def_text = sg.Text('You can set the default browser working directory below.', pad=pad(230, 0, 10, 0))
+    browser_wd_input = sg.Input(DEFAULTS['browser_dir'], key='__Browser_Path__', pad=pad(16, 0, 10, 0), size=(30, 1))
+    browser_def_set = sg.Button('Set as Default', key='__Browser_Set__', pad=pad(10, 0, 10, 0))
+    browser_def_reset = sg.Button('Reset Default',  key='__Browser_Reset__', pad=pad(10, 0, 10, 0))
 
     layout = [[sg.Col([[sg.T(title, **style.styles('home_title'))],
                        [sg.T(version, **style.styles('home_version'))],
@@ -173,7 +185,10 @@ def home_tab(style, DEFAULTS):
                        [sg.T(readme, **style.styles('home_readme'))],
                        [sg.T(contact, **style.styles('home_contact'))],
                        [arrow1, fiji_install_text, arrow2],
-                       [fiji_button,  fiji_input, fiji_set, fiji_reset]]),
+                       [fiji_button,  fiji_input, sg.Col([[fiji_set, fiji_reset],
+                                                          [fiji_def_set, fiji_def_reset]])],
+                       [browser_def_text],
+                       [browser_button, browser_wd_input, browser_def_set, browser_def_reset]]),
                ]] #sg.Graph((300, 300), (0, 0), (299, 299), background_color='grey', key='home_graph',
                         # pad=pad(80, 0, 110, 0))
     metadata = {"parent_tabgroup": "pages_tabgroup",
@@ -230,6 +245,9 @@ def align_tab(style, DEFAULTS):
                        sg.Input('None', **style.styles('__LS_FLS2_Staging__')),
                        sg.Input("None", **style.styles('__LS_FLS2__')),
                        sg.Text("Flip FLS", **style.styles('__LS_FLS2_Text__'))],
+                      [sg.Text('Choose Reference Image:', pad=((70, 0), (2, 2)))],
+                      [sg.Radio("Unflip", 'ReferenceRadio', **style.styles('__LS_unflip_reference__')),
+                       sg.Radio("Flip", 'ReferenceRadio', **style.styles('__LS_flip_reference__'))],
                       [sg.Button('Set', **style.styles('__LS_Set_FLS__')),
                        sg.Button('Reset', **style.styles('__LS_Reset_FLS__')),
                        ]]
@@ -307,12 +325,8 @@ def align_tab(style, DEFAULTS):
             align_frame : list of list of PySimpleGUI Elements
                 The layout for the linear alighnment frame.
             """
-            spacer1 = sg.Text('_' * 33, font=('Times New Roman', 10, 'bold'))  # text_color='#101010'
-            spacer2 = sg.Text('_' * 120, pad=((5, 5), (0, 0)), font=('Times New Roman', 12), )  # text_color='#101010'
-            sift_test = [[sg.Text('Choose Reference Image', font=style.fonts['heading'], pad=((0, 0), (5, 10)))],
-                         [sg.Radio("Unflip", 'ReferenceRadio', **style.styles('__LS_unflip_reference__')),
-                          sg.Radio("Flip", 'ReferenceRadio', **style.styles('__LS_flip_reference__'))],
-                         [sg.Text('Image Transformation', font=style.fonts['heading'], pad=((0, 0), (10, 0)))],
+            sift_test = [
+                         [sg.Text('Image Transformation', font=style.fonts['heading'], pad=((0, 0), (70, 0)))],
                          [sg.Text('Rotation:'),
                           sg.Input('0', **style.styles('__LS_transform_rot__')),
                           sg.Text(u'\N{DEGREE SIGN}')],
@@ -324,11 +338,12 @@ def align_tab(style, DEFAULTS):
                           sg.Text('px')],
                          [sg.Checkbox('Horizontal Flip', **style.styles('__LS_horizontal_flip__'))],
                          [sg.Button('Adjust Image', **style.styles('__LS_Adjust__'))],
-                         [sg.Text('Registration', pad=((43, 5), (200, 2)), font=style.fonts['heading'])],
+                         [sg.Text('Registration', pad=((43, 5), (120, 2)), font=style.fonts['heading'])],
                          [sg.Radio('Full Align', 'AlignRadio', **style.styles('__LS_full_align__'))],
                          [sg.Radio('Parameter Test', 'AlignRadio', **style.styles('__LS_param_test__'))],
-                         [spacer1],
-                         [sg.Button('Run Align', **style.styles('__LS_Run_Align__'))]]
+                         [sg.HorizontalSeparator(color='black', pad=((0, 10), (0, 0)))],
+                         [sg.Button('Run Align', **style.styles('__LS_Run_Align__')),
+                          sg.Image(**style.styles('__LS_Align_Spinner__'))]]
             image_column = [[sg.Text("Image Directory:", pad=((10, 0), (0, 0))),
                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__LS_Image_Dir_Path__')),
                              sg.FolderBrowse("Browse", **style.styles('__LS_Image_Dir_Browse__')),
@@ -338,7 +353,7 @@ def align_tab(style, DEFAULTS):
 
             align_frame = [[sg.Column(image_column),
                             sg.Column(sift_test)],
-                           [spacer2],
+                           [sg.HorizontalSeparator(color='black', pad=(5, 5))],
                            [sg.Text('Image: 1.', pad=((10, 0), (0, 0))),
                             sg.Input(**style.styles('__LS_Image1__')),
                             sg.Button('View Stack', **style.styles('__LS_View_Stack__'))],
@@ -359,15 +374,14 @@ def align_tab(style, DEFAULTS):
                 The layout for the linear sift tab.
             """
             fls_frame = sg.Frame(layout=ls_fls_frame(), title='FLS Files',
-                                 relief=sg.RELIEF_SUNKEN, pad=((10, 0), (10, 0)), font=('Times New Roman', 19))
+                                 relief=sg.RELIEF_SUNKEN, pad=((55, 0), (12, 0)), font=('Times New Roman', 19))
             sift_p_frame = sg.Frame(layout=ls_sift_p_frame(), title='Linear SIFT Parameters',  # title_color='purple'
-                                    relief=sg.RELIEF_SUNKEN, pad=((10, 0), (10, 0)), font=('Times New Roman', 19))
+                                    relief=sg.RELIEF_SUNKEN, pad=((55, 0), (12, 0)), font=('Times New Roman', 19))
             align_frame = sg.Frame(layout=ls_al_frame(), title='Alignment',
-                                   relief=sg.RELIEF_SUNKEN, pad=((10, 0), (10, 30)), font=('Times New Roman', 19))
-            # ls_log = sg.Multiline(**style.styles("__LS_Log__"))    #Output
+                                   relief=sg.RELIEF_SUNKEN, pad=((10, 0), (12, 30)), font=('Times New Roman', 19))
             # Layout
             page_layout = [[sg.Column([[fls_frame],
-                                       [sift_p_frame]]), align_frame]] # , [ls_log]
+                                       [sift_p_frame]]), align_frame]]
             lin_sift_layout = [[sg.Column(page_layout, size=style.small_tab_size)]]
             return lin_sift_layout
 
@@ -398,6 +412,9 @@ def align_tab(style, DEFAULTS):
                        sg.Input('None', **style.styles('__BUJ_FLS2_Staging__')),
                        sg.Input("None", **style.styles('__BUJ_FLS2__')),
                        sg.Text("Flip FLS", **style.styles('__BUJ_FLS2_Text__'))],
+                      [sg.Text('Choose reference image:', pad=((90, 5), (3, 2)))],
+                      [sg.Radio('Unflip', 'FlipRadio', **style.styles('__BUJ_unflip_reference__')),
+                       sg.Radio('Flip', 'FlipRadio', **style.styles('__BUJ_flip_reference__'))],
                       [sg.Button('Set', **style.styles('__BUJ_Set_FLS__')),
                        sg.Button('Reset', **style.styles('__BUJ_Reset_FLS__')),
                        ]]
@@ -588,13 +605,6 @@ def align_tab(style, DEFAULTS):
             align_frame : list of list of PySimpleGUI Elements
                 The layout for the bunwarpj alignment frame.
             """
-
-
-            spacer1a = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
-            spacer1b = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
-            spacer1c = sg.Graph((240, 1), (0, 0), (240, 1), pad=((0, 0), (5, 4)), background_color='black')
-            spacer2 = sg.Graph((760, 1), (0, 0), (760, 1), pad=((10, 0), (3, 2)), background_color='black')
-
             bunwarp_graph = [[sg.Text("1. Image Directory:", pad=((5, 0), (0, 0))),
                               sg.Input(DEFAULTS['browser_dir'], **style.styles('__BUJ_Image_Dir_Path__')),
                               sg.FolderBrowse("Browse", **style.styles('__BUJ_Image_Dir_Browse__')),
@@ -602,25 +612,25 @@ def align_tab(style, DEFAULTS):
                               sg.Button('Reset', **style.styles('__BUJ_Reset_Img_Dir__'))],
                              [sg.Graph((512, 512), (0, 0), (511, 511), **style.styles('__BUJ_Graph__'))]]
 
-            bunwarp_test = [[sg.Text('2b. Linear Stack SIFT Alignment', font=style.fonts['heading'], pad=(0, 5))],
+            bunwarp_test = [[sg.Text('2b. Linear Stack SIFT Alignment', font=style.fonts['heading'],
+                                     pad=((0, 0), (40, 5)))],
 
                             [sg.Text('Unflip:'),
                              sg.Button('Create New', **style.styles('__BUJ_Unflip_Align__')),
                              sg.Text(' |'),
                              sg.FileBrowse('Load Stack', **style.styles('__BUJ_Load_Unflip_Stack__')),
-                             sg.Input(**style.styles('__BUJ_Unflip_Stage_Load__'))],
+                             sg.Input(**style.styles('__BUJ_Unflip_Stage_Load__')),
+                             sg.Image(**style.styles('__BUJ_Unflip_Spinner__'))],
                             [sg.Text('Flip:', pad=((16, 0), (5, 0))),
                              sg.Button('Create New', **style.styles('__BUJ_Flip_Align__')),
                              sg.Text(' |'),
                              sg.FileBrowse('Load Stack', **style.styles('__BUJ_Load_Flip_Stack__')),
-                             sg.Input(**style.styles('__BUJ_Flip_Stage_Load__'))],
+                             sg.Input(**style.styles('__BUJ_Flip_Stage_Load__')),
+                             sg.Image(**style.styles('__BUJ_Flip_Spinner__'))],
 
-                            [spacer1a],
+                            [sg.HorizontalSeparator(color='black', pad=((0, 10), (5, 5)))],
 
                             [sg.Text('3. Image Transformation', font=style.fonts['heading'], pad=((23, 0), (0, 0)))],
-                            [sg.Text('Choose reference image:', pad=((32, 5), (5, 5)))],
-                            [sg.Radio('Unflip', 'FlipRadio', **style.styles('__BUJ_unflip_reference__')),
-                             sg.Radio('Flip', 'FlipRadio', **style.styles('__BUJ_flip_reference__'))],
                             [sg.Text('Rotation:', pad=((35, 0), (0, 0))),
                              sg.Input('0', **style.styles('__BUJ_transform_rot__'), enable_events=True),
                              sg.Text(u'\N{DEGREE SIGN}')],
@@ -632,7 +642,7 @@ def align_tab(style, DEFAULTS):
                              sg.Text('px')],
                             [sg.Checkbox('Horizontal Flip', **style.styles('__BUJ_horizontal_flip__'))],
                             [sg.Button('Adjust Image', **style.styles('__BUJ_Adjust__'))],
-                            [spacer1b],
+                            [sg.HorizontalSeparator(color='black', pad=((0, 10), (5, 5)))],
                             [sg.Input("", **style.styles('__BUJ_Mask_Stage_Load__'))],
                             [sg.Text('4. Image Mask (opt.)', font=style.fonts['heading'], pad=((45, 5), (0, 2)))],
                             [sg.Button('Create New', **style.styles('__BUJ_Make_Mask__')),
@@ -649,9 +659,10 @@ def align_tab(style, DEFAULTS):
                             [sg.Text('Flip:', pad=((16, 0), (3, 0))),
                              sg.Input(**style.styles("__BUJ_Flip_Mask_Inp__")),
                              sg.Button('Clear', pad=((4, 0), (3, 0)), key='__BUJ_Clear_Flip_Mask__')],
-                            [spacer1c],
+                            [sg.HorizontalSeparator(color='black', pad=((0, 10), (5, 5)))],
                             [sg.Text('5c. Registration', pad=((54, 5), (0, 0)), font=style.fonts['heading'])],
-                            [sg.Button('bUnwarpJ Alignment', **style.styles('__BUJ_Elastic_Align__'))]]
+                            [sg.Button('bUnwarpJ Alignment', **style.styles('__BUJ_Elastic_Align__')),
+                             sg.Image(**style.styles('__BUJ_Elastic_Spinner__'))]]
 
             files_column = [[sg.Text('Image:  1.', pad=((5, 0), (0, 0))),
                              sg.Input(**style.styles('__BUJ_Image1__'))],
@@ -670,7 +681,7 @@ def align_tab(style, DEFAULTS):
                                   sg.Text(':'),
                                   sg.Listbox(['Unflip LS', 'Flip LS', 'bUnwarpJ'], **style.styles('__BUJ_Image_Choice__'))]]
             align_frame = [[sg.Column(bunwarp_graph), sg.Column(bunwarp_test)],
-                           [spacer2],
+                           [sg.HorizontalSeparator(color='black', pad=(5, 5))],
                            [sg.Column(files_column), sg.Column(stack_view_column)]]
             return align_frame
 
@@ -692,11 +703,11 @@ def align_tab(style, DEFAULTS):
                                    relief=sg.RELIEF_SUNKEN, pad=((0, 5), (0, 2)), font=('Times New Roman', 19))
             param_tabgroup = [[sg.TabGroup([[sift_par_tab, feat_ext_par_tab, bunwarp_par_tab]], tab_location='topleft',
                                            theme=sg.THEME_CLASSIC, enable_events=True, key="param_tabgroup")]]
-            param_frame = sg.Frame(layout=param_tabgroup, title='Registration Parameters', pad=((4, 0), (0, 0)),
+            param_frame = sg.Frame(layout=param_tabgroup, title='Registration Parameters', pad=((4, 0), (2, 0)),
                                    relief=sg.RELIEF_SUNKEN, font=('Times New Roman', 19))
             # Layout
             page_layout = [[sg.Column([[fls_frame],
-                                       [param_frame]]), align_frame]]  # [bunwarp_log]
+                                       [param_frame]]), align_frame]]
 
             bunwarp_layout = [[sg.Column(page_layout)]]
             return bunwarp_layout
@@ -762,11 +773,10 @@ def reconstruct_tab(style, DEFAULTS):
         """
 
         load_data_frame = [[sg.Text('Stack:', pad=((5, 0), (5, 0))),
-                            sg.Input('None', **style.styles('__REC_Stack_Staging__')),
+                            sg.Input('None', **style.styles('__REC_Stack_Stage__')),
                             sg.Input('None', **style.styles('__REC_Stack__')),
-                            sg.FileBrowse("Load", **style.styles('__REC_Load_Stack__'))
-                            ],
-                           [sg.Text("FLS Files:", pad=((21, 0), (10, 0))),
+                            sg.FileBrowse("Load", **style.styles('__REC_Load_Stack__'))],
+                            [sg.Text("FLS Files:", pad=((21, 0), (10, 0))),
                             sg.Combo(['Two', 'One'], **style.styles('__REC_FLS_Combo__')),
                             sg.Text("TFS:", pad=((35, 0), (10, 0))),
                             sg.Combo(['Unflip/Flip', 'Single'], **style.styles('__REC_TFS_Combo__'))
@@ -789,6 +799,7 @@ def reconstruct_tab(style, DEFAULTS):
                             ],
                            [sg.Button('Set', **style.styles('__REC_Set_FLS__')),
                             sg.Button('Reset', **style.styles('__REC_Reset_FLS__')),
+                            sg.Image(**style.styles('__REC_FLS_Spinner__'))
                             ]]
 
         subregion_frame = [[sg.Text('Unset', key='__REC_Mask_Text__', font='Times 19', pad=((10, 0), (4, 4))),
@@ -804,16 +815,16 @@ def reconstruct_tab(style, DEFAULTS):
                                     [sg.Text('Y shift:', pad=((61, 0), (0, 0))),
                                      sg.Input('0', **style.styles('__REC_transform_y__')),
                                      sg.Text('px')]]),
-                            sg.Col([[sg.Text('Mask Size:', pad=((40, 59), (12, 0)))],
+                            sg.Col([[sg.Text('Mask Size:', pad=((40, 71), (12, 0)))],
                                     [sg.Input('50', **style.styles('__REC_Mask_Size__')),
                                       sg.Text('%', pad=((4, 0), (10, 0)))]
                                     ])
                             ]]
 
-        spacer = sg.Graph((339, 1), (0, 0), (339, 1), pad=((10, 10), (10, 4)), background_color='black')
-
         TIE_menu = [[sg.Col([[sg.Text('Data Prefix:', pad=((10, 0), (4, 0))),
-                              sg.Input('Example', key='__REC_Data_Prefix__', pad=((8, 0), (4, 0)), size=(20, 1))],
+                              sg.Input('Example', key='__REC_Data_Prefix__', pad=((8, 0), (4, 0)), size=(20, 1),
+                                        use_readonly_for_disable=True,
+                                        disabled_readonly_background_color='#A7A7A7')],
                              [sg.Text('Defocus:', pad=((30, 0), (4, 0))),
                               sg.Combo(['None'], **style.styles('__REC_Def_Combo__'))],
                              [sg.Text("QC value:", pad=((22, 0), (5, 0))),
@@ -825,24 +836,25 @@ def reconstruct_tab(style, DEFAULTS):
                                         **style.styles('__REC_Derivative__'))],
                              [sg.Text('Colorwheel:', pad=((8, 0), (4, 0))),
                               sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__'))]]),
-                     sg.Col([[sg.Button('Run', **style.styles('__REC_Run_TIE__'))],
+                     sg.Col([[sg.Button('Run', **style.styles('__REC_Run_TIE__')),
+                              sg.Image(**style.styles('__REC_PYTIE_Spinner__'))],
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]])],
-                             [spacer],
+                             [sg.HorizontalSeparator(color='black', pad=(5, 5))],
                              [sg.Text('Images:', pad=((64, 0), (0, 0))),
-                              sg.Listbox(['Stack', 'Color', 'MagX', 'MagY', 'Magnitude Mag', 'Electr. Phase', 'Mag. Phase',
+                              sg.Listbox(['Stack', 'Color', 'MagX', 'MagY', 'Mag. Magnitude', 'Electr. Phase', 'Mag. Phase',
                                           'Electr. Deriv.', 'Mag. Deriv.', 'In Focus', 'Default Stack'],
                                           **style.styles('__REC_Image_List__')),
                               sg.Slider(**style.styles('__REC_Image_Slider__'))]]
 
         reconstruct_graph = [[sg.Text("Image Directory:",  pad=((70, 0), (5, 0))),
-                  sg.Input(DEFAULTS['browser_dir'], **style.styles('__REC_Image_Dir_Path__')),
-                  sg.FolderBrowse("Browse", **style.styles('__REC_Image_Dir_Browse__')),
-                  sg.Button('Set', **style.styles('__REC_Set_Img_Dir__')),
-                  sg.Button('Reset', **style.styles('__REC_Reset_Img_Dir__'))],
-                 [sg.Slider((0, 0), **style.styles('__REC_Slider__')),
-                  sg.Graph((672, 672), (0, 0), (671, 671), **style.styles('__REC_Graph__')),
-                  sg.Graph((70, 70), (0, 0), (69, 69), **style.styles('__REC_Colorwheel_Graph__'))
-                 ]]
+                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__REC_Image_Dir_Path__')),
+                              sg.FolderBrowse("Browse", **style.styles('__REC_Image_Dir_Browse__')),
+                              sg.Button('Set', **style.styles('__REC_Set_Img_Dir__')),
+                              sg.Button('Reset', **style.styles('__REC_Reset_Img_Dir__'))],
+                             [sg.Slider((0, 0), **style.styles('__REC_Slider__')),
+                              sg.Graph((672, 672), (0, 0), (671, 671), **style.styles('__REC_Graph__')),
+                              sg.Graph((70, 70), (0, 0), (69, 69), **style.styles('__REC_Colorwheel_Graph__'))
+                             ]]
 
         files_column = [[sg.Input('None', **style.styles('__REC_Image__'))]]
 
@@ -867,7 +879,7 @@ def reconstruct_tab(style, DEFAULTS):
 
 
 # ------------------------  Windows  ------------------------ #
-def window_ly(style, DEFAULTS):
+def window_ly(background_color, DEFAULTS): # DEFAULTS
     """The full window layout.
 
     Parameters
@@ -884,6 +896,8 @@ def window_ly(style, DEFAULTS):
     window : list of list of PySimpleGUI Elements
         The layout for the full window.
     """
+    style = WindowStyle(background_color)
+
     menu = menu_bar()
     home_pg = home_tab(style, DEFAULTS)
     align_pg = align_tab(style, DEFAULTS)
@@ -893,6 +907,8 @@ def window_ly(style, DEFAULTS):
     invisible_graph = sg.Graph((0, 0), (0, 0), (0, 0), visible=True, key="__invisible_graph__")
 
     window_layout = [[menu], [invisible_graph, pages]]
+
+
     window = sg.Window('PyLorentz', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
                        resizable=True, size=(style.window_width, style.window_height), use_default_focus=False,
                        finalize=True)
@@ -931,7 +947,7 @@ def save_window_ly(event, image_dir, orientations, tfs=None):
     elif event == '__BUJ_Elastic_Align__':
         im_type = 'bUnwarpJ transform and stack'
         orientations = ['bunwarp transform', 'bunwarp stack']
-        names = ['buj_transform.txt', 'aligned_buj_stack.tif']
+        names = ['buj_transforms/buj_transform.txt', 'aligned_buj_stack.tif']
         file_paths = [join([image_dir, name], '/') for name in names]
     elif event == '__LS_Run_Align__':
         im_type = 'Linear Sift stack'
@@ -1012,19 +1028,32 @@ def save_window_ly(event, image_dir, orientations, tfs=None):
     # Create buttons to define whether to check if paths exists, exit, or save info
     col1 += [[sg.Button('Exit', pad=((x_pad, 0), (10, 5))),
               sg.Button('Save', key='__save_win_save__', pad=((5, 0), (10, 5)), disabled=True)],
-             [sg.Multiline('', visible=True, key='__save_win_log__', size=size, pad=((x_pad, 0), (0, 15)))]]
+             [sg.Multiline('', visible=True, key='__save_win_log__', size=size,
+                           pad=((x_pad, 0), (0, 15)))]]
     layout = [[sg.Col(col1), sg.Col(col2)]]
     return layout, im_type, file_paths, orientations
 
 
 def output_ly():
-    main_output = sg.Tab('Main', [[sg.Multiline('', key='MAIN_OUTPUT', size=(600, 300), autoscroll=True, disabled=True)]])
-    fiji_output = sg.Tab('FIJI', [[sg.Multiline('', key='FIJI_OUTPUT', size=(600, 300), autoscroll=True, disabled=True)]])
+    invisible_graph = sg.Graph((0, 0), (0, 0), (0, 0), visible=True, key="__output_invis_graph__")
+    main_output = sg.Tab('Main', [[sg.Multiline('', key='MAIN_OUTPUT',
+                                                write_only=True, size=(600, 16), autoscroll=True
+                                                )],
+                                   [sg.Text('Autoscroll', pad=(20, 2)),
+                                    sg.Checkbox('', key='MAIN_OUTPUT_AUTOSCROLL', default=True,
+                                                enable_events=True),
+                                    sg.Button('Hide', pad=(20, 2), key='MAIN_OUTPUT_HIDE')]])
+    fiji_output = sg.Tab('FIJI', [[sg.Multiline('', key='FIJI_OUTPUT', write_only=True,
+                                                size=(600, 16), autoscroll=True)],
+                                  [sg.Text('Autoscroll', pad=(20, 2)),
+                                   sg.Checkbox('', key='FIJI_OUTPUT_AUTOSCROLL', default=True,
+                                               enable_events=True),
+                                   sg.Button('Hide', pad=(20, 2), key='FIJI_OUTPUT_HIDE')]])
     pages = sg.TabGroup([[main_output, fiji_output]], tab_location='topleft',
                           theme=sg.THEME_CLASSIC,
                           enable_events=True, key="output_tabgroup")
-    window_layout = [[pages]]
+    window_layout = [[invisible_graph], [pages]]
     window = sg.Window('Log', window_layout, default_element_size=(12, 1), disable_close=True,
-                       resizable=True, size=(600, 300), use_default_focus=False, alpha_channel=0,
+                       resizable=True, size=(600, 350), use_default_focus=False, alpha_channel=0,
                        finalize=True)
     return window

@@ -1,4 +1,5 @@
 import hyperspy.api as hs
+import os
 from io import BytesIO
 from matplotlib import cm as mpl_cm
 from warnings import catch_warnings, simplefilter
@@ -18,7 +19,7 @@ from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 
 
 # ------ Image Loading and Visualization ------ #
-def load_image(img_path, graph_size, stack=False, prefix=''):
+def load_image(img_path, graph_size, key, stack=False, prefix=''):
     """Load in an image"""
 
     try:
@@ -28,7 +29,10 @@ def load_image(img_path, graph_size, stack=False, prefix=''):
             if img_path.endswith(end):
                 correct_end = True
         if not correct_end:
-            print(f'{prefix}Trying to load an incorrect filetype. Acceptable values "tif", "tiff", "dm3", "dm4", and "bmp".')
+            if 'Stage' in key or 'Align' in key:
+                print(f'{prefix}Trying to load an incorrect filetype. Acceptable values "tif" are "tiff".')
+            elif 'FLS' in key:
+                print(f'{prefix}Trying to load an incorrect filetype. Acceptable values "tif", "tiff", "dm3", "dm4".')
             raise
         uint8_data, float_data = {}, {}
         # Load data
@@ -198,7 +202,7 @@ def slice(image, size):
 
 
 # ------ Run FIJI Macros ------ #
-def run_macro(ijm_macro_script, image_dir, fiji_path):
+def run_macro(ijm_macro_script, key, image_dir, fiji_path):
     # check fiji path
     if sys_platform.startswith('win'):
         add_on = "/ImageJ-win64"
@@ -208,7 +212,19 @@ def run_macro(ijm_macro_script, image_dir, fiji_path):
         add_on = "/ImageJ-linux64"
     fiji_path = fiji_path + add_on
 
-    macro_file = f'{image_dir}/macro.ijm'
+    if key == '__LS_Run_Align__':
+        align_type = 'LS'
+    elif key == "__BUJ_Elastic_Align__":
+        align_type = 'BUJ'
+    elif key == "__BUJ_Unflip_Align__":
+        align_type = 'BUJ_unflip_LS'
+    elif key == "__BUJ_Flip_Align__":
+        align_type = 'BUJ_flip_LS'
+
+    macro_file = f'{image_dir}/macros/{align_type}_macro.ijm'
+    if not os.path.exists(f'{image_dir}/macros'):
+        os.mkdir(f'{image_dir}/macros')
+
     with open(macro_file, 'w') as f:
         f.write(ijm_macro_script)
         f.close()
@@ -217,7 +233,6 @@ def run_macro(ijm_macro_script, image_dir, fiji_path):
     # cmd = [fiji_path, "--ij2", "--headless", "--console", "-macro ", macro_file]
 
     return cmd
-
 
 
 # ------ Mask Interaction on Graph ------ #

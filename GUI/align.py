@@ -1,19 +1,55 @@
-from os import path as os_path
+"""Functions for FIJI and alignment.
 
-########################################################
-# Path manipulation and converting strings into macros #
-########################################################
-def join(strings, sep=''):
-    """Takes in strings and joins them with a specific separator. Replaces double
-     backslash with forward slash to take care of path compatibilities between systems."""
+There are different alignment procedures for FIJI for Linear Stack Alignment with Sift
+as well as bUnwarpJ alignemnt. These function build the FIJI macro to be run
+in FIJI and return a stack of aligned images.
+
+Author:
+Tim Cote, ANL, Fall 2019.
+"""
+
+from os import path as os_path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+Check_Setup = Tuple[bool, Optional[str], Optional[str], Optional[List[str]], Optional[List[str]]]
+Pre_LS_Align = Tuple[str, Tuple[List[List[str]], Optional[str], Optional[List[str]]]]
+
+
+# ============================================================= #
+#     Path manipulation and converting strings into macros      #
+# ============================================================= #
+def join(strings: List[str], sep: str = '') -> str:
+    """Method joins strings them with a specific separator.
+
+    Strings are joined with the seperator and if the string contains
+    double backslashes, it replaces them with a forward slash.
+
+    Args:
+        strings: A list of strings to join.
+        sep: The character to seperate the string joing.
+
+    Returns:
+        final_string: The concatenated string.
+    """
 
     final_string = sep.join(strings)
     final_string = final_string.replace('\\', '/')
     return final_string
 
 
-def fijify_macro(unready_macro):
-    """Converts macro into FIJI format and returns macro"""
+def fijify_macro(unready_macro: str) -> str:
+    """Converts macro into FIJI format and returns macro.
+
+    The Fiji format uses ';' as end lines, and sometimes contains
+    additional whitespace. This function accounts for that and edits,
+    the macro string and returns it in the correct format.
+
+    Args:
+        unready_macro: The un-formatted FIJI macro.
+
+    Returns:
+        fiji_ready_macro: The correctly formatted FIJI macro.
+    """
 
     fiji_ready_macro = ''
     for line in unready_macro.splitlines():
@@ -29,20 +65,39 @@ def fijify_macro(unready_macro):
     return fiji_ready_macro
 
 
-def flatten_list(my_list):
-    """Flattens a list of lists into a single list"""
+def flatten_order_list(my_list: List[List[Any]]) -> List[Any]:
+    """Flattens and orders a list of 3 lists into a single list.
 
-    if my_list:
-        l0, l1, l2 = my_list[0], my_list[1], my_list[2]
-        ordered_list = [l0[::-1], l1, l2]
-        flat_list = [item for sublist in ordered_list for item in sublist]
-    else:
-        flat_list = my_list
+    Flattens and orders 2D list of lists of items
+                [[b , a], [c, d], [e, f]]
+    into a 1D list of items
+                    [a, b, c, d, e, f]
+
+    Args:
+        my_list: A 2D list of list of items.
+
+    Returns:
+        flat_list: A 1D flattened/ordered list of items.
+    """
+
+    l0, l1, l2 = my_list[0], my_list[1], my_list[2]
+    ordered_list = [l0[::-1], l1, l2]
+    flat_list = [item for sublist in ordered_list for item in sublist]
     return flat_list
 
 
-def format_GUI_string(s):
-    """Formats strings for GUI to allow easier writing in code."""
+def format_GUI_string(s: str) -> str:
+    """Formats strings for GUI to allow easier writing in code.
+
+    Formatting for the GUI is to help with newlines and appearances in
+    the GUI. (Edit this can probably go into the the GUI_help.py file)
+
+    Args:
+        s: The string to apply GUI format to.
+
+    Returns:
+        new_s: The formatted string.
+    """
 
     num = 1
     new_s = ""
@@ -51,18 +106,52 @@ def format_GUI_string(s):
         if num == 1:
             add_str = ""
             num += 1
-        # Remove and trailing spaces
+        # Remove any trailing spaces
         else:
             add_str = line.strip() + "\n"
         new_s = join([new_s, add_str])
-    return new_s.strip()
+    new_s = new_s.strip()
+    return new_s
 
 
-##########################
-# Manipulating fls files #
-##########################
-def pull_image_files(fls_file, check_align=False):
-    """Use .fls file to return ordered image files for alignment."""
+def format_macro(all_macros: List[str]) -> str:
+    """Format the full macro so it will be ready for use in FIJI."""
+
+    joined_macro = join(all_macros, '\n')
+    full_macro = fijify_macro(joined_macro)
+    return full_macro
+
+
+# ============================================================= #
+#                    Manipulating FLS Files                     #
+# ============================================================= #
+def pull_image_files(fls_file: str,
+                     check_align: bool = False) -> List[List[str]]:
+    """Use .fls file to return ordered image files for alignment.
+
+    Initially it will read in FLS data, pull the number of files
+    from the first line, and then locate the in focus image. Then
+    it seperates the overfocus and underfocus images.
+
+    If the check alignment is set, the returned images are the infocus image,
+    and the nearest under-focused/over-focused on either side of the
+    infocus image. Otherwise all image files are returned. The files are
+    ordered from
+
+
+                    [
+                    [smallest underfocus,  ... , largest underfocus]
+                    [infocus]
+                    [smallest overfocus, ... , largest overfocus]
+                    ]
+
+    Args:
+        fls_file: The filename for the fls file.
+        check_align: Option for full alignement or parameter test.
+
+    Returns:
+        filenames: 2D list of under/in/over-focus images.
+    """
 
     # Read data.
     with open(fls_file) as fls_text:
@@ -91,8 +180,34 @@ def pull_image_files(fls_file, check_align=False):
     return filenames
 
 
-def grab_fls_data(fls1, fls2, tfs_value, fls_value, check_sift):
-    """Grab image data from .fls file."""
+def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
+                  fls_value: str, check_sift: bool) -> Tuple[List[str], List[str]]:
+    """Grab image data from .fls file.
+
+    Given the FLS files for the flip/unflip/single images,
+    return the image filenames depending on the fls_value and
+    through-focal-series (tfs) value.
+
+    Examples:
+        - 1 FLS, Unflip/FLip -> files1 : populated, files2 : populated
+        - 1 FLS, Single      -> files1 : populated, files2 : empty
+        - 2 FLS, Unflip/FLip -> files1 : populated, files2 : populated
+
+    Args:
+        fls1: Filename for 1st FLS file.
+        fls2: Filename for 2nd FLS file.
+        tfs_value: Value for type of through-focal series,
+            Single or Unflip/Flip.
+        fls_value: String of number of FLS files used.
+        check_sift: Option to check sift alignment.
+
+    Returns:
+        Tuple of image filenames for scenarios above
+            - files1: List of image filenames
+                according to examples above.
+            - files2: List of image filenames.
+                according to examples above.
+    """
 
     # Read image data from .fls files and store in flip/unflip lists
     if fls_value == 'One':
@@ -107,10 +222,33 @@ def grab_fls_data(fls1, fls2, tfs_value, fls_value, check_sift):
     return files1, files2
 
 
-def read_fls(path1, path2, fls_files,
-             tfs_value, fls_value, check_sift=False):
-    """Read image files from a .fls file. Checks if the image files exist, returning
-       them if they do."""
+def read_fls(path1: str, path2: str, fls_files: List[str],
+             tfs_value: str, fls_value: str,
+             check_sift: bool = False) -> Tuple[List[str], List[str]]:
+    """Read image files from .fls files and returns their paths.
+
+    The images are read from the FLS files and the files are returned
+    depending on the through-focal series value and the fls value. Once
+    image filenames are pulled from the FLS file, they are joined to
+    the paths (directories) the images are stored in. Those resulting
+    full path names are returned in files1 and files2.
+
+    Args:
+        path1: The first unflip/flip/single path/directory.
+        path2: The first unflip/flip/single path/directory.
+        fls_files: A list of the FLS filenames.
+        tfs_value: The through-focal series option.
+                Options: Unflip/FLip, Single
+        fls_value: The FLS option.
+                Options: One, Two
+        check_sift: Option for checking SIFT alignment.
+
+    Returns:
+        (files1, files2): A tuple of the lists of image paths corresponding
+            to path1 and path2.
+            - files1: List of full image paths.
+            - files2: List of full image paths or empty list.
+    """
 
     # Find paths and .fls files
     fls1, fls2 =  fls_files[0], fls_files[1]
@@ -120,24 +258,44 @@ def read_fls(path1, path2, fls_files,
 
     # Check same number of files between fls
     if tfs_value != 'Single':
-        if len(flatten_list(files2)) != len(flatten_list(files1)):
+        if len(flatten_order_list(files2)) != len(flatten_order_list(files1)):
             return
     # Check if image path exists and break if any path is nonexistent
-    for file in flatten_list(files1):
+    for file in flatten_order_list(files1):
         full_path = join([path1, file], '/')
         if not os_path.exists(full_path):
             return
     if files2:
-        for file in flatten_list(files2):
+        for file in flatten_order_list(files2):
             full_path = join([path2, file], '/')
             if not os_path.exists(full_path):
                 return
     return files1, files2
 
 
-def check_setup(datafolder, tfs_value, fls_value, fls_files, prefix=''):
-    """Check to see all images filenames in .fls exists in
-    the datafolder"""
+def check_setup(datafolder: str, tfs_value: str,
+                fls_value: str, fls_files: List[str],
+                prefix: str = '') -> Check_Setup:
+    """Check to see all images filenames in .fls exists in datafolder.
+
+    Args:
+        datafolder: Datafolder path.
+        tfs_value: The through-focal series option.
+                Options: Unflip/FLip, Single
+        fls_value: The FLS option.
+                Options: One, Two
+        fls_files: A list of the FLS filenames.
+        prefix: The prefix to prepend for print statements in GUI.
+
+    Returns:
+        vals: Will return images filenames and paths to those files
+            and their parent directories if all images pulled from FLS exist.
+            - vals[0]: Corresponds to process success.
+            - vals[1]: 1st parent directory path or None.
+            - vals[2]: 2nd parent directory path or None.
+            - vals[3]: 1st path list of ordered image filenames.
+            - vals[4]: 2nd path list of ordered image filenames.
+    """
 
     # Find paths and .fls files
     if tfs_value == 'Unflip/Flip':
@@ -150,19 +308,47 @@ def check_setup(datafolder, tfs_value, fls_value, fls_files, prefix=''):
     # Grab the files that exist in the flip and unflip dirs.
     file_result = read_fls(path1, path2, fls_files,
                            tfs_value, fls_value, check_sift=False)
+    vals = (False, None, None, None, None)
     if isinstance(file_result, tuple):
         files1, files2 = file_result
-        return True, path1, path2, flatten_list(files1), flatten_list(files2)
+        flattened_files1 = flatten_order_list(files1)
+        flattened_files2 = None
+        if files2:
+            flattened_files2 = flatten_order_list(files2)
+        vals = (True, path1, path2, flattened_files1, flattened_files2)
+    # Prints if task failed
     else:
         print(f'{prefix}Task failed because the number of files extracted from the directory', end=' ')
         print(f'{prefix}does not match the number of files expected from the .fls file.')
         print(f'{prefix}Check that filenames in the flip or unflip', end=' ')
         print(f'{prefix}path match and all files exist in the right directories.')
-        return False
+    return vals
 
 
-def pre_ls_alignement(reference, check_sift, path1, path2, fls_files, tfs_value, fls_value):
-    """ Pre-alignment file manipulations """
+def pre_ls_alignement(reference: str, check_sift: bool, path1: str, path2: str,
+                      fls_files: List[str], tfs_value: str, fls_value: str) -> Pre_LS_Align:
+    """ Pre-alignment file manipulations for linear stack alignement with SIFT.
+
+    Check setup, get reference image to align to, and get all image filenames.
+
+    Args:
+        reference: The type of reference to dictate alignment.
+                Options: 'tfs', 'unflip', 'flip'
+        check_sift (bool): Option for checking SIFT alignment.
+        path1: The first unflip/flip/single path/directory.
+        path2: The first unflip/flip/single path/directory.
+        fls_files: A list of the FLS filenames.
+        tfs_value: The through-focal series option.
+                Options: Unflip/FLip, Single
+        fls_value: The FLS option.
+                Options: One, Two
+    Returns:
+        vals: A tuple of the reference file as well as all other filenames.
+            - vals[0]: The reference filename.
+            - vals[1][0]: 2D list of all files
+            - vals[1][1]: 2D list of ordered image files for path1
+            - vals[1][2]: 2D list of ordered image files for path2
+    """
 
     # Check setup of datafolder
     files1, files2 = read_fls(path1, path2, fls_files, tfs_value, fls_value, check_sift)
@@ -176,16 +362,24 @@ def pre_ls_alignement(reference, check_sift, path1, path2, fls_files, tfs_value,
         ref_list = files2[1].pop()
         ref = join([path2, ref_list], '/')
     all_files = [files1, files2]
+    vals = ref, (all_files, files1, files2)
+    return vals
 
-    return ref, (all_files, files1, files2)
 
-
-#############################
-# FIJI/ImageJ manipulations #
-#############################
-def ls_macro(sift_params):
+# ============================================================= #
+#                      FIJI manipulations                       #
+# ============================================================= #
+def ls_macro(sift_params: Dict[str, Any]) -> str:
     """Create macro for running SIFT alignment. Read 'feature
-    extraction' on ImageJ for more information."""
+    extraction' on ImageJ for more information.
+
+    Args:
+        sift_params: Dictionary of sift parameter values.
+
+    Returns:
+        marco: The macro for running the linear stack alignemt
+            with SIFT.
+    """
 
     s_p = sift_params
     interpolate = ''
@@ -208,7 +402,17 @@ def ls_macro(sift_params):
     return macro
 
 
-def get_shift_rot_macro(transformation, stack="False"):
+def get_shift_rot_macro(transformation: Tuple[float, float, float, bool],
+                        stack: bool = False) -> str:
+    """ Creates macro for applying shifts and rotations for images .
+
+    Args:
+        transformation: Tuple of transformation values.
+        stack: Option of whether image is a stack or single image
+
+    Returns:
+        apply_transform: The macro for shift and rotation transformations
+    """
 
     rot, x_shift, y_shift, horizontal = transformation
     apply_rotation, apply_translation, apply_hflip = '', '', ''
@@ -233,9 +437,22 @@ def get_shift_rot_macro(transformation, stack="False"):
     return apply_transform
 
 
-# noinspection PyUnboundLocalVariable
-def apply_transform(flip, orient_path, fnames, transform_params):
-    """Create macro that applies transformations for pre-alignment"""
+def apply_transform(flip: bool, orient_path: str,  fnames: List[str],
+                    transform_params: Tuple[float, float, float, bool]) -> Tuple[int, str]:
+    """Create macro that applies transformations for pre-alignment.
+
+    Args:
+        flip (bool): Option for whether the files are flipped or not.
+        orient_path (str): The orientation path (flip, unflip, tfs).
+        fnames (List[str]): List of filenames.
+        transform_params (Tuple[float, float, float, bool]):
+            Tuple of transformation parameters.
+
+    Returns:
+        Tuple of number of images and shifted rotated macro
+            - num_files: The number of images files being manipulated.
+            - transformed_files_macro: The shifted/rotated macro.
+    """
 
     open_files, apply_translation = '', ''
     num_files = len(fnames) + 1
@@ -252,9 +469,22 @@ def apply_transform(flip, orient_path, fnames, transform_params):
     return num_files, transformed_files_macro
 
 
-def set_shortnames(files, place):
+def set_shortnames(files: List[List[str]],
+                   place: Tuple[int, int]) -> Tuple[List[str], str]:
     """Return the filenames along with shortened names for
-       ImageJ window"""
+       FIJI window.
+
+    Args:
+        files: List of list of image filenames.
+        place: The indices to be checking in the 'files' list.
+
+    Returns:
+        List of image filenames and shortnames
+            - fnamess: List of image filenames.
+            - short: The shortened name for the files to be aligning
+                - first character refers to flip/unlip,
+                - last character to under/in/over-focus.
+    """
 
     # Set list of filenames based off orientation and focus.
     # Create shortnames for ImageJ windows.
@@ -273,9 +503,31 @@ def set_shortnames(files, place):
     return fnames, short
 
 
-def trim_and_reverse_stacks(filenames, shortname, ref, pos):
-    "Removes excess images and reverses images after initial alignment"
+def trim_and_reverse_stacks(filenames: List[List[str]], shortname: str,
+                            ref: str, pos: bool) -> Tuple[str, str]:
+    """Removes excess images and reverses images after initial SIFT alignment.
 
+    The images for linear stack alignment with SIFT produce the best results by
+    aligning images to an infocuse image. However the stacks that are made in FIJI
+    require the first image be the infocus, so when concatenating multiple stacks
+    togehter, there are extra infocus images that may need to be removed. This function
+    takes care of that. Images with only 2 images wait to be trimmed as you can't
+    concatenate a single image with a stack in FIJI.
+
+    Args:
+        filenames: List of image filenames.
+        shortname: The shortened name for the files to be aligning
+            - first character refers to flip/unlip,
+            - last character to under/in/over-focus.
+        ref: The reference infocus image filename.
+        pos: Option for whether the image is under or over-focus to reverse
+            the image stack.
+
+    Returns:
+        Macros for deleting slices and reversing a stack.
+            - delete: Macro for deleting slices from stack.
+            - reverse: Macro for reversing an image stack.
+    """
     # Trim excess images and reverse stack if necessary. Exceptions are if only 1 other
     # file or if overfocus images are of the reference orientation.
     # Reverse order of stack if images are underfocused.
@@ -288,8 +540,22 @@ def trim_and_reverse_stacks(filenames, shortname, ref, pos):
     return delete, reverse
 
 
-def trim_and_reverse_single_stack(filenames, shortname):
-    "Removes excess images and reverses images after initial alignment"
+def trim_and_reverse_single_stack(filenames: List[List[str]], shortname: str) -> Tuple[str, str]:
+    """Removes excess images for a single stack.
+
+    Similar to trim_and_reverse_stacks but for a single tfs stack.
+
+    Args:
+        filenames: List of image filenames.
+        shortname: The shortened name for the files to be aligning
+            - first character refers to flip/unlip,
+            - last character to under/in/over-focus.
+
+    Returns:
+        Macros for deleting slices and reversing a stack.
+            - delete: Macro for deleting slices from stack.
+            - reverse: Macro for reversing an image stack.
+    """
 
     # Trim excess images and reverse stack if necessary. Exceptions are if only 1 other
     # file or if overfocus images are of the reference orientation.
@@ -301,9 +567,33 @@ def trim_and_reverse_single_stack(filenames, shortname):
     return delete, reverse
 
 
-def write_ls_macro(orient_path, ref, files, count, place, flip,
-                   pos, sift_params, transform_params):
-    """Create the macro for specific orientation, sign, and focus.
+def write_ls_macro(orient_path: str, ref: str, files: List[List[str]],
+                   window: int, place: Tuple[int, int], flip: bool,
+                   pos: bool, sift_params: Dict[str, Any],
+                   transform_params: Tuple[float, float, float, bool]) -> Tuple[str, str]:
+    """Create the linear stack alignment with SIFT (LS) macro for
+    specific orientation, sign, and focus.
+
+    Takes the orientation of flip/unflip/tfs and focus level of
+    overfocus/underfocus/infocus parameters to write the specific
+    LS macro.
+
+    Args:
+        orient_path: The orientation path (flip, unflip).
+        ref: The reference infocus image filename.
+        files: List of list of image filenames.
+        window: Placeholder for name of new stack being made for bookeeping
+            when combining all stacks later.
+        place: The indices to be checking in the 'files' list.
+        flip: Option for whether the files are flipped or not.
+        pos: Option for whether the image is under or over-focus to reverse
+            the image stack.
+        sift_params: Dictionary of sift parameter values.
+        transform_params:
+            Tuple of transformation parameters.
+
+    Returns:
+        Macro for specific orientation and focus and its shortname.
     """
 
     # Grab filenames and create shortened name for window.
@@ -321,9 +611,9 @@ def write_ls_macro(orient_path, ref, files, count, place, flip,
     # Write macro
     macro = f'''open("{ref}");
                 {open_files}
-                run("Images to Stack", "name={count} title=[] use");
+                run("Images to Stack", "name={window} title=[] use");
                 {sift}
-                selectWindow("{count}");
+                selectWindow("{window}");
                 close();
                 selectWindow("Aligned {num_files} of {num_files}");
                 rename("{shortname}");
@@ -333,8 +623,23 @@ def write_ls_macro(orient_path, ref, files, count, place, flip,
     return macro, shortname
 
 
-def write_single_ls_macro(ref, path, files, window, sift_params):
-    """Create the macro for specific orientation, sign, and focus.
+def write_single_ls_macro(ref: str, path: str, files: List[List[str]],
+                          window: int, sift_params: Dict[str, Any]) -> Tuple[str, str]:
+    """Create the linear stack alignment with SIFT (LS) macro for
+    specific orientation, sign, and focus.
+
+    Similar to write_ls_macro but for a single through focal series (tfs).
+
+    Args:
+        ref: The reference infocus image filename.
+        path: The orientation path (tfs).
+        files: List of list of image filenames.
+        window: Placeholder for name of new stack being made for bookeeping
+            when combining all stacks later.
+        sift_params: Dictionary of sift parameter values.
+
+    Returns:
+        Macro for specific orientation and focus and its shortname.
     """
 
     # Grab filenames and create shortened name for window.
@@ -373,8 +678,8 @@ def write_single_ls_macro(ref, path, files, window, sift_params):
     return macro, shortname
 
 
-def set_default_sift():
-    """Create the sub-macro for specific orientation and focus.
+def set_default_sift() -> Dict[str, Any]:
+    """Set the default sift parameters.
 
     Default SIFT parameters
         {'igb': 1.6,
@@ -389,10 +694,8 @@ def set_default_sift():
         'exp_transf': 'Affine',
         'interpolate': True}
 
-    Returns
-    -------
-    sift_params : Dict[str, Union[str, float, int, bool]]
-        All necessary Linear Stack Align with SIFT parameters.
+    Returns:
+        sift_params:All necessary Linear Stack Align with SIFT parameters.
     """
 
     sift_params = {'igb': 1.6,
@@ -411,7 +714,25 @@ def set_default_sift():
     return sift_params
 
 
-def set_default_bUnwarp():
+def set_default_bUnwarp() -> Dict[str, Any]:
+    """Create the default bUnwarpJ parameters.
+
+        Default bUnwarpJ parameters
+            {'reg_mode': 'Fast',
+              'img_sub_factor': 0,
+              'init_def': 'Very Coarse',
+              'final_def': 'Very Fine',
+              'div_weight': 0.1,
+              'curl_weight': 0.1,
+              'landmark_weight': 1.0,
+              'img_weight': 1.0,
+              'cons_weight': 10,
+              'stop_thresh': 0.01}
+
+        Returns:
+            bUnwarp_params:All necessary bUnwarpJ parameters.
+        """
+
     bUnwarp_params = {'reg_mode': 'Fast',
                       'img_sub_factor': 0,
                       'init_def': 'Very Coarse',
@@ -425,8 +746,22 @@ def set_default_bUnwarp():
     return bUnwarp_params
 
 
-def check_image_flip(window, path1, path2, ref):
-    """Check if image requires a horizontal flip"""
+def check_image_flip(window: int, path1: str,
+                     path2: str, ref: str) -> Tuple[bool, str]:
+    """Check if image requires a horizontal flip.
+
+    Args:
+        window: The number of the window being looked at
+        path1: The 1st pathname for the orientation directory,
+            depending on unflip/flip reference.
+        path2: The 2nd pathname for the orientation directory,
+            depending on unflip/flip reference.
+        ref: The selected reference image of 'unflip' or 'flip'.
+
+    Returns:
+        Boolean value for if image needs to be flipped and the pathname
+            of that image.
+        """
 
     # If 'unflip' is reference, flip the 'flipped' images.
     # If 'flip' is reference, flip the 'unflipped' images.
@@ -447,16 +782,24 @@ def check_image_flip(window, path1, path2, ref):
     return flip, path
 
 
-def determine_window_focus(window):
-    """Determine if image window is underfocused,
-       in-focus, or overfocused."""
+def determine_window_focus(window: int) -> Tuple[Tuple[int, int], bool]:
+    """Determine if image window is underfocused, in-focus, or overfocused.
 
-    # From setup -> images [2, 3, 5, 6] in/overfocused (+)
-    #            -> images [1, 4] underfocus (-)
+    Args:
+        window: The number of the window.
+            - images [2, 3, 5, 6] in/overfocused (+)
+            - images [1, 4] underfocus (-)
+
+    Returns:
+        Tuple of place in file list to choose focus during
+            macro creation later and truth value for whether
+            image is in/overfocus (True) or underfocus (False).
+    """
+
     pos = None
-    if window % 3 >= 2:
+    if (window - 1) % 3 > 0:
         pos = True
-    elif window % 3 == 1:
+    elif (window - 1) % 3 == 0:
         pos = False
     orientation_num = (window - 1) // 3
     focus_num = (window - 1) % 3
@@ -464,9 +807,24 @@ def determine_window_focus(window):
     return place, pos
 
 
-def ls_alignment(path1, path2, sift_params, transform_params, ref, all_files):
+def ls_alignment(path1: str, path2: str, sift_params: Dict[str, Any],
+                 transform_params: Tuple[float, float, float, bool],
+                 ref: str, all_files: List[List[str]]) -> Tuple[List[str], List[str]]:
     """Create ImageJ macros for each defocus and orientation
-     other than the reference infocus image."""
+     other than the reference infocus image.
+
+     Args:
+         path1: The first unflip/flip path/directory.
+         path2: The first unflip/flip path/directory.
+         sift_params: The Linear SIFT params.
+         transform_params: The shifting and rotation transformation params.
+         ref: The reference image for flip/unflip.
+         all_files: All ordered fileanmes in under
+            [[undefocus], [infocus] [overfocus]]
+
+    Returns:
+        Tuple of list of both macros and shortnames.
+    """
 
     # Set sift param and image transformation defaults
     if not sift_params:
@@ -492,7 +850,24 @@ def ls_alignment(path1, path2, sift_params, transform_params, ref, all_files):
     return macros, shortnames
 
 
-def single_ls_alignment(sift_params, files, path, param_test=False, ref=None):
+def single_ls_alignment(sift_params: Dict[str, Any], files: List[List[str]],
+                        path: str, param_test: bool = False,
+                        ref: Optional[str] = None) -> Tuple[List[str], List[str]]:
+    """Create ImageJ macros for each defocus and orientation
+     other than the reference infocus image for a single stack.
+
+     Args:
+         sift_params: The Linear SIFT params.
+         files: All ordered fileanmes in under
+            [[undefocus], [infocus] [overfocus]]
+         path: The single path/directory.
+         param_test: Boolean for whether LS alignment is being checked
+         ref: The reference filename.
+
+
+    Returns:
+        Tuple of list of both macros and shortnames.
+    """
 
     # Set sift param and image transformation defaults
     if not sift_params:
@@ -516,23 +891,33 @@ def single_ls_alignment(sift_params, files, path, param_test=False, ref=None):
     return macros, shortnames
 
 
-def save_stack_macro(savename):
+def save_stack_macro(savename: str) -> str:
     """Create macro to save and close all remaining windows."""
 
     macro = f'''saveAs("Tiff", "{savename}");'''
     return macro
 
 
-def close_all_windows_macro():
-    """ Create macro to close all remaining windows."""
+def close_all_windows_macro() -> str:
+    """Create macro to close all remaining windows."""
 
     macro = '''while (nImages>0) {{selectImage(nImages); 
                close();}};'''
     return macro
 
 
-def delete_excess_images_macro(files, short_names, ref):
-    """Create macro to trim excess images appearing in aligned stacks."""
+def delete_excess_images_macro(files: List[List[str]], short_names: List[List[str]],
+                               ref: str) -> str:
+    """Create macro to trim excess images appearing after stack is aligned.
+
+    Args:
+        files: 2D list of all of the files.
+        short_names: The list of shortnames for the aligned stacks.
+        ref: The reference infocus image.
+
+    Returns:
+        The macro from trimming excess images from stacks.
+    """
 
     # Initialize strings, set save title, and remove
     # ref image if necessary.
@@ -558,8 +943,17 @@ def delete_excess_images_macro(files, short_names, ref):
     return trimmed_macro
 
 
-def order_windows_for_selection_macro(shortnames, ref):
-    """Select windows in the order they will be combined."""
+def order_windows_for_selection_macro(shortnames: List[List[str]],
+                                      ref: str) -> Tuple[str, str]:
+    """Select windows in the order they will be combined.
+
+    Args:
+        shortnames: The list of shortnames for the aligned stacks.
+        ref: The reference infocus image.
+
+    Returns:
+        Window order macro and the macro for concatenating stacks.
+    """
 
     img_num = 1
     num_windows = len(shortnames)
@@ -581,15 +975,36 @@ def order_windows_for_selection_macro(shortnames, ref):
     return window_order, concat_list
 
 
-def concatenate_stacks_macro(stack_name, concat_list):
-    """Create macro to concatenate all files into one large stack and return."""
+def concatenate_stacks_macro(stack_names: str, concat_list: str) -> str:
+    """Create macro to concatenate all files into one large stack and return.
 
-    concatanation = f' run("Concatenate...", "  title={stack_name}{concat_list}");'
+    Args:
+        stack_names: The shortnames of the stacks to concatenate.
+        concat_list: The order for concatenating the stacks.
+
+    Returns:
+        The macro for concatenating stacks.
+    """
+
+    concatanation = f' run("Concatenate...", "  title={stack_names}{concat_list}");'
     return concatanation
 
 
-def post_ls_alignment(macros, short_names, files, stack_name, ref):
-    """Runs all saving, concatenation, deleting of excess files."""
+def post_ls_alignment(macros: List[str], short_names: List[List[str]],
+                      files: List[List[str]], stack_name:str,
+                      ref: str) -> List[str]:
+    """Runs all saving, concatenation, deleting of excess files.
+
+    Args:
+        macros: The current list of macros to feed into FIJI.
+        short_names: The list of stack shortnames
+        files: The 2D list of all image files.
+        stack_name: The name to give the final fully aligned stack.
+        ref: The reference infocus filename.
+
+    Returns:
+        List of macros for post LS alignment procedure.
+    """
 
     # Remove excess images
     trimmed_stacks = delete_excess_images_macro(files, short_names, ref)
@@ -607,7 +1022,21 @@ def post_ls_alignment(macros, short_names, files, stack_name, ref):
     return macros
 
 
-def post_single_ls_alignment(macros, shortnames, files, stack_name, ref):
+def post_single_ls_alignment(macros: List[str], shortnames: List[List[str]],
+                             files: List[List[str]], stack_name:str,
+                             ref: str) -> List[str]:
+    """Runs all saving, concatenation, deleting of excess files for single tfs.
+
+    Args:
+        macros: The current list of macros to feed into FIJI.
+        shortnames: The list of stack shortnames
+        files: The 2D list of all image files.
+        stack_name: The name to give the final fully aligned stack.
+        ref: The reference infocus filename.
+
+    Returns:
+        List of macros for post LS alignment procedure.
+    """
 
     # Remove excess images if necessary
     trimmed_macro = ''
@@ -629,18 +1058,29 @@ def post_single_ls_alignment(macros, shortnames, files, stack_name, ref):
     return macros
 
 
-def format_macro(all_macros):
-    """Format the full macro so it will be ready for use in FIJI."""
-
-    joined_macro = join(all_macros, '\n')
-    full_macro = fijify_macro(joined_macro)
-    return full_macro
-
-
-def run_ls_align(datafolder, reference='unflip', check_sift=False, sift_params=None, transform_params=None,
-                 stack_name='uf_aligned_ls_stack.tif', tfs_value='Unflip/Flip', fls_value='Two', fls_files=None):
+def run_ls_align(datafolder: str, reference: str = 'unflip', check_sift: bool = False,
+                 sift_params: Optional[Dict[str, Any]] = None,
+                 transform_params: Optional[Tuple[float, float, float, bool]] = None,
+                 stack_name: str = 'uf_aligned_ls_stack.tif',
+                 tfs_value: str = 'Unflip/Flip',
+                 fls_value: str = 'Two',
+                 fls_files: Optional[List[str]] = None) -> str:
     """ Aligns all 'dm3' files in the 'datafolder' and saves an aligned Tiff
     stack in the datafolder.
+
+    Args:
+        datafolder: The datafolder that contains the paths to the dm3 files.
+        reference: The reference tag that will be used for aligning.
+        check_sift: Option for full align (False) or check SIFT params align (True).
+        sift_params: Dictionary of SIFT params.
+        transform_params: Tuple of image shift and rotation params.
+        stack_name: The filename for saving the aligned stack.
+        tfs_value: Value for the type of tfs.
+        fls_value: Value for the number of fls files.
+        fls_files: The list of fls files
+
+    Returns:
+        The full run LS align macro.
     """
 
     if tfs_value == 'Unflip/Flip':
@@ -675,10 +1115,22 @@ def run_ls_align(datafolder, reference='unflip', check_sift=False, sift_params=N
     return full_ls_macro  #, ordered_slice_names
 
 
-def run_single_ls_align(datafolder, reference='', sift_params=None,
-                        stack_name='test_ls_align.tif', fls_files=None):
+def run_single_ls_align(datafolder: str, reference:  str = '',
+                        sift_params: Optional[Dict[str, Any]] = None,
+                        stack_name: str = 'test_ls_align.tif',
+                        fls_files: Optional[List[str]] = None) -> str:
     """ Aligns all 'dm3' files in the 'datafolder' and saves an aligned Tiff
-    stack in the datafolder.
+    stack in the datafolder for a single tfs.
+
+    Args:
+        datafolder: The datafolder that contains the paths to the dm3 files.
+        reference: The reference tag that will be used for aligning.
+        sift_params: Dictionary of SIFT params.
+        stack_name: The filename for saving the aligned stack.
+        fls_files: The list of fls files
+
+    Returns:
+        The full run LS align macro for single tfs..
     """
 
     # Initiate timing and pre-alignment processing.
@@ -718,12 +1170,35 @@ def run_single_ls_align(datafolder, reference='', sift_params=None,
     return full_ls_macro
 
 
-def run_bUnwarp_align(datafolder, mask_files, reference, transformation, im_size,
-                      stack_paths, sift_FE_params=None, buj_params=None,
-                      savenames=("test.txt", "test.tif"), fls_files=None):
+def run_bUnwarp_align(datafolder: str, mask_files: List[Optional[str]],
+                      reference: str, transformation: Tuple[float, float, float, bool],
+                      im_size: int, stack_paths: List[Optional[str]],
+                      sift_FE_params: Optional[Dict[str, Any]] = None,
+                      buj_params: Optional[Dict[str, Any]] = None,
+                      savenames: Tuple[str, str] = ("default.txt", "default.tif"),
+                      fls_files: Optional[List[str]] = None) -> str:
+    """ Uses bUnwarpJ to align all 'dm3' files in the 'datafolder' and saves an aligned Tiff
+        stack in the datafolder.
+
+        Args:
+            datafolder: The datafolder that contains the paths to the dm3 files.
+            mask_files: A list of the names of the mask_files.
+                - This can be a list of [None, None] if no masks are used.
+            reference: The reference tag that will be used for aligning.
+            transformation: Tuple of image shift and rotation params.
+            im_size: Integer pixel size of the image.
+            stack_paths: [flip_path, unflip_path]
+            sift_FE_params: Dictionary of SIFT feature extract params.
+            buj_params: Dictionary of bUnwarpJ params.
+            savenames: The filenames for saving the aligned stacks.
+            fls_files: The list of fls files
+
+        Returns:
+            The full run bUnwarpJ align macro.
+        """
 
     # Initiate pre-alignment processing.
-    if savenames == ("test.txt", "test.tif"):
+    if savenames == ("default.txt", "default.tif"):
         transf_savename = join([datafolder, savenames[0]], '/')
         stack_savename = join([datafolder, savenames[1]], '/')
     else:
@@ -759,8 +1234,36 @@ def run_bUnwarp_align(datafolder, mask_files, reference, transformation, im_size
     return full_macro
 
 
-def apply_buj_trasf2stack(flip_ref, unflip_ref, stack_paths, flip_files, unflip_files, reference,
-                          transform_path, transformation, savename):
+def apply_buj_trasf2stack(flip_ref: str, unflip_ref: str,
+                          stack_paths: List[str],
+                          flip_files: List[List[str]], unflip_files: List[List[str]],
+                          reference: str, transform_path: str,
+                          transformation: Tuple[float, float, float, bool],
+                          savename: str) -> str:
+    """ Applies the transformation produced by bUnwarpJ for the unflip<->flip infocus
+    images to all images of the opposite stack.
+
+    Once the flip/unflip stack series are generated using the Linear Stack with SIFT alignment,
+    the infocus images of each series are aligned. One of these infocus images is the target
+    to align to, the other image is the source that is aligning to the target. Once these have
+    been aligned with bUnwarpJ, the transformation is applied to all images that are in
+    the stack series of the source image (source stack).
+
+        Args:
+            flip_ref: The datafolder that contains the paths to the dm3 files.
+            unflip_ref: A list of the names of the mask_files.
+
+            stack_paths: [flip_path, unflip_path]
+            flip_files: List of all the flip files.
+            unflip_files: List of all the unflip files.
+            reference: The reference value of 'flip' or 'unflip'.
+            transform_path: The path to the transformation file created by bUnwarpJ.
+            transformation: Tuple of image shift and rotation params.
+            savename: The filename for saving the aligned stack.
+
+        Returns:
+            The bUnwarpJ macro for applying the bUnwarpJ transformation.
+        """
 
     flip_stack_path, unflip_stack_path = stack_paths
     concat_macro = ''
@@ -768,13 +1271,13 @@ def apply_buj_trasf2stack(flip_ref, unflip_ref, stack_paths, flip_files, unflip_
         target_img = unflip_ref
         target_stack = unflip_stack_path
         source_stack = flip_stack_path
-        stack_len = len(flatten_list(flip_files))
+        stack_len = len(flatten_order_list(flip_files))
         concat_macro = f'run("Concatenate...", "title=merged_stack image1=target_stack image2=source_stack");'
     elif reference == 'flip':
         target_img = flip_ref
         target_stack = flip_stack_path
         source_stack = unflip_stack_path
-        stack_len = len(flatten_list(unflip_files))
+        stack_len = len(flatten_order_list(unflip_files))
         concat_macro = f'run("Concatenate...", "title=merged_stack image1=source_stack image2=target_stack");'
     open_macro = f'''open("{target_img}");
                      rename("target_img");
@@ -801,7 +1304,25 @@ def apply_buj_trasf2stack(flip_ref, unflip_ref, stack_paths, flip_files, unflip_
     return macro
 
 
-def bUnwarp_align(src_img, target_img, mask_fn, im_size, buj_params, transf_savename):
+def bUnwarp_align(src_img: str, target_img: str, mask_fn: List[Optional[str]],
+                  im_size: int, buj_params: Optional[Dict[str, Any]],
+                  transf_savename: str) -> str:
+    """ Carries out the bUnwarpJ alignment.
+
+        Aligns the flip and unflip infocus images, defined as the source or target.
+        Mask files can be utilized to select specific regions for aligning.
+
+        Args:
+            src_img: The infocus image to transform.
+            target_img: The infocus image to align to.
+            mask_fn: The filenames for the mask files, can be [None, None].
+            im_size: The pixel size of the sides of the square image.
+            buj_params: Dictionary of bunwarpJ parameters.
+            transf_savename: The path to the transformation file created by bUnwarpJ.
+
+        Returns:
+            The bUnwarpJ macro for carrying out the bUnwarpJ alignment.
+        """
 
     # Grab all bUnwarpJ parameters
     if not buj_params:
@@ -855,7 +1376,18 @@ def bUnwarp_align(src_img, target_img, mask_fn, im_size, buj_params, transf_save
     return bUnwarp_macro
 
 
-def extract_SIFT_landmarks_macro(src_img, target_img, SIFT_params):
+def extract_SIFT_landmarks_macro(src_img: str, target_img: str,
+                                 SIFT_params: Optional[Dict[str, Any]]) -> str:
+    """ Extracts SIFT features for bUnwarpJ alignemnt.
+
+        Args:
+            src_img: The infocus image to transform.
+            target_img: The infocus image to align to.
+            SIFT_params: Dictionary of bunwarpJ parameters.
+
+        Returns:
+            The bUnwarpJ macro for SIFT feature extraction for bUnwarpJ alignment.
+        """
 
     # Grab all SIFT parameters
     if not SIFT_params:
@@ -883,7 +1415,27 @@ def extract_SIFT_landmarks_macro(src_img, target_img, SIFT_params):
     return SIFT_macro
 
 
-def pre_bUnwarp_align(unflip_ref, flip_ref, mask_files, reference, transformation):
+def pre_bUnwarp_align(unflip_ref: str, flip_ref: str,
+                      mask_files: List[Optional[str]], reference: str,
+                      transformation: Tuple[float, float, float, bool]) -> Tuple[str, str, str, List[Optional[str]]]:
+    """ Precursor to bUwnarpJ alignment to collect files, references, and masks..
+
+        Determine the source and target images for bUwnarpJ. Apply any
+        pre-transformations necessary to help with bUwarpJ alignment. Open and
+        return the masks for source and target.
+
+        Args:
+            unflip_ref: The unflip infocus image path.
+            flip_ref: The flip infocus image path.
+            mask_files: The filenames for the mask files, can be [None, None].
+            reference: The reference value for 'unflip'/'flip'.
+            transformation: The pre-shift/rotation to align the infocus images.
+
+        Returns:
+            The bUnwarpJ macro for carrying out the bUnwarpJ alignment. Additionally
+                returns the source and target path names, as well as
+                the associated masks for each image.
+        """
 
     # Grab reference images
     if reference == 'unflip':
