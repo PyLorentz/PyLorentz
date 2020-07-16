@@ -1,6 +1,16 @@
-import PySimpleGUI as sg
+"""Functions for GUI layout building.
+
+These functions build the layout of the GUI. It controls what elements are available and
+where they are placed in the GUI. Styling controls the overall look and feel of the
+elements within this space.
+
+AUTHOR:
+Timothy Cote, ANL, Fall 2019.
+"""
+
 from sys import platform
-from align import join
+import PySimpleGUI as sg
+from util import join
 from gui_styling import pad, window_scaling, WindowStyle
 
 # "Perform the 'Linear Stack Alignment with SIFT' Fiji plugin. To understand the alignment parameters, go to: https://imagej.net/Feature_Extraction.")
@@ -153,7 +163,7 @@ def home_tab(style, DEFAULTS):
 * GUI/Align – Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE.
                 
                 
-This GUI should be used as a means to improve potential alignment of LTEM images utilizing Fiji alignment protocols as well as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PYTIE.
+This GUI should be used as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PYTIE along with a means faster alignment of LTEM images utilizing Fiji alignment protocols.
 
 '''
     contact = 'Contact: tcote@anl.gov, amccray@anl.gov'

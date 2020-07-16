@@ -1,24 +1,97 @@
-import hyperspy.api as hs
-import os
+"""Utility functions for GUI and alignment.
+
+Contains miscellaneous utility functions that help with GUI event handling,
+image handling, and certain filehandling for alignment.
+
+AUTHOR:
+Timothy Cote, ANL, Fall 2019.
+"""
+
 from io import BytesIO
-from matplotlib import cm as mpl_cm
+import os
 from warnings import catch_warnings, simplefilter
 with catch_warnings() as w:
     simplefilter('ignore')
 from PIL import Image
-from sys import platform as sys_platform
 import subprocess
-from align import join
-from numpy import uint8 as np_uint8
-from numpy import array, zeros, flipud
-from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
+from sys import platform
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-# Miscellaneous to potentially apply later
+from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
+import hyperspy.api as hs
+from matplotlib import cm as mpl_cm
+from numpy import array, zeros, flipud, uint8 as np_uint8
+
+# Miscellaneous to potentially apply later:
 # https://imagejdocu.tudor.lu/plugin/utilities/python_dm3_reader/start
 # https://python-forum.io/Thread-Tkinter-createing-a-tkinter-photoimage-from-array-in-python3
 
 
-# ------ Image Loading and Visualization ------ #
+# ============================================================= #
+#             Miscellaneous Manipulations and Checks.           #
+# ============================================================= #
+def flatten_order_list(my_list: List[List[Any]]) -> List[Any]:
+    """Flattens and orders a list of 3 lists into a single list.
+
+    Flattens and orders 2D list of lists of items
+                [[b , a], [c, d], [e, f]]
+    into a 1D list of items
+                    [a, b, c, d, e, f]
+
+    Args:
+        my_list: A 2D list of list of items.
+
+    Returns:
+        flat_list: A 1D flattened/ordered list of items.
+    """
+
+    l0, l1, l2 = my_list[0], my_list[1], my_list[2]
+    ordered_list = [l0[::-1], l1, l2]
+    flat_list = [item for sublist in ordered_list for item in sublist]
+    return flat_list
+
+
+def join(strings: List[str], sep: str = '') -> str:
+    """Method joins strings them with a specific separator.
+
+    Strings are joined with the seperator and if the string contains
+    double backslashes, it replaces them with a forward slash.
+
+    Args:
+        strings: A list of strings to join.
+        sep: The character to seperate the string joing.
+
+    Returns:
+        final_string: The concatenated string.
+    """
+
+    final_string = sep.join(strings)
+    final_string = final_string.replace('\\', '/')
+    return final_string
+
+
+def represents_float(s):
+    """Evaluate if the string is an integer.
+
+    Parameters
+    ----------
+    s : str
+        The string to check if float.
+
+    Returns
+    -------
+    Boolean
+    """
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+
+# ============================================================= #
+#                  Image Loading & Manipulating.                #
+# ============================================================= #
 def load_image(img_path, graph_size, key, stack=False, prefix=''):
     """Load in an image"""
 
@@ -88,9 +161,6 @@ def convert_float_unint8(float_array, graph_size, uint8_data=None, float_data=No
 
 def make_rgba(data, adjust=False, d_theta=0, d_x=0, d_y=0, h_flip=None, color=None):
 
-    # print("Before data shape: ", data.shape)
-    # print("Before data dtype: ", data.dtype)
-    # print("Before data type: ", type(data))
     if adjust:
         # Apply colormap and convert to uint8 datatype
         if color == 'None':
@@ -102,7 +172,6 @@ def make_rgba(data, adjust=False, d_theta=0, d_x=0, d_y=0, h_flip=None, color=No
         else:
             cm = mpl_cm.get_cmap('Spectral')    # spectral, bwr,twilight, twilight_shifted, hsv shows good contrast
             data = cm(data, bytes=True)
-
 
         # Apply horizontal flip if necessary
         if h_flip:
@@ -201,14 +270,16 @@ def slice(image, size):
     return image[startx:endx, starty:endy, :]
 
 
-# ------ Run FIJI Macros ------ #
+# ============================================================= #
+#                   Run Fiji from Command Line                  #
+# ============================================================= #
 def run_macro(ijm_macro_script, key, image_dir, fiji_path):
     # check fiji path
-    if sys_platform.startswith('win'):
+    if platform.startswith('win'):
         add_on = "/ImageJ-win64"
-    elif sys_platform.startswith('darwin'):
+    elif platform.startswith('darwin'):
         add_on = "/Contents/MacOS/ImageJ-macosx"
-    elif sys_platform.startswith('linux'):
+    elif platform.startswith('linux'):
         add_on = "/ImageJ-linux64"
     fiji_path = fiji_path + add_on
 
@@ -230,12 +301,12 @@ def run_macro(ijm_macro_script, key, image_dir, fiji_path):
         f.close()
 
     cmd = join([fiji_path, "--ij2", "--headless", "--console", "-macro ", macro_file], " ")
-    # cmd = [fiji_path, "--ij2", "--headless", "--console", "-macro ", macro_file]
-
     return cmd
 
 
-# ------ Mask Interaction on Graph ------ #
+# ============================================================= #
+#                 Mask Interaction on GUI Graph                 #
+# ============================================================= #
 def draw_mask_points(winfo, graph, current_tab, double_click=False):
     """Draw markers to appear on BUJ graph"""
     if current_tab == 'bunwarpj_tab':
@@ -347,20 +418,3 @@ def draw_square_mask(winfo, graph):
     winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
 
 
-def represents_float(s):
-    """Evaluate if the string is an integer.
-
-    Parameters
-    ----------
-    s : str
-        The string to check if float.
-
-    Returns
-    -------
-    Boolean
-    """
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False

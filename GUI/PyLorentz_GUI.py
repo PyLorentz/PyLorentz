@@ -8,44 +8,50 @@ AUTHOR:
 Timothy Cote, ANL, Fall 2019.
 """
 
-import warnings
+# Standard library imports
 import collections
-import PySimpleGUI as sg
-from os import path as os_path, remove as os_remove, mkdir as os_mkdir
-import subprocess
-from platform import system as platform
-from io import StringIO
-from align import check_setup, join as al_join, run_bUnwarp_align, run_ls_align, run_single_ls_align
-import gui_help as g_help
-from gui_styling import WindowStyle, window_scaling
-from gui_layout import window_ly, save_window_ly, output_ly, element_keys
-from numpy import setdiff1d
-from matplotlib import colors
-# import itertools
-import faulthandler
-from sys import path as sys_path
 from contextlib import redirect_stdout
-import sys
-import shlex
-from threading import Thread
+from io import StringIO
+from os import path, remove, mkdir
+from platform import system as platform
+import subprocess
+from sys import path as sys_path, stdout as sys_stdout
 from queue import Queue, Empty
+from threading import Thread
+import warnings
+
+# Third-party imports
+from numpy import setdiff1d
+import PySimpleGUI as sg
+from matplotlib import colors
+import shlex
+
+# Local imports
 sys_path.append("../PyTIE/")
+from align import check_setup, run_bUnwarp_align, run_ls_align, run_single_ls_align
+from gui_layout import window_ly, save_window_ly, output_ly, element_keys
+from gui_styling import WindowStyle, window_scaling
+from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
 from microscopes import Microscope
 from TIE_helper import *
 from TIE_reconstruct import TIE, SITIE, save_results
-from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
-faulthandler.enable()
+import util as g_help
+
+
+# import faulthandler
+# faulthandler.enable()
+
 
 # ============================================================= #
 #      Setting defaults for FIJI and the working Directory.      #
 # ============================================================= #
 def defaults():
 
-    python_dir = os_path.dirname(__file__)
+    python_dir = path.dirname(__file__)
     default_txt = f'{python_dir}/defaults.txt'
     DEFAULTS = {'fiji_dir': '',
                 'browser_dir': ''}
-    if not os_path.exists(default_txt):
+    if not path.exists(default_txt):
         with open(default_txt, 'w+') as f:
             f.write('// File contains the default paths to FIJI and the browser working directory for GUI.\n')
             f.write('FIJI Directory,\n')
@@ -871,7 +877,7 @@ def file_loading(winfo, window, filename, active_key, image_key, target_key,
         prefix = 'BUJ: '
     elif active_key.startswith('__REC'):
         prefix = 'REC: '
-    if os_path.exists(filename):
+    if path.exists(filename):
         with warnings.catch_warnings():
             try:
                 # Is file loading correctly?
@@ -992,7 +998,7 @@ def removing_FIJI_thread(winfo, prefix, delete_indices, i):
     # Reset the process that is finished
     try:
         if not winfo.fiji_thread.is_alive():
-            winfo.fiji_thread.join()
+            winfo.fiji_thread.g_help.join()
         winfo.proc.close()
     except:
         pass
@@ -1105,7 +1111,7 @@ def load_file_queue(winfo, window, quit=False):
                     pass
 
                 # Process is finished, file was made and is saving/saved
-                if os_path.exists(filename) and poll is not None:
+                if path.exists(filename) and poll is not None:
                     num_files = None
                     remove, disable_elem_list = file_loading(winfo, window, filename, active_key, image_key,
                                                              target_key, conflict_keys, num_files, disable_elem_list)
@@ -1796,7 +1802,7 @@ def run_home_tab(winfo, window, event, values):
     # Get directories for Fiji and images
     if event == '__Fiji_Set__':
         winfo.fiji_path = values['__Fiji_Path__']
-        if not os_path.exists(winfo.fiji_path) or 'Fiji' not in winfo.fiji_path:
+        if not path.exists(winfo.fiji_path) or 'Fiji' not in winfo.fiji_path:
             print(f'{prefix}This Fiji path is incorrect, try again.')
         else:
             print(f'{prefix}Fiji path is set, you may now proceed to registration.')
@@ -1810,7 +1816,7 @@ def run_home_tab(winfo, window, event, values):
         disable_elements(window, ['align_tab'])
         change_inp_readonly_bg_color(window, ['__Fiji_Path__'], 'Default')
     elif event in ['__Browser_Set__', '__Fiji_Def_Set__']:
-        python_dir = os_path.dirname(__file__)
+        python_dir = path.dirname(__file__)
         default_txt = f'{python_dir}/defaults.txt'
         with open(default_txt, 'r') as f:
             lines = f.readlines()
@@ -1821,7 +1827,7 @@ def run_home_tab(winfo, window, event, values):
                     key, value = items[0], items[1]
                     if key == 'FIJI Directory' and event == '__Fiji_Def_Set__':
                         filename = window["__Fiji_Path__"].Get()
-                        if os_path.exists(filename) and 'Fiji' in filename:
+                        if path.exists(filename) and 'Fiji' in filename:
                             fnew.write(f'FIJI Directory,{filename}\n')
                             print(f'{prefix}Fiji default was set.')
                         else:
@@ -1831,7 +1837,7 @@ def run_home_tab(winfo, window, event, values):
                         fnew.write(line)
                     if key == 'Browser Directory' and event == '__Browser_Set__':
                         filename = window["__Browser_Path__"].Get()
-                        if os_path.exists(filename):
+                        if path.exists(filename):
                             fnew.write(f'Browser Directory,{filename}\n')
                             print(f'{prefix}Browser working directory default was set.')
                         else:
@@ -1842,7 +1848,7 @@ def run_home_tab(winfo, window, event, values):
                 elif line.startswith('//'):
                     fnew.write(line)
     elif event in ['__Browser_Reset__', '__Fiji_Def_Reset__']:
-        python_dir = os_path.dirname(__file__)
+        python_dir = path.dirname(__file__)
         default_txt = f'{python_dir}/defaults.txt'
         with open(default_txt, 'r') as f:
             lines = f.readlines()
@@ -1971,7 +1977,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
     # Set image directory and load in-focus image
     if event == '__LS_Set_Img_Dir__':
         image_dir = values['__LS_Image_Dir_Path__']
-        if os_path.exists(image_dir):
+        if path.exists(image_dir):
             winfo.ls_image_dir = image_dir
             toggle(winfo, window, ['__LS_Set_Img_Dir__'], state='Set')
             change_inp_readonly_bg_color(window, ['__LS_FLS1__', '__LS_FLS2__'], 'Default')
@@ -2040,7 +2046,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
             fls_path = window['__LS_FLS2_Staging__'].Get()
             update_values(winfo, window, [('__LS_FLS2_Staging__', 'None')])
             target_key = '__LS_FLS2__'
-        if os_path.exists(fls_path) and fls_path.endswith('.fls'):
+        if path.exists(fls_path) and fls_path.endswith('.fls'):
             fls = FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.ls_fls_files[0] = fls
@@ -2114,14 +2120,14 @@ def run_ls_tab(winfo, window, current_tab, event, values):
 
             # Prepare reference data
             ref1 = files1[len(files1)//2]
-            ref1_path = al_join([path1, ref1], '/')
+            ref1_path = g_help.join([path1, ref1], '/')
             uint8_1, flt_data_1, size_1 = g_help.load_image(ref1_path, graph.get_size(), event, prefix=' LS: ')
             uint8_2 = None
             if tfs_value == 'Single':
                 ref2_path = None
             else:
                 ref2 = files2[len(files2)//2]
-                ref2_path = al_join([path2, ref2], '/')
+                ref2_path = g_help.join([path2, ref2], '/')
                 uint8_2, flt_data_2, size_2 = g_help.load_image(ref2_path, graph.get_size(), event, prefix=' LS: ')
 
             # Load image data as numpy arrays for uint8, numerical val, and size
@@ -2141,7 +2147,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
 
                 # Update window only if view stack not set
                 if view_stack_button.metadata['State'] == 'Def':
-                    metadata_change(winfo, window, [('__LS_Image1__', al_join([orientation, image1.shortname], '/'))])
+                    metadata_change(winfo, window, [('__LS_Image1__', g_help.join([orientation, image1.shortname], '/'))])
                     toggle(winfo, window, ['__LS_Image1__'])
                     display_img = image1.byte_data
 
@@ -2177,7 +2183,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
                     img_2 = images['image2']
                     img2_orientation = 'unflip'
                 display_img = g_help.overlay_images(img_1, img_2, transform, img_1.x_size, graph.get_size()[0])
-                metadata_change(winfo, window, [('__LS_Image2__', al_join([img2_orientation, img_1.shortname], '/'))])
+                metadata_change(winfo, window, [('__LS_Image2__', g_help.join([img2_orientation, img_1.shortname], '/'))])
                 toggle(winfo, window, ['__LS_Adjust__', '__LS_Image2__'], state='Set')
 
         else:
@@ -2202,7 +2208,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
                 # Decide whether file should be created
                 save, overwrite_signal = True, []
                 if param_test:
-                    filename = al_join([image_dir, "Param_Test.tif"], '/')
+                    filename = g_help.join([image_dir, "Param_Test.tif"], '/')
                 else:
                     filename, overwrite_signal = run_save_window(winfo, event, image_dir, tfs=tfs_value)
                     save = overwrite_signal[0]
@@ -2214,8 +2220,8 @@ def run_ls_tab(winfo, window, current_tab, event, values):
 
                 # Create files
                 if save:
-                    if os_path.exists(filename):
-                        os_remove(filename)
+                    if path.exists(filename):
+                        remove(filename)
                     if tfs_value == 'Unflip/Flip':
                         orientation = 'unflip'
                         fls_file_names = [winfo.ls_fls_files[0].path, winfo.ls_fls_files[1].path]
@@ -2276,7 +2282,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
                 else:
                     image_key = 'image2'
                 image = images[image_key]
-                metadata_change(winfo, window, [('__LS_Image1__', al_join([orientation, image.shortname], '/'))])
+                metadata_change(winfo, window, [('__LS_Image1__', g_help.join([orientation, image.shortname], '/'))])
                 display_img = image.byte_data
             else:
                 graph.Erase()
@@ -2532,7 +2538,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
     # Set image directory and load in-focus image
     if event == '__BUJ_Set_Img_Dir__':
         image_dir = values['__BUJ_Image_Dir_Path__']
-        if os_path.exists(image_dir):
+        if path.exists(image_dir):
             winfo.buj_image_dir = image_dir
             toggle(winfo, window, ['__BUJ_Set_Img_Dir__'], state='Set')
             change_inp_readonly_bg_color(window, ['__BUJ_FLS1__', '__BUJ_FLS2__'], 'Default')
@@ -2575,7 +2581,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             fls_path = window['__BUJ_FLS2_Staging__'].Get()
             update_values(winfo, window, [('__BUJ_FLS2_Staging__', 'None')])
             target_key = '__BUJ_FLS2__'
-        if os_path.exists(fls_path) and fls_path.endswith('.fls'):
+        if path.exists(fls_path) and fls_path.endswith('.fls'):
             fls = FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.buj_fls_files[0] = fls
@@ -2607,11 +2613,11 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
 
             # Prepare reference data
             ref1 = files1[len(files1)//2]
-            ref1_path = al_join([path1, ref1], '/')
+            ref1_path = g_help.join([path1, ref1], '/')
             uint8_1, flt_data_1, size_1 = g_help.load_image(ref1_path, graph.get_size(), event, prefix=' BUJ: ')
 
             ref2 = files2[len(files2)//2]
-            ref2_path = al_join([path2, ref2], '/')
+            ref2_path = g_help.join([path2, ref2], '/')
             uint8_2, flt_data_2, size_2 = g_help.load_image(ref2_path, graph.get_size(), event, prefix=' BUJ: ')
 
             # Load image data as numpy arrays for uint8, numerical val, and size
@@ -2625,7 +2631,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                 # Display ref filename and load display data
                 # Update window only if view stack not set
                 if view_stack_button.metadata['State'] == 'Def':
-                    metadata_change(winfo, window, [('__BUJ_Image1__', al_join([orientation, image1.shortname], '/'))])
+                    metadata_change(winfo, window, [('__BUJ_Image1__', g_help.join([orientation, image1.shortname], '/'))])
                     toggle(winfo, window, ['__BUJ_Image1__'])
                     display_img = image1.byte_data
 
@@ -2711,7 +2717,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                     img_1 = images['image1']
                     img_2 = images['image2']
                 display_img = g_help.overlay_images(img_1, img_2, transform, img_1.x_size, graph.get_size()[0])
-                metadata_change(winfo, window, [('__BUJ_Image2__', al_join([orient2, img_1.shortname], '/'))])
+                metadata_change(winfo, window, [('__BUJ_Image2__', g_help.join([orient2, img_1.shortname], '/'))])
                 toggle(winfo, window, ['__BUJ_Adjust__', '__BUJ_Image2__'], state='Set')
         else:
             print(f'{prefix}Unable to adjust, make sure to set your working directory.')
@@ -2737,8 +2743,8 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                 if save:
                     # Delete file if it supposed to be overwritten
                     filename = filename[0]
-                    if os_path.exists(filename):
-                        os_remove(filename)
+                    if path.exists(filename):
+                        remove(filename)
 
                     # Execute fiji macro
                     fls_file_names = [winfo.buj_fls_files[0].path, winfo.buj_fls_files[1].path]
@@ -2871,7 +2877,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             elif orientation == 'flip':
                 image_key = 'image2'
             image = images[image_key]
-            metadata_change(winfo, window, [('__BUJ_Image1__', al_join([orientation, image.shortname], '/'))])
+            metadata_change(winfo, window, [('__BUJ_Image1__', g_help.join([orientation, image.shortname], '/'))])
             display_img = image.byte_data
             toggle(winfo, window, ['__BUJ_View__'])
         winfo.buj_last_image_choice = stack_choice
@@ -3200,11 +3206,11 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                                        load_buj_params(values, prefix))
 
             # Decide whether file should be created
-            if not os_path.exists(stackpaths[0]) or not os_path.exists(stackpaths[1]):
+            if not path.exists(stackpaths[0]) or not path.exists(stackpaths[1]):
                 print(f'{prefix}The unflip or flip stack has been deleted since it has been loaded/created.', end=' ')
                 print('You must restart the process.')
-            elif ((mask_files[0] is not None and not os_path.exists(mask_files[0])) or
-                    (mask_files[1] is not None and not os_path.exists(mask_files[1]))):
+            elif ((mask_files[0] is not None and not path.exists(mask_files[0])) or
+                    (mask_files[1] is not None and not path.exists(mask_files[1]))):
                 print(f'{prefix}The unflip or flip mask has been deleted since it has been loaded.', end=' ')
                 print('You must create new masks or clear current masks.')
             elif sift_params is not None and buj_params is not None:
@@ -3216,11 +3222,11 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                     save = False
                 if save:
                     src1, src2 = filenames[0], filenames[1]
-                    if not os_path.exists(f'{image_dir}/buj_transforms/'):
-                        os_mkdir(f'{image_dir}/buj_transforms/')
+                    if not path.exists(f'{image_dir}/buj_transforms/'):
+                        mkdir(f'{image_dir}/buj_transforms/')
                     for src in [src1, src2]:
-                        if os_path.exists(src):
-                            os_remove(src)
+                        if path.exists(src):
+                            remove(src)
                     fls_file_names = [winfo.buj_fls_files[0].path, winfo.buj_fls_files[1].path]
                     macro = run_bUnwarp_align(image_dir, mask_files, orientation, transform, im_size,
                                                     stackpaths, sift_FE_params=sift_params,
@@ -3465,7 +3471,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Set the working directory
     if event == '__REC_Set_Img_Dir__':
         image_dir = values['__REC_Image_Dir_Path__']
-        if os_path.exists(image_dir):
+        if path.exists(image_dir):
             winfo.rec_image_dir = image_dir
             toggle(winfo, window, ['__REC_Set_Img_Dir__'], state='Set')
             change_inp_readonly_bg_color(window, ['__REC_Stack__', '__REC_FLS1__',
@@ -3479,7 +3485,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         stack_path = window['__REC_Stack_Stage__'].Get()
         update_values(winfo, window, [('__REC_Stack_Stage__', 'None')])
 
-        if os_path.exists(stack_path) and (stack_path.endswith('.tif') or stack_path.endswith('.tiff')):
+        if path.exists(stack_path) and (stack_path.endswith('.tif') or stack_path.endswith('.tiff')):
             image_key = 'REC_Stack'
             graph = window['__REC_Graph__']
             graph_size = graph.get_size()
@@ -3571,7 +3577,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             fls_path = window['__REC_FLS2_Staging__'].Get()
             update_values(winfo, window, [('__REC_FLS2_Staging__', 'None')])
             target_key = '__REC_FLS2__'
-        if os_path.exists(fls_path) and fls_path.endswith('.fls'):
+        if path.exists(fls_path) and fls_path.endswith('.fls'):
             fls = FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.rec_fls_files[0] = fls
@@ -3590,10 +3596,10 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     elif event == '__REC_Reset_FLS__':
         # Reset FLS but don't reset loaded stack
         if winfo.ptie_init_thread is not None and winfo.ptie_init_thread.is_alive():
-            winfo.ptie_init_thread.join()
+            winfo.ptie_init_thread.g_help.join()
             winfo.ptie_init_thread = None
         if winfo.ptie_recon_thread is not None and winfo.ptie_recon_thread.is_alive():
-            winfo.ptie_recon_thread.join()
+            winfo.ptie_recon_thread.g_help.join()
             winfo.ptie_recon_thread = None
         winfo.rec_images = {}
         winfo.rec_fls_files = [None, None]
@@ -3951,8 +3957,8 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     elif event == '__REC_Run_TIE__':
         # Make sure stack still exists before trying to run PyTIE
         stack_path = window['__REC_Stack__'].Get()
-        print(al_join([image_dir, stack_path], '/'))
-        if os_path.exists(al_join([image_dir, stack_path], '/')):
+        print(g_help.join([image_dir, stack_path], '/'))
+        if path.exists(g_help.join([image_dir, stack_path], '/')):
             change_inp_readonly_bg_color(window, ['__REC_Data_Prefix__', '__REC_QC_Input__'], 'Readonly')
             winfo.ptie_recon_thread = Thread(target=ptie_recon_thread,
                                              args=(winfo, window, graph, colorwheel_graph, images, current_tab),
@@ -4026,10 +4032,10 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
     # Reset page
     if event == "__REC_Reset_Img_Dir__":
         if winfo.ptie_init_thread is not None and winfo.ptie_init_thread.is_alive():
-            winfo.ptie_init_thread.join()
+            winfo.ptie_init_thread.g_help.join()
             winfo.ptie_init_thread = None
         if winfo.ptie_recon_thread is not None and winfo.ptie_recon_thread.is_alive():
-            winfo.ptie_recon_thread.join()
+            winfo.ptie_recon_thread.g_help.join()
             winfo.ptie_recon_thread = None
         reset(winfo, window, current_tab)
 
@@ -4084,7 +4090,7 @@ def check_overwrite(winfo, save_win, true_paths, orientations, im_type, event, t
     rec_tie_dont_overwrite_text = 'Some files already exist. Check overwrite box or change name.'
     for i in range(len(true_paths)):
         text = ''
-        exists = os_path.exists(true_paths[i])
+        exists = path.exists(true_paths[i])
         # If no orientation, this removes extra space in insertion for log
         if event != '__REC_Save_TIE__':
             overwrite_box = save_win[f'__save_win_overwrite{i+1}__'].Get()
@@ -4167,7 +4173,7 @@ def save_window_values(save_win, num_paths, event, orientations, defocus=None):
         working_directory = save_win[f'__save_win_wd__'].Get()
         image_save_directory = save_win[f'__save_win_filename1__'].Get()
         prefix = save_win[f'__save_win_prefix__'].Get()
-        path = al_join([working_directory, image_save_directory, prefix], "/")
+        path = g_help.join([working_directory, image_save_directory, prefix], "/")
         if save_choice == 'Color':
             stop = 2
         elif save_choice == 'Full Save':
@@ -4177,7 +4183,7 @@ def save_window_values(save_win, num_paths, event, orientations, defocus=None):
         elif save_choice == 'No Save':
             stop = 0
         for i in range(stop):
-            true_paths.append(al_join([path, str(defocus), orientations[i]], '_'))
+            true_paths.append(g_help.join([path, str(defocus), orientations[i]], '_'))
     return true_paths
 
 
@@ -4307,10 +4313,10 @@ def event_handler(winfo, window):
                     load_file_queue(winfo, window, quit=True)
                     if winfo.ptie_init_thread is not None:
                         if winfo.ptie_init_thread.is_alive():
-                            winfo.ptie_init_thread.join()
+                            winfo.ptie_init_thread.g_help.join()
                     if winfo.ptie_recon_thread is not None:
                         if winfo.ptie_recon_thread.is_alive():
-                            winfo.ptie_recon_thread.join()
+                            winfo.ptie_recon_thread.g_help.join()
                         winfo.ptie_recon_thread = None
                     output_window.close()
                     window.close()
@@ -4462,7 +4468,7 @@ def event_handler(winfo, window):
                     elif '__TIMEOUT__' not in output_event:
                         set_pretty_focus(winfo, output_window, output_event)
 
-                sys.stdout.flush()
+                sys_stdout.flush()
                 output_txt = winfo.buf.getvalue().split('\n')
                 i = 0
                 for line in output_txt:

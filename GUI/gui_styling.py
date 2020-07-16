@@ -1,6 +1,14 @@
-import PySimpleGUI as sg
-# from sys import platform as sys_platform
+"""Functions for GUI styling.
+
+In addition to the layout file, these functions focus on the scaling and style
+of the GUI itself.
+
+AUTHOR:
+Timothy Cote, ANL, Fall 2019.
+"""
+
 import os
+import PySimpleGUI as sg
 
 # ---------  Window Scaling  --------- #
 def window_scaling():
