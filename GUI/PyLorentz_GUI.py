@@ -17,6 +17,7 @@ from platform import system as platform
 import subprocess
 from sys import path as sys_path, stdout as sys_stdout
 from queue import Queue, Empty
+import shlex
 from threading import Thread
 import warnings
 
@@ -24,7 +25,6 @@ import warnings
 from numpy import setdiff1d
 import PySimpleGUI as sg
 from matplotlib import colors
-import shlex
 
 # Local imports
 sys_path.append("../PyTIE/")
@@ -36,6 +36,7 @@ from microscopes import Microscope
 from TIE_helper import *
 from TIE_reconstruct import TIE, SITIE, save_results
 import util as g_help
+from util import Struct
 
 
 # import faulthandler
@@ -72,66 +73,6 @@ def defaults():
 # ============================================================= #
 # ========== Window Functionality and Event Handling ========== #
 # ============================================================= #
-
-# ----------------------------------- #
-# ------------- Classes ------------- #
-# ----------------------------------- #
-class Struct(object):
-    """The data structure for saving GUI info, image info, and
-     reconstruction info."""
-    pass
-
-
-class FileObject(object):
-    """The FileObject Class contains data pathname
-    and shortname data for file."""
-
-    def __init__(self, path):
-        self.path = path
-        self.shortname = ''
-        self.shorten_name()
-
-    def shorten_name(self):
-        """Creates a string of the path name with only the direct parent
-        "image_dir" and the child of "image_dir".
-
-        """
-        index = self.path.rfind('/') + 1
-        self.shortname = self.path[index:]
-
-
-class Image(FileObject):
-    """The Image Class contains data about an individual image.
-    This data is encoded into bytes for the TK Canvas."""
-
-    def __init__(self, uint8_data, flt_data, size, path):
-        super().__init__(path)
-        if uint8_data is not None:
-            self.uint8_data = uint8_data                   # Uint8 image data
-            self.flt_data = flt_data                       # Numerical image array
-            self.x_size, self.y_size, self.z_size = size
-            self.lat_dims = self.x_size, self.y_size
-            self.byte_data = None                           # Byte data
-
-
-class Stack(Image):
-    """The Stack Class contains data about an image stack.
-    This data is encoded into bytes for the TK Canvas. It
-    is a subclass of the Image Class.
-
-    uint8 data is a dictionary where each key is a slice of a stack
-    flt_array is the original np array of all the image data in z, y, x
-    format
-    size is the size of the float array but relayed as x, y, z"""
-
-    def __init__(self, uint8_data, flt_data, size, path):
-        super().__init__(uint8_data, flt_data, size, path)
-        self.stack_byte_data()
-
-    def stack_byte_data(self):
-        self.byte_data = {}
-        for pic in range(self.z_size):
-            self.byte_data[pic] = g_help.vis_1_im(self, pic)
 
 
 # ------------- Initialize and reset ------------- #
@@ -906,7 +847,7 @@ def file_loading(winfo, window, filename, active_key, image_key, target_key,
                 # Save the stack in the correct image dictionary
                 if (uint8_data and (num_files is None or num_files == len(uint8_data.keys()))
                         and not reset):
-                    stack = Stack(uint8_data, flt_data, size, filename)
+                    stack = g_help.Stack(uint8_data, flt_data, size, filename)
                     if active_key.startswith('__LS'):
                         winfo.ls_images[image_key] = stack
                         if window['__LS_Adjust__'].metadata['State'] == 'Def':
@@ -1748,7 +1689,7 @@ def ptie_recon_thread(winfo, window, graph, colorwheel_graph, images, current_ta
                 uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
                                                                      uint8_data, float_data)
                 if uint8_data:
-                    image = Image(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), f'/{key}')
+                    image = g_help.FileImage(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), f'/{key}')
                     image.byte_data = g_help.vis_1_im(image)
                     winfo.rec_images[key] = image
                     loaded_green_list.append(key)
@@ -2047,7 +1988,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
             update_values(winfo, window, [('__LS_FLS2_Staging__', 'None')])
             target_key = '__LS_FLS2__'
         if path.exists(fls_path) and fls_path.endswith('.fls'):
-            fls = FileObject(fls_path)
+            fls = g_help.FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.ls_fls_files[0] = fls
                 if tfs_value == 'Unflip/Flip' and fls_value == 'One':
@@ -2133,10 +2074,10 @@ def run_ls_tab(winfo, window, current_tab, event, values):
             # Load image data as numpy arrays for uint8, numerical val, and size
             if uint8_1:
                 # Create image instances and store byte data for TK Canvas
-                image1 = Image(uint8_1, flt_data_1, size_1, ref1_path)
+                image1 = g_help.FileImage(uint8_1, flt_data_1, size_1, ref1_path)
                 image1.byte_data = g_help.vis_1_im(image1)
                 if uint8_2:
-                    image2 = Image(uint8_2, flt_data_2, size_2, ref2_path)
+                    image2 = g_help.FileImage(uint8_2, flt_data_2, size_2, ref2_path)
                     image2.byte_data = g_help.vis_1_im(image2)
                 else:
                     image2 = None
@@ -2582,7 +2523,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             update_values(winfo, window, [('__BUJ_FLS2_Staging__', 'None')])
             target_key = '__BUJ_FLS2__'
         if path.exists(fls_path) and fls_path.endswith('.fls'):
-            fls = FileObject(fls_path)
+            fls = g_help.FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.buj_fls_files[0] = fls
                 if tfs_value == 'Unflip/Flip' and fls_value == 'One':
@@ -2623,9 +2564,9 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             # Load image data as numpy arrays for uint8, numerical val, and size
             if uint8_1 and uint8_2:
                 # Create image instances and store byte data for TK Canvas
-                image1 = Image(uint8_1, flt_data_1, size_1, ref1_path)
+                image1 = g_help.FileImage(uint8_1, flt_data_1, size_1, ref1_path)
                 image1.byte_data = g_help.vis_1_im(image1)
-                image2 = Image(uint8_2, flt_data_2, size_2, ref2_path)
+                image2 = g_help.FileImage(uint8_2, flt_data_2, size_2, ref2_path)
                 image2.byte_data = g_help.vis_1_im(image2)
 
                 # Display ref filename and load display data
@@ -3050,20 +2991,20 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                     elif filenames:
                         g_help.create_mask(winfo, filenames, image)
                         if flag == (True, False):
-                            image = Image(None, None, None, filenames[0])
+                            image = g_help.FileImage(None, None, None, filenames[0])
                             images['BUJ_unflip_mask'] = image
                             metadata_change(winfo, window, [('__BUJ_Unflip_Mask_Inp__', image.shortname)])
                             toggle(winfo, window, ['__BUJ_Unflip_Mask_Inp__'], state='Set')
                             change_inp_readonly_bg_color(window, ['__BUJ_Unflip_Mask_Inp__'], 'Readonly')
                         elif flag == (False, True):
-                            image = Image(None, None, None, filenames[0])
+                            image = g_help.FileImage(None, None, None, filenames[0])
                             images['BUJ_flip_mask'] = image
                             metadata_change(winfo, window, [('__BUJ_Flip_Mask_Inp__', image.shortname)])
                             toggle(winfo, window, ['__BUJ_Flip_Mask_Inp__'], state='Set')
                             change_inp_readonly_bg_color(window, ['__BUJ_Flip_Mask_Inp__'], 'Readonly')
                         elif flag == (True, True):
-                            image1 = Image(None, None, None, filenames[0])
-                            image2 = Image(None, None, None, filenames[1])
+                            image1 = g_help.FileImage(None, None, None, filenames[0])
+                            image2 = g_help.FileImage(None, None, None, filenames[1])
                             images['BUJ_flip_mask'] = image1
                             images['BUJ_unflip_mask'] = image2
                             metadata_change(winfo, window, [('__BUJ_Unflip_Mask_Inp__', image2.shortname)])
@@ -3093,7 +3034,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
         choice = window['__BUJ_Mask_View__'].Get()
         path = window['__BUJ_Mask_Stage_Load__'].Get()
         update_values(winfo, window, [('__BUJ_Mask_Stage_Load__', 'None')])
-        image = Image(None, None, None, path)
+        image = g_help.FileImage(None, None, None, path)
         if choice == 'Unflip':
             if 'BUJ_unflip_mask' in images and (path == 'None' or not path.endswith('.bmp')):
                 image = images['BUJ_unflip_mask']
@@ -3491,7 +3432,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             graph_size = graph.get_size()
             uint8_data, flt_data, size = g_help.load_image(stack_path, graph_size,  event, stack=True, prefix=' LS: ')
             if uint8_data:
-                stack = Stack(uint8_data, flt_data, size, stack_path)
+                stack = g_help.Stack(uint8_data, flt_data, size, stack_path)
                 slider_range = (0, stack.z_size - 1)
                 slider_val = 0
                 winfo.rec_images[image_key] = stack
@@ -3578,7 +3519,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             update_values(winfo, window, [('__REC_FLS2_Staging__', 'None')])
             target_key = '__REC_FLS2__'
         if path.exists(fls_path) and fls_path.endswith('.fls'):
-            fls = FileObject(fls_path)
+            fls = g_help.FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.rec_fls_files[0] = fls
                 if tfs_value == 'Unflip/Flip' and fls_value == 'One':
@@ -4021,7 +3962,7 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             uint8_data, float_data = {}, {}
             uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
                                                                  uint8_data, float_data)
-            image = Image(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), 'color_b')
+            image = g_help.FileImage(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), 'color_b')
             image.byte_data = g_help.vis_1_im(image)
             winfo.rec_images['color_b'] = image
             if window['__REC_Image_List__'].get()[0] == 'Color':
