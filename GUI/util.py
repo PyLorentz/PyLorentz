@@ -1,7 +1,7 @@
 """Utility functions for GUI and alignment.
 
 Contains miscellaneous utility functions that help with GUI event handling,
-image handling, and certain filehandling for alignment.
+image handling, and certain file handling for alignment.
 
 AUTHOR:
 Timothy Cote, ANL, Fall 2019.
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 import hyperspy.api as hs
 from matplotlib import cm as mpl_cm
+import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
 from PySimpleGUI import Graph
 
@@ -37,23 +38,43 @@ from PySimpleGUI import Graph
 # ----------------------------------- #
 class Struct(object):
     """The data structure for saving GUI info, image info, and
-     reconstruction info."""
+     reconstruction info. Attributes are built in PyLorentz init
+     funcitons.
+
+     This is the most useful class for the GUI and event handler.
+     It contains information for each tab and keeps tracks of files, transformations, threads,
+     subprocesses, etc.
+     """
     pass
 
 
 class FileObject(object):
-    """The FileObject Class contains data pathname
-    and shortname data for file."""
+    """An object for holding the file data.
 
-    def __init__(self, path):
+    FileObjects hold information for .fls data or other files that may or may not be images.
+
+    For more information on how to organize images the directory and load the data, as
+    well as how to setup the .fls file please refer to the README.
+
+    Attributes:
+        path: String of the path name to file.
+        shortname: The shortened name of the file,
+            only shows relative path not full path.
+    """
+
+    def __init__(self, path: str) -> None:
+        """Initialize file object.
+
+        Args:
+            path: The path to the file object.
+        """
         self.path = path
         self.shortname = ''
         self.shorten_name()
 
-    def shorten_name(self):
+    def shorten_name(self) -> None:
         """Creates a string of the path name with only the direct parent
         "image_dir" and the child of "image_dir".
-
         """
         index = self.path.rfind('/') + 1
         self.shortname = self.path[index:]
@@ -61,9 +82,35 @@ class FileObject(object):
 
 class FileImage(FileObject):
     """The Image Class contains data about an individual image.
-    This data is encoded into bytes for the TK Canvas."""
+    This data is encoded into bytes for the TK Canvas.
 
-    def __init__(self, uint8_data, flt_data, size, path):
+    For more information on how to organize images the directory and load the data, as
+    well as how to setup the .fls file please refer to the README.
+
+    Attributes:
+        path: String of the path name to file.
+        shortname: The shortened name of the file,
+            only shows relative path not full path.
+        uint8_data: Ndarray of uint8 data of image.
+        flt_data: Ndarray of float data of image.
+        x_size: The x-size of the image.
+        y_size: The y-size of the image.
+        z_size: The z-size of the image.
+        lat_dims: The laterial dimensions of the image.
+        byte_data: The byte data of the image.
+    """
+
+    def __init__(self, uint8_data: 'np.ndarray', flt_data: 'np.ndarray',
+                 size: Tuple[int, int, int], path: str) -> None:
+        """Initialize the FileImage Object.
+
+        Args:
+            uint8_data: Ndarray of uint8 data of image.
+            flt_data: Ndarray of float data of image.
+            size: Tuple of x, y, z size of the image.
+            path: The path to the FileImage object
+        """
+
         super().__init__(path)
         if uint8_data is not None:
             self.uint8_data = uint8_data                   # Uint8 image data
@@ -78,25 +125,45 @@ class Stack(FileImage):
     This data is encoded into bytes for the TK Canvas. It
     is a subclass of the Image Class.
 
-    uint8 data is a dictionary where each key is a slice of a stack
-    flt_array is the original np array of all the image data in z, y, x
-    format
-    size is the size of the float array but relayed as x, y, z"""
+    Attributes:
+        path: String of the path name to file.
+        shortname: The shortened name of the file,
+            only shows relative path not full path.
+        uint8_data: Ndarray of uint8 data of image.
+        flt_data: Ndarray of float data of image.
+        x_size: The x-size of the image.
+        y_size: The y-size of the image.
+        z_size: The z-size of the image.
+        lat_dims: The laterial dimensions of the image.
+        byte_data: Dictionary of the byte data of the image.
+    """
 
-    def __init__(self, uint8_data, flt_data, size, path):
+    def __init__(self, uint8_data: 'np.ndarray', flt_data: 'np.ndarray',
+                 size: Tuple[int, int, int], path: str):
+        """Initialize the Stack Object.
+
+        Args:
+            uint8_data: Ndarray of uint8 data of image.
+            flt_data: Ndarray of float data of image.
+            size: Tuple of x, y, z size of the image.
+            path: The path to the FileImage object
+        """
+
         super().__init__(uint8_data, flt_data, size, path)
         self.stack_byte_data()
 
     def stack_byte_data(self):
+        """Create the byte data for all the images in the stack."""
+
         self.byte_data = {}
         for pic in range(self.z_size):
-            self.byte_data[pic] = g_help.vis_1_im(self, pic)
+            self.byte_data[pic] = vis_1_im(self, pic)
 
 
 # ============================================================= #
 #             Miscellaneous Manipulations and Checks.           #
 # ============================================================= #
-def flatten_order_list(my_list: List[List[Any]]) -> List[Any]:
+def flatten_order_list(my_list: List[List]) -> List:
     """Flattens and orders a list of 3 lists into a single list.
 
     Flattens and orders 2D list of lists of items
@@ -157,10 +224,10 @@ def represents_float(s: str) -> bool:
 #                  Image Loading & Manipulating.                #
 # ============================================================= #
 def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
-               stack: bool = False, prefix: str = '') -> (
+               stack: bool = False, prefix: str = '') -> Tuple[
                 Optional[Dict[int, 'np.ndarray[np.uint8]']],
                 Optional[Dict[int, 'np.ndarray[np.float64, np.float32]']],
-                Optional[Tuple[int, int, int]]):
+                Optional[Tuple[int, int, int]]]:
     """Load an image file.
 
     Load an image file if it is a stack, dm3, dm4, or bitmap. As of now,
@@ -228,8 +295,7 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
 
 def convert_float_unint8(float_array: 'np.ndarray[np.float64, np.float32]', graph_size: Tuple[int, int],
                          uint8_data: Optional[Dict] = None, float_data: Optional[Dict] = None,
-                         z: int = 0) -> (Dict[int, 'np.ndarray[np.uint8]'],
-                                         Dict[int, 'np.ndarray[np.float64, np.float32]']):
+                         z: int = 0) -> Tuple[Dict[int, 'np.ndarray[np.uint8]'], Dict[int, 'np.ndarray[np.float64, np.float32]']]:
     """Convert float image data to uint8 data, scaling for view in window.
 
         Images need to be converted to uint8 data for potential future processing and
@@ -293,7 +359,6 @@ def make_rgba(data: 'np.ndarray[np.uint8]', adjust: bool = False,
 
     if adjust:
         # Apply colormap and convert to uint8 datatype
-        print('hi', data.dtype)
         if color == 'None':
             data = data * 255
             data = data.astype(np_uint8)
@@ -661,5 +726,4 @@ def draw_square_mask(winfo: Struct, graph: Graph) -> None:
         y_bottom = graph_y
 
     winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
-
 

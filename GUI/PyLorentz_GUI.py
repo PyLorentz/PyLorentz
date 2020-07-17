@@ -14,16 +14,18 @@ from contextlib import redirect_stdout
 from io import StringIO
 from os import path, remove, mkdir
 from platform import system as platform
-import subprocess
-from sys import path as sys_path, stdout as sys_stdout
 from queue import Queue, Empty
+import subprocess
 import shlex
+from sys import path as sys_path, stdout as sys_stdout
 from threading import Thread
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import warnings
 
 # Third-party imports
 from numpy import setdiff1d
 import PySimpleGUI as sg
+from PySimpleGUI import Window, Graph, Element
 from matplotlib import colors
 
 # Local imports
@@ -46,8 +48,12 @@ from util import Struct
 # ============================================================= #
 #      Setting defaults for FIJI and the working Directory.      #
 # ============================================================= #
-def defaults():
+def defaults() -> Dict[str, str]:
+    """Load the default Fiji and working directory if any is set.
 
+    Returns:
+        DEFAULTS: Dictionary of the FIJI and working directory paths.
+    """
     python_dir = path.dirname(__file__)
     default_txt = f'{python_dir}/defaults.txt'
     DEFAULTS = {'fiji_dir': '',
@@ -68,7 +74,7 @@ def defaults():
                     elif key == 'Browser Directory':
                         DEFAULTS['browser_dir'] = value.strip()
     return DEFAULTS
-# ============================================================= #
+
 
 # ============================================================= #
 # ========== Window Functionality and Event Handling ========== #
@@ -76,18 +82,15 @@ def defaults():
 
 
 # ------------- Initialize and reset ------------- #
-def init_ls(winfo):
-    """Initialize Linear Sift Tab variables
+def init_ls(winfo: Struct) -> None:
+    """Initialize Linear Sift Tab variables.
 
-    Parameters
-    ----------
-    winfo - Struct Class
-        A data structure that holds a information about images and
-        window.
+    Args:
+        winfo: A data structure that holds a information about
+            window and GUI.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
     # Declare image directory and image storage
     winfo.ls_image_dir = ''
@@ -104,18 +107,15 @@ def init_ls(winfo):
     winfo.ls_past_transform = (0, 0, 0, 1)
 
 
-def init_buj(winfo):
-    """Initialize bUnwarpJ Tab variables
+def init_buj(winfo: Struct) -> None:
+    """Initialize bUnwarpJ tab variables.
 
-    Parameters
-    ----------
-    winfo - Struct Class
-        A data structure that holds a information about images and
-        window.
+    Args:
+        winfo: A data structure that holds a information about
+            window and GUI.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
     # Declare image path and image storage
     winfo.buj_image_dir = ''
@@ -143,18 +143,16 @@ def init_buj(winfo):
     winfo.buj_mask_markers = []
 
 
-def init_rec(winfo, window):
-    """Initialize Reconstructuion Tab variables
+def init_rec(winfo: Struct, window: Window) -> None:
+    """Initialize Reconstruction Tab variables.
 
-    Parameters
-    ----------
-    winfo - Struct Class
-        A data structure that holds a information about images and
-        window.
+    Args:
+        winfo: A data structure that holds a information about
+            window and GUI.
+        window: The main element that represents the GUI window.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
     # Declare image path and image storage
     winfo.rec_image_dir = ''
@@ -201,20 +199,18 @@ def init_rec(winfo, window):
     winfo.rec_mask_markers = []
 
 
-def init(winfo, window, output_window): #, output_window
-    """Initialize all window and event variables
+def init(winfo: Struct, window: Window, output_window: Window) -> None:
+    """The main element and window initialization. Creates binding.
 
-    Parameters
-    ----------
-    winfo - Struct Class
-        A data structure that holds a information about images and
-        window.
-    window - PySimpleGUI Window Element
-        The python representation of the window GUI.
+    Args:
+        winfo: A data structure that holds a information about
+            window and GUI.
+        window: The main element that represents the GUI window.
+        output_window: The main element that represents the Log
+            output Window.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
     # --- Set up window and tabs --- #
     winfo.window = window
@@ -264,11 +260,10 @@ def init(winfo, window, output_window): #, output_window
     winfo.true_element = None
     winfo.window.bind("<Button-1>", 'Window Click')
     winfo.output_window.bind("<Button-1>", 'Log Click')
-
+    # Graph bindings
     winfo.window['__BUJ_Graph__'].bind('<Double-Button-1>', 'Double Click')
     winfo.window['__REC_Graph__'].bind('<Double-Button-1>', 'Double Click')
-
-
+    # Log bindings
     winfo.window.bind("<Control-l>", 'Show Log')
     winfo.window.bind("<Control-h>", 'Hide Log')
     winfo.output_window.bind("<Control-h>", 'Output Hide Log')
@@ -285,22 +280,17 @@ def init(winfo, window, output_window): #, output_window
         winfo.output_window[key].bind("<FocusOut>", '+FOCUS_OUT+')
 
 
-def reset(winfo, window, current_tab):
+def reset(winfo: Struct, window: Window, current_tab: str) -> None:
     """Reset the current tab values to be empty or defaults
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        A data structure that holds a information about images and
-        window.
-    window : PySimpleGUI Window Element
-        The python representation of the window GUI.
-    current_tab : str
-        The key of the current tab being viewed in the window.
+    Args:
+        winfo: A data structure that holds the information about the
+            window and GUI.
+        window: The main representation of the GUI window.
+        current_tab:  The key of the current tab being viewed in the window.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
     # Reset timers
     winfo.rotxy_timers = 0, 0, 0
@@ -387,20 +377,22 @@ def reset(winfo, window, current_tab):
 
 
 # ------------- Path and Fiji Helper Functions ------------- #
-def load_ls_sift_params(vals, prefix, image_size):
+def load_ls_sift_params(vals: Dict[str, str], prefix: str,
+                        image_size: int) -> Dict[str, Any]:
     """ Convert the values of the GUI inputs for the Linear
     SIFT alignment from strings into FIJI's values to read
     into macro.
 
-    Parameters:
-    vals - dict
-        The dictionary for key-value pairs for the Linear
-        SIFT Alignment of FIJI.
+    Args:
+        vals: The dictionary for key-value pairs for the Linear
+            SIFT Alignment of FIJI.
+        prefix: The prefix for the output to know which tab output
+            corresponds to.
+        image_size: The size of the image in pixels.
 
     Returns:
-    sift_params : dict
-        The converted dictionary of ints, floats, strs for
-        Linear SIFT Alignment.
+        sift_params: The converted dictionary of ints, floats, strs for
+            Linear SIFT Alignment.
     """
     try:
         if (not (0 < float(vals['__LS_igb__'])) or
@@ -432,21 +424,22 @@ def load_ls_sift_params(vals, prefix, image_size):
         return
 
 
-def load_buj_ls_sift_params(vals, prefix, image_size):
+def load_buj_ls_sift_params(vals: Dict[str, str], prefix: str,
+                            image_size: int) -> Dict[str, Any]:
     """ Convert the values of the GUI inputs for the bUnwarpJ
     procedure Linear SIFT alignment from strings into
     FIJI's values to read into macro.
 
-    Parameters:
-    vals - dict
-        The dictionary for key-value pairs for the
-        Linear SIFT alignment procedure for bUnwarpJ
-        of FIJI.
+    Args:
+        vals: The dictionary for key-value pairs for the Linear
+            SIFT Alignment of FIJI.
+        prefix: The prefix for the output to know which tab output
+            corresponds to.
+        image_size: The size of the image in pixels.
 
     Returns:
-    sift_params : dict
-        The converted dictionary of ints, floats, strs for
-        Lin. SIFT Alignment for bUnwarpJ procedure
+        sift_params: The converted dictionary of ints, floats, strs for
+            bUnwarp tab's Linear SIFT Alignment.
     """
     try:
         if (not (0 < float(vals['__BUJ_LS_igb__'])) or
@@ -478,21 +471,24 @@ def load_buj_ls_sift_params(vals, prefix, image_size):
         return
 
 
-def load_buj_feat_ext_params(vals, prefix, image_size):
+def load_buj_feat_ext_params(vals: Dict[str, str], prefix: str,
+                             image_size: int) -> Dict[str, Any]:
     """ Convert the values of the GUI inputs for the bUnwarpJ
     feature extraction parameters from strings into
     FIJI's values to read into macro.
 
-    Parameters:
-    vals - dict
-        The dictionary for key-value pairs for the
-        bUnwarpJ parameters.
+    Args:
+        vals: The dictionary for key-value pairs for the Linear
+            SIFT Alignment of FIJI.
+        prefix: The prefix for the output to know which tab output
+            corresponds to.
+        image_size: The size of the image in pixels.
 
     Returns:
-    sift_params : dict
-        The converted dictionary of ints, floats, strs for
-        for feature extraction bUnwarpJ procedure.
+        sift_params: The converted dictionary of ints, floats, strs for
+            Feature Extraction.
     """
+
     try:
         if (not (0 < float(vals['__BUJ_igb__'])) or
                 not (0 < int(vals['__BUJ_min_im__']) < int(vals['__BUJ_max_im__']) <= image_size) or
@@ -525,21 +521,21 @@ def load_buj_feat_ext_params(vals, prefix, image_size):
         return
 
 
-def load_buj_params(vals, prefix):
+def load_buj_params(vals: Dict[str, str], prefix: str):
     """ Convert the values of the GUI inputs for the bUnwarpJ
-    main parameters from strings into
-    FIJI's values to read into macro.
+    main parameters from strings into FIJI's values to read into macro.
 
-    Parameters:
-    vals - dict
-        The dictionary for key-value pairs for the
-        bUnwarpJ parameters.
+    Args:
+        vals: The dictionary for key-value pairs for the Linear
+            SIFT Alignment of FIJI.
+        prefix: The prefix for the output to know which tab output
+            corresponds to.
 
     Returns:
-    sift_params : dict
-        The converted dictionary of ints, floats, strs for
-        for main bUnwarpJ procedure.
+        sift_params: The converted dictionary of ints, floats, strs for
+            bUnwarpJ Alignment.
     """
+
     try:
         initial_val = vals['__BUJ_init_def__']
         final_val = vals['__BUJ_final_def__']
@@ -574,11 +570,18 @@ def load_buj_params(vals, prefix):
 
 
 # ------------- Window Helper Functions ------------- #
-def shorten_name(path, ind=1):
+def shorten_name(path: str, ind: int = 1) -> str:
     """Creates a string of the path name with only the direct parent
     "image_dir" and the child of "image_dir".
 
+    Args:
+        path: The full_path to be shortened.
+        ind: The index for checking how many '/' to check in path.
+
+    Returns:
+        shortname: The shortened pathname for window display.
     """
+
     check_string = path
     for i in range(ind):
         index = check_string.rfind('/') - 1
@@ -587,22 +590,19 @@ def shorten_name(path, ind=1):
     return shortname
 
 
-def get_open_tab(winfo, tabgroup, event):
+def get_open_tab(winfo: Struct, tabgroup: str, event: str) -> str:
     """Recursively determine which tab is open.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    tabgroup : str
-        The key of the tabgroup.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        tabgroup: The key of the tabgroup.
+        event: The event key.
 
-    Returns
-    -------
-    tab_key : str
-        The key for the current open tab.
+    Returns:
+        tab_key: The key for the current open tab.
     """
+
     # Recursively go through tabgroups and tabs to find
     # current tab.
     tab_key = winfo.window[tabgroup].Get()
@@ -628,23 +628,19 @@ def get_open_tab(winfo, tabgroup, event):
     return tab_key
 
 
-def get_orientation(window, pref):
+def get_orientation(window: Window, pref: str) -> str:
     """Get the current orientation value for the
     current window.
 
-    Parameters
-    ----------
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    pref : str
-        The prefix for the the key of
+    Args:
+    window: The element representing the main GUI window.
+    pref: The prefix for the the key of
         the orientation for the window.
 
-    Returns
-    -------
-    orientation : str
-        The orientation the current image should be.
+    Returns:
+        orientation:  The orientation the current image should be.
     """
+
     if window[f'__{pref}_unflip_reference__'].Get():
         orientation = 'unflip'
     elif window[f'__{pref}_flip_reference__'].Get():
@@ -654,7 +650,22 @@ def get_orientation(window, pref):
     return orientation
 
 
-def get_mask_transform(winfo, window, current_tab):
+def get_mask_transform(winfo: Struct, window: Window,
+                       current_tab: str) -> Tuple[Union[float, int],
+                                                  Union[float, int],
+                                                  Union[float, int]]:
+    """Get the mask transformation of the REC window.
+
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        pref: The prefix for the the key of
+            the orientation for the window.
+
+    Returns:
+        transform: The transformation to apply to REC mask
+    """
 
     timers = winfo.rec_mask_timer
     old_transform = winfo.rec_past_mask
@@ -665,35 +676,29 @@ def get_mask_transform(winfo, window, current_tab):
     return transform
 
 
-def retrieve_transform(winfo, window, current_tab, transf_list,
-                       old_transform, new_transform, mask=False):
+def retrieve_transform(winfo: Struct, window: Window, current_tab: str,
+                       transf_list: List[Tuple], old_transform: Tuple,
+                       new_transform: Tuple, mask: bool = False) -> Tuple:
     """Return transformation to apply to image based off correct
     inputs and timers.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    current_tab : str
-        The key representing the current main tab of the
-        window.
-    rotxy_list : list of tuples
-        The list containing the tuple that has values and
-        timers for each of rotation, x, and y inputs.
-    old_transform : tuple of ints, floats
-        The previous transformation that was applied to img.
-    new_transform : tuple of ints, floats
-        The next transformation to potentially apply to
-        img.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        current_tab: The key representing the current main tab of the
+            window.
+        rotxy_list: The list containing the tuple that has values and
+            timers for each of rotation, x, and y inputs.
+        old_transform: The previous transformation that was applied to img.
+        new_transform: The next transformation to potentially apply to
+            img.
+        mask: The boolean value whether the transformation is for a mask or not.
 
-    Returns
-    -------
-    transform : tuple of ints, floats
-        The transformation to apply to the img.
+    Returns:
+        transform: The transformation to apply to the img.
     """
+
     # Set transform to old_transform in case no changes made
     transform = old_transform
 
@@ -705,7 +710,7 @@ def retrieve_transform(winfo, window, current_tab, transf_list,
         timers = [0, 0, 0]
     timer_cutoff = 15  # timeout
 
-    # Loop through rotation, x, and y values
+    # Loop through rotation, x, and y values (or size values if mask)
     val_set = False
     for val, timer, i in transf_list:
         # If not int, "", or "-", don't increase timer
@@ -755,26 +760,21 @@ def retrieve_transform(winfo, window, current_tab, transf_list,
     return transform
 
 
-def get_transformations(winfo, window, current_tab):
+def get_transformations(winfo: Struct, window: Window,
+                        current_tab: str) -> Tuple:
     """ Gets transformations from the event window.
     Timers give user a limited amount of time before
     the rotation or shift is cleared.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        A data structure that holds a information about images and
-        window.
-    window : PySimpleGUI Window Element
-        The python representation of the window GUI.
-    current_tab : str
-        The key of the current tab being viewed in the window.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        current_tab: The key of the current tab being viewed in the window.
 
-    Returns
-    -------
-    transform : tuple of ints, floats
-        A tuple of the transformation variables for
-        rotation, x-translate, y-translate, and flip.
+    Returns:
+        transform: A tuple of the transformation variables for
+            rotation, x-translate, y-translate, and flip.
     """
 
     # Grab the timers for the inputs
@@ -807,8 +807,31 @@ def get_transformations(winfo, window, current_tab):
     return transform
 
 
-def file_loading(winfo, window, filename, active_key, image_key, target_key,
-                 conflict_keys, num_files, disable_elem_list):
+def file_loading(winfo: Struct, window: Window, filename: str, active_key: str,
+                 image_key: str, target_key: str, conflict_keys: List[str],
+                 num_files: int, disable_elem_list: List[str]) -> Tuple[bool, List[str]]:
+    """
+    The function for loading stacks and other image files.
+
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        filename: The name of the file being loaded.
+        active_key: The key of the element that is active process.
+        image_key: The key of the image in the image dictionary file should be loaded to.
+        target_key: The target key that should be updated when image is loaded.
+        conflict_keys: All the keys that should be disabled if they are in conflict with the
+            active key.
+        num_files: The number of files that should be loaded, 1 if not stack.
+        disable_elem_list: The list of elements to disable based off active key or next
+            active keys.
+
+    Returns:
+        remove: Boolean value if active key should be removed
+        disable_elem_list: The list of elements to disable based off active key or next
+            active keys.
+    """
 
     remove = False
     # Path exists
@@ -928,12 +951,34 @@ def file_loading(winfo, window, filename, active_key, image_key, target_key,
     return remove, disable_elem_list
 
 
-def readlines(process, queue):
+def readlines(process: 'subprocess.Popen', queue:  'queue.Queue') -> None:
+    """Reads output that is passed to the queue from the running process.
+
+    Args:
+        process: The running process.
+        queue: The queue of the output stream.
+
+    Returns:
+        None
+    """
+
     while process.poll() is None:
         queue.put(process.stdout.readline())
 
 
-def removing_FIJI_thread(winfo, prefix, delete_indices, i):
+def removing_FIJI_thread(winfo: Struct, prefix: str,
+                         delete_indices: List[int], i: int) -> List[int]:
+    """Removes Fiji thread if it fails or when it terminates.
+
+    Args:
+        winfo: A data structure that holds a information about Window and GUI.
+        prefix: The prefix for the tab this thread is printing from.
+        delete_indices: The list of indices from the queue which are to be deleted.
+        i: The index of the thread in the queue which is being deleted.
+
+    Returns:
+        delete_indices: The list of indices from the queue which are to be deleted.
+    """
 
     delete_indices.append(i)
     # Reset the process that is finished
@@ -952,24 +997,22 @@ def removing_FIJI_thread(winfo, prefix, delete_indices, i):
     return delete_indices
 
 
-def load_file_queue(winfo, window, quit=False):
-    """Loop through unloaded images and check whether they
+def load_file_queue(winfo: Struct, window: Window,
+                    quit_load: bool = False) -> None:
+    """Dictates how loading of files from queue waitlist should operate.
+
+    Loop through unloaded images and check whether they
     exist. If they do, load that file and remove it from the
-    queue. FIFO loading preferred.
+    queue. FIFO loading preferred but loads what is available.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        A data structure that holds a information about images and
-        window.
-    window : PySimpleGUI Window Element
-        The python representation of the window GUI.
-    current_tab : str
-        The key for the current tab where the function is running.
+    Args:
+        winfo: A data structure that holds a information about Window and GUI.
+        window: The main representation of the GUI window.
+        quit_load: The boolean value for whether the window is quit or not.
 
-    Returns
-    -------
-    None"""
+    Returns:
+        None
+    """
 
     # Loop through items in the queue, checking if they exist
     # If they do load image and save data and remove loading data from queue
@@ -985,7 +1028,7 @@ def load_file_queue(winfo, window, quit=False):
             prefix = 'REC: '
 
         # Zero-eth alignment and no process running
-        if i == 0 and winfo.proc is None and not quit:
+        if i == 0 and winfo.proc is None and not quit_load:
             if winfo.kill_proc:
                 # Check all tabs for which processes are killed
                 for item in winfo.kill_proc:
@@ -1034,7 +1077,7 @@ def load_file_queue(winfo, window, quit=False):
                     print(f'{prefix}The {active_key} process was removed.')
                     remove_FIJI = True
 
-            if not quit:
+            if not quit_load:
                 # Poll the process
                 poll = winfo.proc.poll()
                 # Get information from the FIJI thread
@@ -1069,10 +1112,7 @@ def load_file_queue(winfo, window, quit=False):
                                 window['__LS_Adjust__'].metadata['State'] == 'Def'):
                             enable_elements(winfo, window, ['__LS_View_Stack__'])
                             enable_elements(winfo, window, conflict_keys)
-                    elif active_key.startswith('__BUJ'):  # Special_enable_disable
-
-
-
+                    elif active_key.startswith('__BUJ'):
                         if (window['__BUJ_View__'].metadata['State'] == 'Def' and
                                 window['__BUJ_Set_FLS__'].metadata['State'] == 'Set' and
                                 window['__BUJ_Adjust__'].metadata['State'] == 'Def' and
@@ -1114,7 +1154,7 @@ def load_file_queue(winfo, window, quit=False):
     winfo.kill_proc = []
 
     # new_buj_queue = winfo.buj_file_queue
-    if not quit:
+    if not quit_load:
         for j in range(len(winfo.buj_file_queue)):
             filename, active_key, image_key, target_key, conflict_keys, num_files = winfo.buj_file_queue[j]
             remove2, disable_elem_list = file_loading(winfo, window, filename, active_key, image_key,
@@ -1125,33 +1165,43 @@ def load_file_queue(winfo, window, quit=False):
 
 
 # ------------- Changing Element Values ------------- #
-def update_values(winfo, window, elem_val_list):
+def update_values(winfo: Struct, window: Window,
+                  elem_val_list: List[Tuple[Element, Any]]) -> None:
     """ Take a list of element key, value tuple pairs
     and update value of the element.
 
     Parameters
     ----------
-    winfo: hi
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    elem_val_list : list of PySimpleGUI Elements
-        The list of elements whose state is to be changed.
+        winfo: The data structure holding all information about
+                windows and GUI.
+        window: The element representing the main GUI window.
+        elem_val_list: The list of elements, value paris to update.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
 
     for elem_key, value in elem_val_list:
         if elem_key in winfo.keys['button']:
             window[elem_key].Update(text=value)
-        # elif elem_key in keys['multiline']:
-        #     window[elem_key].Update(value=value, append=True)
         else:
             window[elem_key].Update(value=value)
 
 
-def change_list_ind_color(window, current_tab, elem_ind_val_list):
+def change_list_ind_color(window: Window, current_tab: str,
+                          elem_ind_val_list: List[int]) -> None:
+    """Change the listbox index color based off what images are loaded.
+
+    Args:
+        window: The element representing the main GUI window.
+        current_tab: The key for the current tab.
+        elem_ind_val_list: The list of tuples made of PySimpleGUI elements
+            along with the value that the metadata of the
+            element state 'Set' will change to.
+
+    Returns:
+        None
+    """
 
     if current_tab == 'reconstruct_tab':
         num_list = list(range(11))
@@ -1167,7 +1217,18 @@ def change_list_ind_color(window, current_tab, elem_ind_val_list):
             listbox.Widget.itemconfig(index, fg='light grey', bg=sg.theme_input_background_color())
 
 
-def change_inp_readonly_bg_color(window, elem_list, val):
+def change_inp_readonly_bg_color(window: Window, elem_list: List[Element],
+                                 val: str):
+    """Change the readonly input background color.
+
+    Args:
+        window: The element representing the main GUI window.
+        elem_list: The list of elements whose color will change
+        val: The value to change the color to.
+
+    Returns:
+        None
+    """
 
     for elem in elem_list:
         if val == 'Default':
@@ -1176,27 +1237,25 @@ def change_inp_readonly_bg_color(window, elem_list, val):
             window[elem].Widget.config(readonlybackground='#A7A7A7')
 
 
-def metadata_change(winfo, window, elem_val_list, reset=False):
+def metadata_change(winfo: Struct, window: Window,
+                    elem_val_list: List[Tuple[Element, str]],
+                    reset: bool = False) -> None:
     """Change the metadata of the element to update between
     the default value and the user set value.
 
-    Parameters
-    ----------
-    winfo :
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    elem_val_list : list of tuple(PySimpleGUI Elements, str)
-        The list of tuples made of PySimpleGUI elements
-        along with the value that the metadata of the
-        element state 'Set' will change to.
-    reset : Boolean
-        If true, the 'Set' value is reset to 'Def'.
-        Otherwise the value will be 'Set' as defined
-        by the user.
+    Args:
+        winfo: The data structure holding all information about
+              windows and GUI.
+        window: The element representing the main GUI window.
+        elem_val_list: The list of tuples made of PySimpleGUI elements
+            along with the value that the metadata of the
+            element state 'Set' will change to.
+        reset: If true, the 'Set' value is reset to 'Def'.
+            Otherwise the value will be 'Set' as defined
+            by the user.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
 
     if reset:
@@ -1209,26 +1268,23 @@ def metadata_change(winfo, window, elem_val_list, reset=False):
                 update_values(winfo, window, [(elem, val)])
 
 
-def toggle(winfo, window, elem_list, state=None):
+def toggle(winfo: Struct, window: Window,
+           elem_list: List[Element], state: Optional[str] = None) -> None:
     """Toggle between the default state and set state
     of an elements metadata.
 
-    Parameters
-    ----------
-    winfo: hi
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    elem_list : list of PySimpleGUI Elements
-        The list of elements whose state is to be changed.
-    state : None or str
-        If the state is None, the state is changed
-        from Set -> Def or Def -> Set.
-        If the state is specified, that state will
-        be activated.
+    Parameters:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        elem_list: The list of elements whose state is to be changed.
+        state: If the state is None, the state is changed
+            from Set -> Def or Def -> Set.
+            If the state is specified, that state will
+            be activated.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
 
     for elem in elem_list:
@@ -1248,23 +1304,24 @@ def toggle(winfo, window, elem_list, state=None):
             update_values(winfo, window, [(elem, value)])
 
 
-def update_slider(winfo, window, slider_list):
-    """ Updates sliders based off passing a list
+def update_slider(winfo: Struct, window: Window,
+                  slider_list: List[Tuple[Element, Dict]]) -> None:
+    """ Updates sliders.
+
+    Updates sliders based off passing a list
     with element, dictionary pairs. The dictionary
     contains all values to update.
 
-    Parameters
-    ----------
-    winfo:
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    slider_list : list of tuple(PySimpleGUI Slider Element, dict)
-        List of slider, dictionary tuple pairs where the dictionary
-        contains the values to update.
+    Args:
+        winfo: The data structure holding all information about
+          windows and GUI.
+        window: The element representing the main GUI window.
+            new_transform: The next mask size to apply for REC graph.
+        slider_list : List of slider, dictionary tuple pairs where the dictionary
+            contains the values to update.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
 
     for slider_key, d in slider_list:
@@ -1278,29 +1335,30 @@ def update_slider(winfo, window, slider_list):
                 window[slider_key].Update(range=slider_range)
 
 
-def update_rotxy(winfo, window, current_tab, new_transform):
+def update_rotxy(winfo: Struct, window: Window,
+                 current_tab: str,
+                 new_transform: Tuple[Union[int, float],
+                                      Union[int, float],
+                                      Union[int, float],
+                                      bool]) -> Tuple[Union[int, float],
+                                                      Union[int, float],
+                                                      Union[int, float],
+                                                      bool]:
     """Update the rotation, x-trans, y-trans, and
     flip coordinates for the transform to apply to
     series of images.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    current_tab : str
-        The key representing the current main tab of the
-        window.
-    new_transform : tuple of ints, floats
-        The next transformation to potentially apply to
-        img.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        current_tab: The key representing the current main tab of the
+            window.
+        new_transform: The next transformation to potentially apply to
+            img.
 
-    Returns
-    -------
-    transform : tuple of ints, floats
-        The transformation to apply to the img.
+    Returns:
+        transform: The transformation to apply to the img.
     """
 
     rot_val, x_val, y_val, h_flip = new_transform
@@ -1322,31 +1380,21 @@ def update_rotxy(winfo, window, current_tab, new_transform):
     return transform
 
 
-def update_mask_size(winfo, window, new_transform):
-    """Update the rotation, x-trans, y-trans, and
-      flip coordinates for the transform to apply to
-      series of images.
+def update_mask_size(winfo: Struct, window: Window,
+                     new_transform: Tuple[Union[int, float]]) -> Tuple[float]:
+    """Update the mask size.
 
-      Parameters
-      ----------
-      winfo : Struct Class
-          The data structure holding all information about
-          windows and loaded images.
-      window : PySimpleGUI Window Element
-          The element representing the main GUI window.
-      current_tab : str
-          The key representing the current main tab of the
-          window.
-      new_transform : tuple of ints, floats
-          The next transformation to potentially apply to
-          img.
+      Args:
+          winfo: The data structure holding all information about
+              windows and GUI.
+          window: The element representing the main GUI window.
+          new_transform: The next mask size to apply for REC graph.
 
-      Returns
-      -------
-      transform : tuple of ints, floats
-          The transformation to apply to the img.
+      Returns:
+          mask_transform: The float of the mask size.
       """
 
+    # Make sure the mask is a tuple so it works with retrieve_transform()
     mask_size = new_transform[0]
     mask_transform = (float(mask_size), )
     winfo.rec_mask = mask_transform
@@ -1357,25 +1405,19 @@ def update_mask_size(winfo, window, new_transform):
 
 
 # ------------- Visualizing Elements ------------- #
-def set_pretty_focus(winfo, window, event):
+def set_pretty_focus(winfo: Struct, window: Window, event: str) -> None:
     """ Sets the focus to reduce unwanted placements of
-    cursor or focus within the GUI. This is done by
-    setting unwanted focus to an invisible graph.
+    cursor or focus within the GUI.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    event : str
-        The key for the values dictionary that represents
-        an event in the window.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        event: The key for the values dictionary that represents
+            an event in the window.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
 
     # Set the 'true element' to be the one the
@@ -1391,16 +1433,26 @@ def set_pretty_focus(winfo, window, event):
         else:
             winfo.invis_graph.SetFocus(force=True)
 
+    # Set pretty focus for log.
     if event == 'Log Click':
         winfo.output_invis_graph.SetFocus(force=True)
 
 
-def rec_get_listbox_ind_from_key(key_list):
+def rec_get_listbox_ind_from_key(key_list: List[str]) -> List[int]:
+    """Get the listbox indices from key list to color once images have loaded.
+
+    Args:
+        key_list: The list of keys of items in the rec listbox.
+
+    Returns:
+        indices: The indices of the keys that were in the key_list.
+    """
+
     indices = [0, 10]
     for key in key_list:
         if key == 'color_b':
             ind = 1
-        if key == 'bxt':
+        elif key == 'bxt':
             ind = 2
         elif key == 'byt':
             ind = 3
@@ -1420,32 +1472,48 @@ def rec_get_listbox_ind_from_key(key_list):
     return indices
 
 
-def activate_spinner(window, elem):
+def activate_spinner(window: Window, elem: Element):
+    """Activate loading spinner.
+
+    Args:
+        window: The element representing the passed GUI window.
+        elem: The element who's spinner should be disabled
+
+    Returns:
+        None
+    """
+
     spinner_fn = window[elem].metadata['Set']
     window[elem].metadata['State'] = 'Set'
     window[elem].Update(spinner_fn)
 
 
-def deactivate_spinner(window, elem):
+def deactivate_spinner(window: Window, elem: Element) -> None:
+    """Deactivate loading spinner.
+
+    Args:
+        window: The element representing the passed GUI window.
+        elem: The element who's spinner should be disabled
+
+    Returns:
+        None
+    """
+
     background = window[elem].metadata['Def']
     window[elem].metadata['State'] = 'Def'
     window[elem].Update(filename=background)
 
 
-def redraw_graph(graph, display_image):
+def redraw_graph(graph: Graph, display_image: Optional[bytes]) -> None:
     """Redraw graph.
 
-    Parameters
-    ----------
-    graph : PySimpleGUI Graph Element
-        The graph element in the window.
-    display_image : bytes or None
-        If None, the graph is erased
-        Else, bytes representation of the image
+    Args:
+        graph: The graph element in the window.
+        display_image : If None, the graph is erased
+            Else, bytes representation of the image.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
 
     graph.Erase()
@@ -1454,92 +1522,104 @@ def redraw_graph(graph, display_image):
         graph.DrawImage(data=display_image, location=(0, y-1))
 
 
-def change_visibility(window, elem_val_list):
+def change_visibility(window: Window, elem_val_list: List[Tuple[Element, Any]]) -> None:
     """ Take a list of element keys and change
     visibility of the element.
 
-    Parameters
-    ----------
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    elem_list : list of PySimpleGUI Elements
-        The list of elements whose state is to be changed.
+    Args:
+        window : The element representing the main GUI window.
+        elem_val_list : The list of elements with values whose
+            state is to be changed.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
     for elem_key, val in elem_val_list:
         window[elem_key].Update(visible=val)
 
 
-def disable_elements(window, elem_list):
+def disable_elements(window: Window, elem_list: List[Window]) -> None:
     """ Take a list of element keys and disable the element.
 
-    Parameters
-    ----------
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    elem_list : list of PySimpleGUI Elements
-        The list of elements whose state is to be changed.
+    Args:
+        window: The element representing the passed GUI window.
+        elem_list: The list of elements whose state is to be changed.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
 
     for elem_key in elem_list:
         window[elem_key].Update(disabled=True)
 
 
-def enable_elements(winfo, window, elem_list):
+def enable_elements(winfo: Struct, window: Window, elem_list: List[Window]) -> None:
     """ Take a list of element keys and enable the element.
 
-    Parameters
-    ----------
-    winfo:
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    elem_list : list of PySimpleGUI Elements
-        The list of elements whose state is to be changed.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the passed GUI window.
+        elem_list: The list of elements whose state is to be changed.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
 
     for elem_key in elem_list:
         if elem_key in winfo.keys['combo']:
-            # if window[elem_key].Disabled:
             window[elem_key].Update(readonly=True)
         else:
-            # if window[elem_key].Disabled:
             window[elem_key].Update(disabled=False)
 
 
-def ptie_init_thread(winfo, path, fls1_path, fls2_path, stack_name,
-                     files1, files2, flip, tfs_value):
+def ptie_init_thread(winfo: Struct, path: str, fls1_path: str, fls2_path: str,
+                     stack_name: str, files1: List[str], files2: List[str],
+                     flip: bool, tfs_value: str) -> None:
+    """ Create the PYTIE initialization thread.
+
+    Function initializes the parameters for PYTIE. See load_data from
+    TIE_helper for more information on initialized parameters.
+
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        path: The path to datafolder.
+        fls1_path: Path to the first .fls file.
+        fls2_path: Path to the second .fls file.
+        stack_name: Name of the stack to perform reconstruction on.
+        files1: The files in the unflip or tfs folder.
+        files2: The files in the flip folder or None.
+        flip: Boolean value if a flipped series is being used or not.
+        tfs_value: The defined through focal series value by the user,
+            whether it is a single series or unflip/flip series.
+
+    Returns:
+        None
+    """
+
     try:
+        # Make sure there is not error with the accelerationg voltage val.
         if float(winfo.window['__REC_M_Volt__'].get()) > 0:
             accel_volt = float(winfo.window['__REC_M_Volt__'].get()) * 1e3
         else:
             print(f'REC: Error with Voltage.')
             raise
 
+        # Load in stack data and ptie data, pulling image filenames
         stack1, stack2, ptie = load_data(path, fls1_path, stack_name, flip, fls2_path)
         string_vals = []
         for def_val in ptie.defvals:
             val = str(def_val)
             string_vals.append(val)
-
         if tfs_value == 'Single':
             prefix = 'tfs'
         else:
             prefix = 'unflip'
         im_name = files1[0]
-        # display_img = images['REC_Stack'].byte_data[0]
-        metadata_change(winfo, winfo.window, [('__REC_Image__', f'{prefix}/{im_name}')])
 
+        # Change the appearance and values in the GUI
+        metadata_change(winfo, winfo.window, [('__REC_Image__', f'{prefix}/{im_name}')])
         length_slider = len(string_vals)
         winfo.window['__REC_Def_Combo__'].update(values=string_vals)
         winfo.window['__REC_Def_List__'].update(ptie.defvals, set_to_index=0,
@@ -1548,12 +1628,7 @@ def ptie_init_thread(winfo, path, fls1_path, fls2_path, stack_name,
         toggle(winfo, winfo.window, elem_list=['__REC_Set_FLS__'])
 
         update_slider(winfo, winfo.window, [('__REC_Defocus_Slider__', {"slider_range": (0, max(length_slider - 3, 0)),
-                                                           "value": 0})])
-        winfo.rec_defocus_slider_set = 0
-        winfo.rec_ptie = ptie
-        winfo.rec_microscope = Microscope(E=accel_volt, Cs=200.0e3, theta_c=0.01e-3, def_spr=80.0)
-        winfo.rec_files1 = files1
-        winfo.rec_files2 = files2
+                                             "value": 0})])
         enable_elements(winfo, winfo.window, ['__REC_Def_Combo__', '__REC_QC_Input__',
                                               '__REC_Mask__', "__REC_Erase_Mask__",
                                               '__REC_Data_Prefix__', '__REC_Run_TIE__',
@@ -1562,6 +1637,13 @@ def ptie_init_thread(winfo, path, fls1_path, fls2_path, stack_name,
         change_inp_readonly_bg_color(winfo.window, ['__REC_Stack__', '__REC_FLS1__',  '__REC_FLS2__',
                                                     '__REC_M_Volt__'], 'Readonly')
         change_inp_readonly_bg_color(winfo.window, ['__REC_Data_Prefix__', '__REC_QC_Input__'], 'Default')
+
+        # Load all relevant PTIE data into winfo
+        winfo.rec_defocus_slider_set = 0
+        winfo.rec_ptie = ptie
+        winfo.rec_microscope = Microscope(E=accel_volt, Cs=200.0e3, theta_c=0.01e-3, def_spr=80.0)
+        winfo.rec_files1 = files1
+        winfo.rec_files2 = files2
     except:
         print(f'REC: Something went wrong loading in image data.')
         print(f'REC: 1. Check to make sure the fls file(s) match the aligned file chosen.', end=' ')
@@ -1574,7 +1656,29 @@ def ptie_init_thread(winfo, path, fls1_path, fls2_path, stack_name,
     print('--- Exited PTIE Initialization ---')
 
 
-def ptie_recon_thread(winfo, window, graph, colorwheel_graph, images, current_tab):
+def ptie_recon_thread(winfo: Struct, window: Window, graph: sg.Graph,
+                      colorwheel_graph: sg.Graph, images: Dict,
+                      current_tab: str) -> None:
+    """ Create the PYTIE reconstruction thread.
+
+    Function initializes the thread that runs the PYTIE reconstruction. For more
+    information on the reconstruction, see TIE_reconstruct.py.
+
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        graph: The reconstruction graph canvas.
+        colorwheel_graph: The graph in the window where to place the colorwheel.
+        images: The dictionary of images and their values.
+        current_tab: str
+            The key representing the current main tab of the
+            window.'
+
+    Returns:
+        None
+    """
+
     ptie = winfo.rec_ptie
     microscope = winfo.rec_microscope
     def_val = float(window['__REC_Def_Combo__'].Get())
@@ -1718,27 +1822,25 @@ def ptie_recon_thread(winfo, window, graph, colorwheel_graph, images, current_ta
 
 
 # -------------- Home Tab Event Handler -------------- #
-def run_home_tab(winfo, window, event, values):
-    """Run events associated with the home tab.
+def run_home_tab(winfo: Struct, window: Window,
+                 event: str, values: Dict) -> None:
+    """Run events associated with the Home tab.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    event : str
-        The key for the values dictionary that represents
-        an event in the window.
-    values : dict
-        A dictionary where every value is paired with
-        a key represented by an event in the window.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        current_tab: The key representing the current main tab of the
+            window. Ex. '
+        event: The key for the values dictionary that represents
+            an event in the window.
+        values: A dictionary where every value is paired with
+            a key represented by an event in the window.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
+
     prefix = 'HOM: '
     # Get directories for Fiji and images
     if event == '__Fiji_Set__':
@@ -1807,32 +1909,40 @@ def run_home_tab(winfo, window, event, values):
 
 
 # -------------- Linear SIFT Tab Event Handler -------------- #
-def run_ls_tab(winfo, window, current_tab, event, values):
-    """Run events associated with the linear sift tab.
+def run_ls_tab(winfo: Struct, window: Window, current_tab: str,
+               event: str, values: Dict) -> Dict:
+    """Run events associated with the Linear Stack Alignment tab.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    current_tab : str
-        The key representing the current main tab of the
-        window. Ex. '
-    event : str
-        The key for the values dictionary that represents
-        an event in the window.
-    values : dict
-        A dictionary where every value is paired with
-        a key represented by an event in the window.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        current_tab: The key representing the current main tab of the
+            window. Ex. '
+        event: The key for the values dictionary that represents
+            an event in the window.
+        values: A dictionary where every value is paired with
+            a key represented by an event in the window.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
+
     # ------------- Visualizing Elements ------------- #
-    def special_enable_disable(window, adjust_button, view_stack_button, images):
+    def special_enable_disable(window: Window, adjust_button: Element,
+                               view_stack_button: Element, images: Dict[str, Any]) -> None:
+        """Determine enabling and disabling of elements based off loaded buttons and active processes.
+
+        Args:
+            window: The element representing the main GUI window.
+            adjust_button: The LS adjust button element.
+            view_stack_button: The LS view stack button element.
+            images: The dictionary of the loaded LS images.
+
+        Returns:
+            None
+        """
+
         enable_list = []
         active_keys = ['__LS_View_Stack__', '__LS_Run_Align__', '__LS_Reset_Img_Dir__',
                        '__LS_Adjust__', '__LS_unflip_reference__', '__LS_flip_reference__',
@@ -2151,7 +2261,7 @@ def run_ls_tab(winfo, window, current_tab, event, values):
                 if param_test:
                     filename = g_help.join([image_dir, "Param_Test.tif"], '/')
                 else:
-                    filename, overwrite_signal = run_save_window(winfo, event, image_dir, tfs=tfs_value)
+                    filename, overwrite_signal, none_val = run_save_window(winfo, event, image_dir, tfs=tfs_value)
                     save = overwrite_signal[0]
                     if filename == 'close' or not filename or not save:
                         print(f'{prefix}Exited save screen without saving image.')
@@ -2337,31 +2447,41 @@ def run_ls_tab(winfo, window, current_tab, event, values):
 
 
 # -------------- bUnwarpJ Tab Event Handler -------------- #
-def run_bunwarpj_tab(winfo, window, current_tab, event, values):
+def run_bunwarpj_tab(winfo: Struct, window: Window,
+                     current_tab: str, event: str, values: Dict) -> None:
     """Run events associated with the bUnwarpJ tab.
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    current_tab : str
-        The key representing the current main tab of the
-        window. Ex. '
-    event : str
-        The key for the values dictionary that represents
-        an event in the window.
-    values : dict
-        A dictionary where every value is paired with
-        a key represented by an event in the window.
 
-    Returns
-    -------
-    None
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        current_tab: The key representing the current main tab of the
+            window. Ex. '
+        event: The key for the values dictionary that represents
+            an event in the window.
+        values: A dictionary where every value is paired with
+            a key represented by an event in the window.
+
+    Returns:
+        None
     """
+
     # ------------- Visualizing Elements ------------- #
-    def special_enable_disable(window, adjust_button, view_stack_button, make_mask_button, images):
+    def special_enable_disable(window: Window, adjust_button: Element, view_stack_button: Element,
+                               make_mask_button: Element, images: Dict[str, Any]) -> None:
+        """Determine enabling and disabling of elements based off loaded buttons and active processes.
+
+        Args:
+            window: The element representing the main GUI window.
+            adjust_button: The BUJ adjust button element.
+            view_stack_button: The BUJ view stack button element.
+            make_mask_button: The BUJ make mask button element.
+            images: The dictionary of the loaded BUJ images.
+
+        Returns:
+            None
+        """
+
         enable_list = []
         active_keys = ['__BUJ_View__', '__BUJ_Flip_Align__', '__BUJ_Unflip_Align__',
                        '__BUJ_Elastic_Align__', '__BUJ_Load_Flip_Stack__', '__BUJ_Load_Unflip_Stack__',
@@ -2674,7 +2794,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                     orient = 'unflip'
                 elif event == '__BUJ_Flip_Align__':
                     orient = 'flip'
-                filename, overwrite_signal = run_save_window(winfo, event, image_dir, [orient])
+                filename, overwrite_signal, none_val = run_save_window(winfo, event, image_dir, [orient])
                 save = overwrite_signal[0]
                 if filename == 'close' or not filename or not save:
                     print(f'{prefix}Exited save screen without saving image.')
@@ -2985,7 +3105,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                         orientations = ['flip', 'unflip']
                         flag = (True, True)
 
-                    filenames, overwrite_signs = run_save_window(winfo, event, image_dir, orientations)
+                    filenames, overwrite_signs, none_val = run_save_window(winfo, event, image_dir, orientations)
                     if filenames == 'close':
                         return filenames
                     elif filenames:
@@ -3155,7 +3275,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
                 print(f'{prefix}The unflip or flip mask has been deleted since it has been loaded.', end=' ')
                 print('You must create new masks or clear current masks.')
             elif sift_params is not None and buj_params is not None:
-                filenames, overwrite_signals = run_save_window(winfo, event, image_dir)
+                filenames, overwrite_signals, none_val = run_save_window(winfo, event, image_dir)
                 save = True
                 save1, save2 = overwrite_signals[0], overwrite_signals[1]
                 if filenames == 'close' or not filenames or not (save1 and save2):
@@ -3240,7 +3360,7 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
             toggle(winfo, window, ['__BUJ_Unflip_Mask_Inp__'], state='Def')
             change_inp_readonly_bg_color(window, ['__BUJ_Unflip_Mask_Inp__'], 'Default')
 
-   # Update any image adjustments
+    # Update any image adjustments
     if overlay:
         if orientation == 'unflip':
             img_1 = images['image2']
@@ -3256,15 +3376,6 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
         reset(winfo, window, current_tab)
         winfo.kill_proc.append('BUJ')
 
-    # # Show which stacks/images are loaded
-    # inps = ["__BUJ_Unflip_Stack_Inp__", "__BUJ_Flip_Stack_Inp__", "__BUJ_Stack__"]
-    #         #"__BUJ_Unflip_Mask_Inp__", "__BUJ_Flip_Mask_Inp__"
-    # indices = []
-    # for i in range(len(inps)):
-    #     if window[inps[i]].metadata['State'] == 'Set':
-    #         indices.append(i)
-    # change_list_ind_color(window, current_tab, [('__BUJ_Image_Choice__', indices)])
-
     # Enable any elements if need be
     special_enable_disable(window, adjust_button, view_stack_button, make_mask_button,
                            winfo.buj_images)
@@ -3279,31 +3390,37 @@ def run_bunwarpj_tab(winfo, window, current_tab, event, values):
 
 
 # -------------- Reconstruct Tab Event Handler -------------- #
-def run_reconstruct_tab(winfo, window, current_tab, event, values):
+def run_reconstruct_tab(winfo: Struct, window: Window,
+                        current_tab: str, event: str, values: Dict) -> None:
     """Run events associated with the reconstruct tab.
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
-    current_tab : str
-        The key representing the current main tab of the
+
+    Args:
+    winfo: The data structure holding all information about
+        windows and GUI.
+    window: The element representing the main GUI window.
+    current_tab: The key representing the current main tab of the
         window. Ex. '
-    event : str
-        The key for the values dictionary that represents
+    event: The key for the values dictionary that represents
         an event in the window.
-    values : dict
-        A dictionary where every value is paired with
+    values: A dictionary where every value is paired with
         a key represented by an event in the window.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
     # ------------- Visualizing Elements ------------- #
-    def special_enable_disable(winfo, window):
+    def special_enable_disable(winfo: Struct, window: Window) -> None:
+        """Determine enabling and disabling of elements based off loaded buttons and active processes.
+
+        Args:
+            winfo: The data structure holding all information about
+                windows and GUI.
+            window: The element representing the main GUI window.
+
+        Returns:
+            None
+        """
+
         enable_list = []
         active_keys = ['__REC_Image_Dir_Path__', '__REC_Set_Img_Dir__', '__REC_Image_Dir_Browse__',
                        '__REC_FLS_Combo__', '__REC_Load_FLS1__', '__REC_Set_FLS__',
@@ -3368,7 +3485,6 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
             enable_elements(winfo, window, enable_list)
             winfo.last_rec_enable = enable_list
             winfo.last_rec_disable = disable_list
-
 
     # Get rotations and shifts to apply to image (only positive rotations)
     transform = get_transformations(winfo, window, current_tab)
@@ -3914,10 +4030,11 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
         if winfo.rec_tie_results:
             tfs = values['__REC_TFS_Combo__']
             prefix = window['__REC_Data_Prefix__'].get()
-            filenames, overwrite_signals, prefix, save_tie, im_dir = run_save_window(winfo, event, image_dir,
-                                                                                     orientations=prefix,
-                                                                                     defocus=winfo.rec_def_val,
-                                                                                     tfs=tfs)
+            filenames, overwrite_signals, additional_vals = run_save_window(winfo, event, image_dir,
+                                                                            orientations=prefix,
+                                                                            defocus=winfo.rec_def_val,
+                                                                            tfs=tfs)
+            prefix, save_tie, im_dir = additional_vals
             save = overwrite_signals[0]
             if filenames == 'close' or not filenames or not save or not save_tie:
                 print(f'{prefix}Exited without saving files!\n')
@@ -4002,25 +4119,30 @@ def run_reconstruct_tab(winfo, window, current_tab, event, values):
 
 
 # -------------- Save Window --------------#
-def check_overwrite(winfo, save_win, true_paths, orientations, im_type, event, tfs):
+def check_overwrite(winfo: Struct, save_win: Window, true_paths: List[str],
+                    orientations: List[str],
+                    im_type: str, event: str, tfs) -> List[bool]:
     """Check whether the paths listed in the log box for
     each image will be overwritten.
 
-    Parameters
-    ----------
-    winfo:
-    save_win : PySimpleGUI window element
-        The save window element
-    true_paths : list
-        A list of path names that will be
-        checked if they exist.
-    orientations :  list of str
-        A list of strings that represent
-        the orientations of the image ('flip',
-        'unflip', 'stack', etc.)
-    im_type : str
-        Image type (.bmp, .tiff, etc.)
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        save_win: The save window element
+        true_paths: A list of path names that will be
+            checked if they exist.
+        orientations:  A list of strings that represent
+            the orientations of the image ('flip',
+            'unflip', 'stack', etc.)
+        im_type:  Image type (.bmp, .tiff, etc.)
+        event: The key for the values dictionary that represents
+            an event in the window.
+        tfs: The through focal series value determined by the user for BUJ or LS.
+
+    Returns:
+        overwrite_signals: The boolean values for overwriting the files.
     """
+
     # If file exists notify user and give option to change name
     update_values(winfo, save_win, [('__save_win_log__', '')])
     overwrite_signals = [None]*len(true_paths)
@@ -4069,7 +4191,6 @@ def check_overwrite(winfo, save_win, true_paths, orientations, im_type, event, t
                     text = f'The {insertion} file will be saved.'
                     overwrite_signals = [True]
 
-
         # Update save window
         current_log_text = save_win['__save_win_log__'].Get()
         new_log_text = current_log_text + text
@@ -4084,25 +4205,23 @@ def check_overwrite(winfo, save_win, true_paths, orientations, im_type, event, t
     return overwrite_signals
 
 
-def save_window_values(save_win, num_paths, event, orientations, defocus=None):
+def save_window_values(save_win: Window, num_paths: int, event: str,
+                       orientations: List[str], defocus: Optional[str] = None) -> List[str]:
     """Sets ups the save window layout.
 
-    Parameters
-    ----------
-    save_win : PySimpleGUI Window Element
-        The representation of the save window.
-    num_paths : int
-        The number of paths, to create the number
+    Args:
+    save_win: The representation of the save window.
+    num_paths: The number of paths, to create the number
         of overwrite checkboxes and true_path
         input elements.
-    event : str
-        The save event from the main GUI window.
+    event: The save event from the main GUI window.
+    orientations:  A list of strings that represent
+        the orientations of the image ('flip',
+        'unflip', 'stack', etc.)
+    defocus: The defocus value for the image if its REC.
 
-
-    Returns
-    -------
-    true_paths : list of str
-        The list containing the full path names.
+    Returns:
+        true_paths: The list containing the full path names.
     """
     # Comb through all input fields and pull current path name
     true_paths = []
@@ -4128,44 +4247,49 @@ def save_window_values(save_win, num_paths, event, orientations, defocus=None):
     return true_paths
 
 
-def run_save_window(winfo, event, image_dir, orientations=None, defocus=None, tfs='Unflip/Flip'):
+def run_save_window(winfo: Struct, event: str, image_dir: str,
+                    orientations: Optional[Union[str, List[str]]] = None,
+                    defocus: Optional[str] = None,
+                    tfs: str = 'Unflip/Flip') -> Tuple[List[str], List[bool], Optional[Tuple[str, bool, str]]]:
     """Executes the save window.
 
-    Parameters
-    __________
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    event : str
-        The key for the values dictionary that represents
-        an event in the window.
-    image_dir : str
-        The working directory where image will be saved
-    orientations : None or list of str
-        List of the orientations to categorize the saved
-        file ('flip', 'unflip', 'stack', '').
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        event: The key for the values dictionary that represents
+            an event in the window.
+        image_dir: The working directory where image will be saved
+        orientations: List of the orientations or filetypes to categorize the saved
+            file ('flip', 'unflip', 'stack', '').
+        defocus: The value for the defocus if running reconstruction.
+        tfs: The through focal series value chosen for LS or BUJ.
 
-    Returns
-    -------
-    filenames : list of str
-        The list of filenames to give the saved images.
+    Returns:
+        filenames: The list of filenames to give the saved images.
+        overwrite_signals: List of booleans of whether to overwrite files.
+        prefix: The prefix for the tab to print to.
+        save_tie: Boolean value of whether to execute saving of reconstructed images.
+        im_dir: The image directory to save reconstructed images to.
     """
+
     # Create layout of save window
     window_layout, im_type, file_paths, orientations = save_window_ly(event, image_dir, orientations, tfs=tfs)
-    save_win = sg.Window('Save Window', window_layout, finalize=True) #icon=get_icon(),
+    save_win = sg.Window('Save Window', window_layout, finalize=True)
     winfo.save_win = save_win
     winfo.window.Hide()
     if winfo.output_window_active:
         winfo.output_window.Disappear()
         winfo.output_window.Hide()
-
     true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
-    # Run event handler
+
+    # Run save window event handler
+    # Initiate event allows successful creation and reading of window
     overwrite_signals = []
     ev2 = 'Initiate'
     while True:
         if ev2 != 'Initiate':
             ev2, vals2 = save_win.Read(timeout=400)
+        # Saving TIE images
         if event == '__REC_Save_TIE__':
             prefix = save_win[f'__save_win_prefix__'].Get()
             index = save_win['__save_win_filename1__'].Get().rfind('/')
@@ -4180,10 +4304,10 @@ def run_save_window(winfo, event, image_dir, orientations=None, defocus=None, tf
             elif save_choice == 'No Save':
                 save_tie = False
 
+        # Getting full paths to the images and checking if they need to be overwritten
         filenames = []
         if ev2 and ev2 != 'Exit':
             true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
-
         if ev2 and 'TIMEOUT' not in ev2:
             overwrite_signals = check_overwrite(winfo, save_win, true_paths, orientations, im_type, event, tfs)
 
@@ -4201,29 +4325,26 @@ def run_save_window(winfo, event, image_dir, orientations=None, defocus=None, tf
         if ev2 == 'Initiate':
             ev2 = None
 
+    # Return values beased off saving reconstructed images or not.
     if event != '__REC_Save_TIE__':
-        return filenames, overwrite_signals
+        return filenames, overwrite_signals, None
     elif event == '__REC_Save_TIE__':
-        return filenames, overwrite_signals, prefix, save_tie, im_dir
+        return filenames, overwrite_signals, (prefix, save_tie, im_dir)
 
 
 # -------------- Main Event Handler and run GUI --------------#
-def event_handler(winfo, window):
+def event_handler(winfo: Struct, window: sg.Window) -> None:
     """ The event handler handles all button presses, mouse clicks, etc.
     that can take place in the app. It takes the SG window and the struct
     containing all window data as parameters.
 
-    Parameters
-    ----------
-    winfo : Struct Class
-        The data structure holding all information about
-        windows and loaded images.
-    window : PySimpleGUI Window Element
-        The element representing the main GUI window.
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
 
-    Returns
-    -------
-    None
+    Returns:
+        None
     """
     # Create output_window
     output_window = output_ly()
@@ -4251,7 +4372,7 @@ def event_handler(winfo, window):
                 # Break out of event loop
                 if event is None or close == 'close':  # always,  always give a way out!
                     winfo.kill_proc = ['LS', 'BUJ']
-                    load_file_queue(winfo, window, quit=True)
+                    load_file_queue(winfo, window, quit_load=True)
                     if winfo.ptie_init_thread is not None:
                         if winfo.ptie_init_thread.is_alive():
                             winfo.ptie_init_thread.g_help.join()
@@ -4275,10 +4396,8 @@ def event_handler(winfo, window):
                     output_window.Disappear()
                     set_pretty_focus(winfo, window, 'Window Click')
 
-
                 # if event != '__TIMEOUT__' and 'HOVER' not in event:
                 #     print('Event:', event)
-
 
                 # Disable window clicks if creating mask or setting subregion
                 if ((winfo.true_element == '__BUJ_Graph__' and bound_click and
@@ -4424,22 +4543,8 @@ def event_handler(winfo, window):
                     i += 1
 
 
-def run_GUI():
-    """Main run function. Takes in the style and defaults for GUI.
-
-    Parameters
-    ----------
-    style : WindowStyle Class
-        Class that controls the styling of certain
-        elements within the GUI.
-    DEFAULTS : dict
-        Dictionary of the default values for certain
-        values of the window.
-
-    Returns
-    -------
-    None
-    """
+def run_GUI() -> None:
+    """Main run function. Takes in the style and defaults for GUI."""
 
     # Create the layouts
     DEFAULTS = defaults()
@@ -4454,7 +4559,7 @@ def run_GUI():
     scaling_window.close()
     window = window_ly(background_color, DEFAULTS)
 
-    # This snippet allows use of menu bar without having to switch windows first
+    # This snippet allows use of menu bar without having to switch windows first on Mac
     if platform() == 'Darwin':
         subprocess.call(["/usr/bin/osascript", "-e", 'tell app "Finder" to set frontmost of process "Finder" to true'])
         subprocess.call(["/usr/bin/osascript", "-e", 'tell app "Finder" to set frontmost of process "python" to true'])
@@ -4464,7 +4569,6 @@ def run_GUI():
 
     # Event handling
     event_handler(winfo, window)
-
 
 
 if __name__ == '__main__':

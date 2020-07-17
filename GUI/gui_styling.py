@@ -8,54 +8,60 @@ Timothy Cote, ANL, Fall 2019.
 """
 
 import os
+from typing import Any, Dict, Tuple
 import PySimpleGUI as sg
 
-# ---------  Window Scaling  --------- #
-def window_scaling():
-    """Properly set the scaling to look
-    similar across OS."""
+
+# ============================================================= #
+#                          Window Scaling                       #
+# ============================================================= #
+def window_scaling() -> None:
+    """Properly set the scaling to look similar across OS."""
 
     sys_layout = [[sg.Text('')]]
-    scaling_window = sg.Window('Window Title', sys_layout, alpha_channel=0, no_titlebar=True,
-                                finalize=True)
+    scaling_window = sg.Window('Window Title', sys_layout, alpha_channel=0, no_titlebar=True, finalize=True)
     scaling_window.TKroot.tk.call('tk', 'scaling', 1)
     scaling_window.close()
 
 
-def pad(left, right, top, bottom):
+def pad(left: int, right: int, top: int, bottom: int) -> Tuple[Tuple[int, int], Tuple[int, int]]:
     """Set padding of element.
 
-    Parameters
-    ----------
-    left : int
-        Left padding.
-    right : int
-        Right padding.
-    top : int
-        Top padding.
-    bottom : int
-        Bottom padding.
+    Args:
+    left: Left padding.
+    right: Right padding.
+    top: Top padding.
+    bottom: Bottom padding.
 
     Returns
     ----------
-    padding : tuple of tuples of ints
-        The padding format for PySimpleGUI/Tkinter
+    padding: The padding format for PySimpleGUI/Tkinter
     """
 
     padding = ((left, right), (top, bottom))
     return padding
 
 
-# ---------  Window & Element Defaults --------- #
+# ============================================================= #
+#                  Window and Element Defaults                  #
+# ============================================================= #
 class WindowStyle(object):
     """The WindowStyle class sets the styling
-    of the window and all elements."""
+    of the window and all elements.
 
-    def __init__(self, theme_background_color):
+    Attributes:
+        DEF_BACKGROUND: The theme background color.
+        fonts: The dictionary of font styles.
+        DEF_FONT: The default body text font.
+        window_height: Window height.
+        window_width: Window width.
+        tab_size: The tab size.
+        small_tab_size: The small tab size."""
+
+    def __init__(self, theme_background_color: str) -> None:
         """Initialize the style of the window."""
 
         # ---------  Theme & Scaling  --------- #
-        # self.theme = sg.theme('BlueMono') #DarkGrey3
         self.DEF_BACKGROUND = theme_background_color
 
         # ---------  self.Fonts and test  --------- #
@@ -71,20 +77,16 @@ class WindowStyle(object):
         self.tab_size = (self.window_width, self.window_height - 25)
         self.small_tab_size = (self.window_width, self.window_height - 50)
 
-
     # ---------  Individual Element Styling --------- #
-    def styles(self, key):
+    def styles(self, key: str) -> Dict:
         """The styles within the GUI.
 
-        Parameters
-        ----------
-        key : str
-            The key for a PySimpleGUI element.
+        Args:
+            key: The key for a PySimpleGUI element.
 
         Returns
         -------
-        key_style : dict
-            A dictionary of the key-value pairs
+        key_style: A dictionary of the key-value pairs
             for a specific type of element given
             by 'key'."""
 
@@ -103,10 +105,20 @@ class WindowStyle(object):
         background_img =  f'{python_dir}/background.png'
         theme_background = sg.theme_background_color()
         B_f = self.fonts['body']
-        # H_f = self.fonts['heading']
-        # Tab_f = self.fonts['tab']
 
-        def home_style(key, val):
+        def home_style(key: str, val: Dict) -> Dict:
+            """The styles within the GUI.
+
+                Args:
+                    key: The key for a PySimpleGUI element.
+                    val: The dictionary of the style with which to update key.
+
+                Returns
+                -------
+                key_style: A dictionary of the key-value pairs
+                    for a specific type of element given
+                    by 'key'."""
+
             # __________________ Home  ______________ #
             # Browse Button elements
             if key == '__Fiji_Browse__':
@@ -144,7 +156,19 @@ class WindowStyle(object):
                 val.update(pad=pad(235, 0, 20, 40))
             return val
 
-        def LS_style(key, val):
+        def LS_style(key, val) -> Dict:
+            """The styles within the GUI.
+
+            Args:
+                key: The key for a PySimpleGUI element.
+                val: The dictionary of the style with which to update key.
+
+            Returns
+            -------
+            key_style: A dictionary of the key-value pairs
+                for a specific type of element given
+                by 'key'."""
+
             # _______________ Linear Sift Tab _______________ #
             # Invisible
             if key == '__LS_FLS1_Staging__':
@@ -294,7 +318,19 @@ class WindowStyle(object):
                                      'Two': "Flip FLS"})
             return val
 
-        def BUJ_style(key, val):
+        def BUJ_style(key, val) -> Dict:
+            """The styles within the GUI.
+
+            Args:
+                key: The key for a PySimpleGUI element.
+                val: The dictionary of the style with which to update key.
+
+            Returns
+            -------
+            key_style: A dictionary of the key-value pairs
+                for a specific type of element given
+                by 'key'."""
+
             # _______________ bUnwarpJ Tab _______________ #
             # Invisible
             if key == '__BUJ_Unflip_Stage_Load__':
@@ -558,7 +594,19 @@ class WindowStyle(object):
                                      'Two': "Flip FLS"})
             return val
 
-        def REC_style(key, val):
+        def REC_style(key, val) -> Dict:
+            """The styles within the GUI.
+
+            Args:
+                key: The key for a PySimpleGUI element.
+                val: The dictionary of the style with which to update key.
+
+            Returns
+            -------
+            key_style: A dictionary of the key-value pairs
+                for a specific type of element given
+                by 'key'."""
+
             # Invisible
             if key == '__REC_Stack_Stage__':
                 val.update(visible=False, enable_events=True)

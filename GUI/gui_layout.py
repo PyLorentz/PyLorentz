@@ -9,15 +9,19 @@ Timothy Cote, ANL, Fall 2019.
 """
 
 from sys import platform
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import PySimpleGUI as sg
+from PySimpleGUI import Menu, Tab, Window
 from util import join
 from gui_styling import pad, window_scaling, WindowStyle
 
-# "Perform the 'Linear Stack Alignment with SIFT' Fiji plugin. To understand the alignment parameters, go to: https://imagej.net/Feature_Extraction.")
-# """Perform the 'bUnwarpJ' Fiji plugin. """
 
-# ---------------- Element Keys ---------------- #
-def element_keys():
+# ---------------------------------------------------- #
+#                      Element Keys                    #
+# ---------------------------------------------------- #
+def element_keys() -> Dict[str, List[str]]:
+    """Keep track and return the element keys that need bindings to them in the GUI"""
+
     button_keys = ["__Fiji_Browse__", "__Browser_Browse__", "__Fiji_Set__", "__Fiji_Reset__",
                    "__Fiji_Def_Set__", "__Fiji_Def_Reset__",
 
@@ -119,12 +123,11 @@ def element_keys():
     return keys
 
 
-# ------------------------------------------------ Layout ------------------------------------------------ #
-# -------------------------------------------- (DON"T CHANGE) -------------------------------------------- #
-
-# ----------------------- Menubar ----------------------- #
-def menu_bar():
-    """Menu bar layout (kind of pointless at the moment)"""
+# ---------------------------------------------------- #
+#                        Menu Bar                      #
+# ---------------------------------------------------- #
+def menu_bar() -> Menu:
+    """Return the menu bar layout."""
 
     menu_def = [['PyLo', ['About', 'Exit']],
                 ['Log', ['Show (Control-l)::Log', 'Hide (Control-h)::Log']],
@@ -132,23 +135,21 @@ def menu_bar():
     return sg.Menu(menu_def, font='Times 15')
 
 
-# ----------------------- Home Tab ----------------------- #
-def home_tab(style, DEFAULTS):
+# ---------------------------------------------------- #
+#                        Home Tab                      #
+# ---------------------------------------------------- #
+def home_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
     """The home tab layout.
 
-    Parameters
-    ----------
-    style : WindowStyle class
-        The class that holds all style data for the window.
-        Look at gui_styling.py for more info.
-    DEFAULTS : dict
-        The default values for certain style elements
-        such as font
+    Args:
+        style: The class that holds all style data for the window.
+            Look at gui_styling.py for more info.
+        DEFAULTS: The default values for certain style elements
+            such as font
 
     Returns
     -------
-    tab : list of list of PySimpleGUI Elements
-        The layout for the hometab.
+    tab: The layout for the hometab.
     """
 
     title = '''PyLorentz Phase Reconstruction'''
@@ -209,37 +210,39 @@ This GUI should be used as an alternative to the Jupyter Notebook for some impro
     return tab
 
 
-# ----------------------- Align Tab ----------------------- #
-def align_tab(style, DEFAULTS):
+# ---------------------------------------------------- #
+#                       Align Tab                      #
+# ---------------------------------------------------- #
+def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
     """The align tab layout.
 
-    Parameters
-    ----------
-    style : WindowStyle class
-        The class that holds all style data for the window.
-        Look at gui_styling.py for more info.
-    DEFAULTS : dict
-        The default values for certain style elements
-        such as font
+    Args:
+        style: The class that holds all style data for the window.
+            Look at gui_styling.py for more info.
+        DEFAULTS: The default values for certain style elements
+            such as font
 
     Returns
     -------
-    tab : list of list of PySimpleGUI Elements
-        The layout for the align tab.
+        tab: The layout for the align tab.
     """
 
     # ----- SIFT Tab ----- #
-    def lin_sift_tab():
+    def lin_sift_tab() -> List[List[Any]]:
         """The linear sift tab layout.
 
-        Returns
-        -------
-        tab : list of list of PySimpleGUI Elements
-            The layout for the linear sift tab tab.
+        Returns:
+            tab: The layout for the linear SIFT alignment tab.
         """
 
         # --- FLS File Frame --- #
-        def ls_fls_frame():
+        def ls_fls_frame() -> List[List[Any]]:
+            """The linear sift FlS frame.
+
+            Returns:
+                layout: List of lists of PySimpleGUI elements.
+            """
+
             layout = [[sg.Text("FLS Files:", pad=((10, 0), (10, 0))),
                        sg.Combo(['Two', 'One'], **style.styles('__LS_FLS_Combo__')),
                        sg.Text("TFS:", pad=((10, 0), (10, 0))),
@@ -263,13 +266,11 @@ def align_tab(style, DEFAULTS):
             return layout
 
         # --- SIFT Parameter Frame --- #
-        def ls_sift_p_frame():
+        def ls_sift_p_frame() -> List[List[Any]]:
             """The linear sift parameter frame layout.
 
-            Returns
-            -------
-            ls_parameters : list of list of PySimpleGUI Elements
-                The layout for the linear sift parameter frame.
+            Returns:
+                ls_parameters : The layout for the linear sift parameter frame.
             """
             # Scale Invariant Interest Point Detector parameters
             scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
@@ -326,13 +327,11 @@ def align_tab(style, DEFAULTS):
             return ls_parameters
 
         # --- Alignment Frame --- #
-        def ls_al_frame():
+        def ls_al_frame() -> List[List[Any]]:
             """The linear sift alignment frame layout.
 
-            Returns
-            -------
-            align_frame : list of list of PySimpleGUI Elements
-                The layout for the linear alighnment frame.
+            Returns:
+                align_frame: The layout for the linear alignment frame.
             """
             sift_test = [
                          [sg.Text('Image Transformation', font=style.fonts['heading'], pad=((0, 0), (70, 0)))],
@@ -374,13 +373,11 @@ def align_tab(style, DEFAULTS):
             return align_frame
 
         # --- Full Linear SIFT Layout --- #
-        def layout_ls_tab():
+        def layout_ls_tab() -> List[List[Any]]:
             """The linear sift tab layout.
 
-            Returns
-            -------
-            lin_sift_layout : list of list of PySimpleGUI Elements
-                The layout for the linear sift tab.
+            Returns:
+                lin_sift_layout: The layout for the linear sift tab.
             """
             fls_frame = sg.Frame(layout=ls_fls_frame(), title='FLS Files',
                                  relief=sg.RELIEF_SUNKEN, pad=((55, 0), (12, 0)), font=('Times New Roman', 19))
@@ -398,15 +395,19 @@ def align_tab(style, DEFAULTS):
         return tab
 
     # ----- bUnwarpJ Tab ----- #
-    def bunwarp_tab():
+    def bunwarp_tab() -> List[List[Any]]:
         """The bunwarpJ tab layout.
 
-        Returns
-        -------
-        tab : list of list of PySimpleGUI Elements
-            The layout for the bunwarpj tab.
+        Returns:
+            tab: The layout for the bunwarpj tab.
         """
-        def bunwarp_fls_frame():
+
+        def bunwarp_fls_frame() -> List[List[Any]]:
+            """The bunwarpJ fls frame layout.
+
+            Returns:
+                layout: The layout for the bunwarpj tab.
+            """
             layout = [[sg.Text("FLS Files:", pad=((10, 0), (10, 0))),
                        sg.Combo(['Two', 'One'], **style.styles('__BUJ_FLS_Combo__')),
                        sg.Text("TFS:", pad=((30, 0), (10, 0))),
@@ -430,13 +431,11 @@ def align_tab(style, DEFAULTS):
             return layout
 
         # --- SIFT Parameter Frame --- #
-        def bunwarp_ls_sift_p_frame():
+        def bunwarp_ls_sift_p_frame() -> List[List[Any]]:
             """The bunwarpJ linear sift parameter frame layout.
 
-            Returns
-            -------
-            ls_parameters : list of list of PySimpleGUI Elements
-                The layout for the bunwarpj ls_parameters.
+            Returns:
+                ls_parameters: The layout for the bunwarpj ls_parameters.
             """
             # Scale Invariant Interest Point Detector parameters
             scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
@@ -493,14 +492,12 @@ def align_tab(style, DEFAULTS):
             return ls_parameters
 
         # --- Bunwarpj SIFT Parameter Frame --- #
-        def buj_feat_ext_p_frame():
+        def buj_feat_ext_p_frame() -> List[List[Any]]:
             """The bunwarpJ linear sift feature extraction parameter
-             frame layout.
+            frame layout.
 
-            Returns
-            -------
-            feat_extr_parameters : list of list of PySimpleGUI Elements
-                The layout for the bunwarpj feat_extr_parameters.
+            Returns:
+                feat_extr_parameters: The layout for the bunwarpj feat_extr_parameters.
             """
             # Scale Invariant Interest Point Detector parameters
             scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
@@ -557,13 +554,11 @@ def align_tab(style, DEFAULTS):
             return feat_extr_parameters
 
         # --- bUnwarp Parameter Frame --- #
-        def bunwarp_p_frame():
+        def bunwarp_p_frame() -> List[List[Any]]:
             """The bunwarpJ parameter frame layout.
 
-            Returns
-            -------
-            bunwarp_parameters : list of list of PySimpleGUI Elements
-                The layout for the bunwarpj parameter frame.
+            Returns:
+                bunwarp_parameters: The layout for the bunwarpj parameter frame.
             """
             # bUnwarpJ parameters
             reg_mode = [sg.Text('Registration mode:', pad=((41, 10), (15, 0))),
@@ -606,13 +601,11 @@ def align_tab(style, DEFAULTS):
             return bunwarp_parameters
 
         # --- Alignment Frame --- #
-        def bunwarp_al_frame():
+        def bunwarp_al_frame() -> List[List[Any]]:
             """The bunwarpJ alignment frame layout.
 
-            Returns
-            -------
-            align_frame : list of list of PySimpleGUI Elements
-                The layout for the bunwarpj alignment frame.
+            Returns:
+                align_frame: The layout for the bunwarpj alignment frame.
             """
             bunwarp_graph = [[sg.Text("1. Image Directory:", pad=((5, 0), (0, 0))),
                               sg.Input(DEFAULTS['browser_dir'], **style.styles('__BUJ_Image_Dir_Path__')),
@@ -695,13 +688,11 @@ def align_tab(style, DEFAULTS):
             return align_frame
 
         # --- Full bunwarpj Layout --- #
-        def layout_bunwarp_tab():
+        def layout_bunwarp_tab() -> List[List[Any]]:
             """The bunwarpJ tab layout.
 
-            Returns
-            -------
-            bunwarp_layout : list of list of PySimpleGUI Elements
-                The layout for the bunwarpj tab.
+            Returns:
+            bunwarp_layout: The layout for the bunwarpj tab.
             """
             fls_frame = sg.Frame(layout=bunwarp_fls_frame(), title='FLS Files',
                                  relief=sg.RELIEF_SUNKEN, pad=((4, 0), (0, 0)), font=('Times New Roman', 19))
@@ -725,13 +716,11 @@ def align_tab(style, DEFAULTS):
         return tab
 
     # ----- Overall Alignment Tab ----- #
-    def layout_align_tab():
+    def layout_align_tab() -> List[List[Any]]:
         """The overall alignment tab layout.
 
-        Returns
-        -------
-        align_layout : list of list of PySimpleGUI Elements
-            The layout for the overall alignment tab.
+        Returns:
+        align_layout: The layout for the overall alignment tab.
         """
         # Align sub-tabs
         ls_metadata = {"parent_tabgroup": "align_tabgroup",
@@ -748,36 +737,32 @@ def align_tab(style, DEFAULTS):
 
     metadata = {"parent_tabgroup": "pages_tabgroup",
                 "child_tabgroup": "align_tabgroup"}
-    tab = sg.Tab('Registration', layout_align_tab(), disabled=True, font=style.fonts['tab'],
+    tab = sg.Tab('Registration', layout_align_tab(),
+                 disabled=True, font=style.fonts['tab'],
                  key="align_tab", metadata=metadata)
     return tab
 
 
-# ----------------------- Reconstruct Tab ----------------------- #
-def reconstruct_tab(style, DEFAULTS):
+# ---------------------------------------------------- #
+#                    Reconstruct Tab                   #
+# ---------------------------------------------------- #
+def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
     """The reconstruction tab layout.
 
-    Parameters
-    ----------
-    style : WindowStyle class
-        The class that holds all style data for the window.
-        Look at gui_styling.py for more info.
-    DEFAULTS : dict
-        The default values for certain style elements
-        such as font
+    Args:
+        style: The class that holds all style data for the window.
+            Look at gui_styling.py for more info.
+        DEFAULTS: The default values for certain style elements
+            such as font.
 
-    Returns
-    -------
-    tab : list of list of PySimpleGUI Elements
-        The layout for the reconstruction tab.
+    Returns:
+        tab: The layout for the reconstruction tab.
     """
 
-    def layout_reconstruct_tab():
-        """The overall reconstructuion tab layout.
+    def layout_reconstruct_tab() -> List[List[Any]]:
+        """The overall reconstruction tab layout.
 
-        Returns
-        -------
-        align_layout : list of list of PySimpleGUI Elements
+        Returns:
             The layout for the overall alignment tab.
         """
 
@@ -879,7 +864,6 @@ def reconstruct_tab(style, DEFAULTS):
         return [[left_panel, right_panel]]
 
     reconstruct_layout = layout_reconstruct_tab()
-
     metadata = {"parent_tabgroup": "pages_tabgroup",
                 "child_tabgroup": None}
     tab = sg.Tab('Phase Reconstruction', reconstruct_layout, font=style.fonts['tab'], key="reconstruct_tab",
@@ -887,23 +871,19 @@ def reconstruct_tab(style, DEFAULTS):
     return tab
 
 
-# ------------------------  Windows  ------------------------ #
-def window_ly(background_color, DEFAULTS): # DEFAULTS
+# ---------------------------------------------------- #
+#                         Windows                      #
+# ---------------------------------------------------- #
+def window_ly(background_color: str, DEFAULTS: Dict) -> Window:
     """The full window layout.
 
-    Parameters
-    ----------
-    style : WindowStyle class
-        The class that holds all style data for the window.
-        Look at gui_styling.py for more info.
-    DEFAULTS : dict
-        The default values for certain style elements
-        such as font
+    Args:
+        background_color: The background color for the window.
+        DEFAULTS: The default values for certain style elements
+            such as font.
 
-    Returns
-    -------
-    window : list of list of PySimpleGUI Elements
-        The layout for the full window.
+    Returns:
+        window: The window element of the window.
     """
     style = WindowStyle(background_color)
 
@@ -924,26 +904,28 @@ def window_ly(background_color, DEFAULTS): # DEFAULTS
     return window
 
 
-def save_window_ly(event, image_dir, orientations, tfs=None):
+def save_window_ly(event: str, image_dir: str,
+                   orientations: Optional[Union[List[str], str]],
+                   tfs: Optional[str] = None) -> List[List[Any]]:
     """Initializes save window.
 
-    Parameters
-    ----------
-    im_type : str
-        The image extension (.bmp, .tiff)
-    file_paths : list of str
-        List containing the file paths that will be
+    Args:
+    im_type: The image extension (.bmp, .tiff)
+    file_paths: List containing the file paths that will be
         checked whether they will be overwritten
-    orientations : list
+    orientations: List of the strings of the unflip or flip or tfs orientations.
+        Otherwise may be the prefix for REC or None.
+    tfs: The string of the tfs selected value.
 
-    Returns
-    -------
-    layout : list of list of PySimpleGUI Elements
-        The layout for the save window.
+    Returns:
+        layout: The layout for the save window.
+        im_type: The image filetype.
+        file_paths: List of the filepaths.
+        orientations: List of strings of the orientations or image names.
     """
 
     # Change parameters to suit what is being saved
-    if not orientations:
+    if orientations is None:
         orientations = ['']
     if event == '__BUJ_Make_Mask__':
         im_type = 'mask'
@@ -1043,7 +1025,12 @@ def save_window_ly(event, image_dir, orientations, tfs=None):
     return layout, im_type, file_paths, orientations
 
 
-def output_ly():
+def output_ly() -> Window:
+    """Creates the output log layout.
+
+    Returns:
+        window: The PySimpleGUI window element of the output window."""
+
     invisible_graph = sg.Graph((0, 0), (0, 0), (0, 0), visible=True, key="__output_invis_graph__")
     main_output = sg.Tab('Main', [[sg.Multiline('', key='MAIN_OUTPUT',
                                                 write_only=True, size=(600, 16), autoscroll=True
