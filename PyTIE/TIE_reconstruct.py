@@ -22,7 +22,7 @@ from pathlib import Path
 from longitudinal_deriv import polyfit_deriv
 
 
-def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=False, long_deriv=False, v=1):
+def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=False, hsv=True, long_deriv=False, v=1):
     """Sets up the TIE reconstruction and calls phase_reconstruct. 
 
     This function calculates the necessary arrays, derivatives, etc. and then 
@@ -57,7 +57,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
             Files will be saved as 
             ptie.data_loc/images/dataname_<defval>_<key>.tiff, where <key> is 
             the key for the results dictionary that corresponds to the image. 
-        long_deriv (bool): Whether to use the longitudinal derivative (True) or 
+        hsv (bool): Whether to use the hsv colorwheel (True) or the 4-fold colorwheel (False).
+        long_deriv (bool): Whether to use the longitudinal derivative (True) or
             central difference method (False). Default False. 
             `Currently has bugs`. Qualitatively looks alright but quantitatively
             is not accurate. 
@@ -219,7 +220,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     vprint('Calling TIE solver\n')
     if ptie.flip:
         resultsE = phase_reconstruct(ptie, inf_im, dIdZ_e, pscope, 
-                                defval, sym = sym, long_deriv = long_deriv)   
+                                defval, sym=sym, long_deriv = long_deriv)
         # We only care about the E phase.  
         results['phase_e'] = resultsE['phase']
 
@@ -231,7 +232,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     results['bbt'] = np.sqrt(resultsB['ind_x']**2 + resultsB['ind_y']**2)
     results['phase_m'] = resultsB['phase']
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
-                                    hsvwheel=True, background='black') 
+                                    hsvwheel=hsv, background='black')
 
     if v >= 1:
         show_im(results['color_b'], "B-field color HSV colorwheel", cbar=False)

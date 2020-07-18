@@ -12,7 +12,7 @@ Timothy Cote, ANL, Fall 2019.
 import collections
 from contextlib import redirect_stdout
 from io import StringIO
-from os import path, remove, mkdir
+from os import path as os_path, remove as os_remove, mkdir
 from platform import system as platform
 from queue import Queue, Empty
 import subprocess
@@ -25,7 +25,6 @@ import warnings
 # Third-party imports
 from numpy import setdiff1d
 import PySimpleGUI as sg
-from PySimpleGUI import Window, Graph, Element
 from matplotlib import colors
 
 # Local imports
@@ -54,11 +53,11 @@ def defaults() -> Dict[str, str]:
     Returns:
         DEFAULTS: Dictionary of the FIJI and working directory paths.
     """
-    python_dir = path.dirname(__file__)
+    python_dir = os_path.dirname(__file__)
     default_txt = f'{python_dir}/defaults.txt'
     DEFAULTS = {'fiji_dir': '',
                 'browser_dir': ''}
-    if not path.exists(default_txt):
+    if not os_path.exists(default_txt):
         with open(default_txt, 'w+') as f:
             f.write('// File contains the default paths to FIJI and the browser working directory for GUI.\n')
             f.write('FIJI Directory,\n')
@@ -143,7 +142,7 @@ def init_buj(winfo: Struct) -> None:
     winfo.buj_mask_markers = []
 
 
-def init_rec(winfo: Struct, window: Window) -> None:
+def init_rec(winfo: Struct, window: sg.Window) -> None:
     """Initialize Reconstruction Tab variables.
 
     Args:
@@ -199,7 +198,7 @@ def init_rec(winfo: Struct, window: Window) -> None:
     winfo.rec_mask_markers = []
 
 
-def init(winfo: Struct, window: Window, output_window: Window) -> None:
+def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     """The main element and window initialization. Creates binding.
 
     Args:
@@ -280,7 +279,7 @@ def init(winfo: Struct, window: Window, output_window: Window) -> None:
         winfo.output_window[key].bind("<FocusOut>", '+FOCUS_OUT+')
 
 
-def reset(winfo: Struct, window: Window, current_tab: str) -> None:
+def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
     """Reset the current tab values to be empty or defaults
 
     Args:
@@ -344,9 +343,9 @@ def reset(winfo: Struct, window: Window, current_tab: str) -> None:
         colorwheel_graph.Erase()
         metadata_change(winfo, window, ['__REC_Stack__', '__REC_Image__', '__REC_FLS1__', '__REC_FLS2__'], reset=True)
         toggle(winfo, window, ['__REC_Set_Img_Dir__', '__REC_FLS_Combo__', '__REC_TFS_Combo__',
-                        '__REC_Stack__', '__REC_FLS1__', '__REC_FLS2__', '__REC_Set_FLS__',
-                        '__REC_Mask__', '__REC_Image__'], state='Def')
-        window['__REC_Def_Combo__'].update(values=['None'])
+                               '__REC_Stack__', '__REC_FLS1__', '__REC_FLS2__', '__REC_Set_FLS__',
+                               '__REC_Mask__', '__REC_Image__'], state='Def')
+        window['__REC_Def_Combo__'].update(value='None', values=['None'])
         window['__REC_Def_List__'].update(values=['None'])
         window['__REC_Symmetrize__'].update(value=False)
         window['__REC_FLS1_Text__'].update(value=window['__REC_FLS1_Text__'].metadata['Two'])
@@ -628,7 +627,7 @@ def get_open_tab(winfo: Struct, tabgroup: str, event: str) -> str:
     return tab_key
 
 
-def get_orientation(window: Window, pref: str) -> str:
+def get_orientation(window: sg.Window, pref: str) -> str:
     """Get the current orientation value for the
     current window.
 
@@ -649,7 +648,7 @@ def get_orientation(window: Window, pref: str) -> str:
     return orientation
 
 
-def get_mask_transform(winfo: Struct, window: Window,
+def get_mask_transform(winfo: Struct, window: sg.Window,
                        current_tab: str) -> Tuple[Union[float, int],
                                                   Union[float, int],
                                                   Union[float, int]]:
@@ -675,7 +674,7 @@ def get_mask_transform(winfo: Struct, window: Window,
     return transform
 
 
-def retrieve_transform(winfo: Struct, window: Window, current_tab: str,
+def retrieve_transform(winfo: Struct, window: sg.Window, current_tab: str,
                        transf_list: List[Tuple], old_transform: Tuple,
                        new_transform: Tuple, mask: bool = False) -> Tuple:
     """Return transformation to apply to image based off correct
@@ -759,7 +758,7 @@ def retrieve_transform(winfo: Struct, window: Window, current_tab: str,
     return transform
 
 
-def get_transformations(winfo: Struct, window: Window,
+def get_transformations(winfo: Struct, window: sg.Window,
                         current_tab: str) -> Tuple:
     """ Gets transformations from the event window.
     Timers give user a limited amount of time before
@@ -806,7 +805,7 @@ def get_transformations(winfo: Struct, window: Window,
     return transform
 
 
-def file_loading(winfo: Struct, window: Window, filename: str, active_key: str,
+def file_loading(winfo: Struct, window: sg.Window, filename: str, active_key: str,
                  image_key: str, target_key: str, conflict_keys: List[str],
                  num_files: int, disable_elem_list: List[str]) -> Tuple[bool, List[str]]:
     """
@@ -841,7 +840,7 @@ def file_loading(winfo: Struct, window: Window, filename: str, active_key: str,
         prefix = 'BUJ: '
     elif active_key.startswith('__REC'):
         prefix = 'REC: '
-    if path.exists(filename):
+    if os_path.exists(filename):
         with warnings.catch_warnings():
             try:
                 # Is file loading correctly?
@@ -997,7 +996,7 @@ def removing_FIJI_thread(winfo: Struct, prefix: str,
     return delete_indices
 
 
-def load_file_queue(winfo: Struct, window: Window,
+def load_file_queue(winfo: Struct, window: sg.Window,
                     quit_load: bool = False) -> None:
     """Dictates how loading of files from queue waitlist should operate.
 
@@ -1095,7 +1094,7 @@ def load_file_queue(winfo: Struct, window: Window,
                     pass
 
                 # Process is finished, file was made and is saving/saved
-                if path.exists(filename) and poll is not None:
+                if os_path.exists(filename) and poll is not None:
                     num_files = None
                     remove, disable_elem_list = file_loading(winfo, window, filename, active_key, image_key,
                                                              target_key, conflict_keys, num_files, disable_elem_list)
@@ -1165,8 +1164,8 @@ def load_file_queue(winfo: Struct, window: Window,
 
 
 # ------------- Changing Element Values ------------- #
-def update_values(winfo: Struct, window: Window,
-                  elem_val_list: List[Tuple[Element, Any]]) -> None:
+def update_values(winfo: Struct, window: sg.Window,
+                  elem_val_list: List[Tuple[sg.Element, Any]]) -> None:
     """ Take a list of element key, value tuple pairs
     and update value of the element.
 
@@ -1188,7 +1187,7 @@ def update_values(winfo: Struct, window: Window,
             window[elem_key].Update(value=value)
 
 
-def change_list_ind_color(window: Window, current_tab: str,
+def change_list_ind_color(window: sg.Window, current_tab: str,
                           elem_ind_val_list: List[int]) -> None:
     """Change the listbox index color based off what images are loaded.
 
@@ -1217,7 +1216,7 @@ def change_list_ind_color(window: Window, current_tab: str,
             listbox.Widget.itemconfig(index, fg='light grey', bg=sg.theme_input_background_color())
 
 
-def change_inp_readonly_bg_color(window: Window, elem_list: List[Element],
+def change_inp_readonly_bg_color(window: sg.Window, elem_list: List[sg.Element],
                                  val: str):
     """Change the readonly input background color.
 
@@ -1237,8 +1236,8 @@ def change_inp_readonly_bg_color(window: Window, elem_list: List[Element],
             window[elem].Widget.config(readonlybackground='#A7A7A7')
 
 
-def metadata_change(winfo: Struct, window: Window,
-                    elem_val_list: List[Tuple[Element, str]],
+def metadata_change(winfo: Struct, window: sg.Window,
+                    elem_val_list: List[Tuple[sg.Element, str]],
                     reset: bool = False) -> None:
     """Change the metadata of the element to update between
     the default value and the user set value.
@@ -1268,8 +1267,8 @@ def metadata_change(winfo: Struct, window: Window,
                 update_values(winfo, window, [(elem, val)])
 
 
-def toggle(winfo: Struct, window: Window,
-           elem_list: List[Element], state: Optional[str] = None) -> None:
+def toggle(winfo: Struct, window: sg.Window,
+           elem_list: List[sg.Element], state: Optional[str] = None) -> None:
     """Toggle between the default state and set state
     of an elements metadata.
 
@@ -1304,8 +1303,8 @@ def toggle(winfo: Struct, window: Window,
             update_values(winfo, window, [(elem, value)])
 
 
-def update_slider(winfo: Struct, window: Window,
-                  slider_list: List[Tuple[Element, Dict]]) -> None:
+def update_slider(winfo: Struct, window: sg.Window,
+                  slider_list: List[Tuple[sg.Element, Dict]]) -> None:
     """ Updates sliders.
 
     Updates sliders based off passing a list
@@ -1335,7 +1334,7 @@ def update_slider(winfo: Struct, window: Window,
                 window[slider_key].Update(range=slider_range)
 
 
-def update_rotxy(winfo: Struct, window: Window,
+def update_rotxy(winfo: Struct, window: sg.Window,
                  current_tab: str,
                  new_transform: Tuple[Union[int, float],
                                       Union[int, float],
@@ -1380,7 +1379,7 @@ def update_rotxy(winfo: Struct, window: Window,
     return transform
 
 
-def update_mask_size(winfo: Struct, window: Window,
+def update_mask_size(winfo: Struct, window: sg.Window,
                      new_transform: Tuple[Union[int, float]]) -> Tuple[float]:
     """Update the mask size.
 
@@ -1405,7 +1404,7 @@ def update_mask_size(winfo: Struct, window: Window,
 
 
 # ------------- Visualizing Elements ------------- #
-def set_pretty_focus(winfo: Struct, window: Window, event: str) -> None:
+def set_pretty_focus(winfo: Struct, window: sg.Window, event: str) -> None:
     """ Sets the focus to reduce unwanted placements of
     cursor or focus within the GUI.
 
@@ -1472,7 +1471,7 @@ def rec_get_listbox_ind_from_key(key_list: List[str]) -> List[int]:
     return indices
 
 
-def activate_spinner(window: Window, elem: Element):
+def activate_spinner(window: sg.Window, elem: sg.Element) -> None:
     """Activate loading spinner.
 
     Args:
@@ -1488,7 +1487,7 @@ def activate_spinner(window: Window, elem: Element):
     window[elem].Update(spinner_fn)
 
 
-def deactivate_spinner(window: Window, elem: Element) -> None:
+def deactivate_spinner(window: sg.Window, elem: sg.Element) -> None:
     """Deactivate loading spinner.
 
     Args:
@@ -1504,7 +1503,7 @@ def deactivate_spinner(window: Window, elem: Element) -> None:
     window[elem].Update(filename=background)
 
 
-def redraw_graph(graph: Graph, display_image: Optional[bytes]) -> None:
+def redraw_graph(graph: sg.Graph, display_image: Optional[bytes]) -> None:
     """Redraw graph.
 
     Args:
@@ -1522,7 +1521,7 @@ def redraw_graph(graph: Graph, display_image: Optional[bytes]) -> None:
         graph.DrawImage(data=display_image, location=(0, y-1))
 
 
-def change_visibility(window: Window, elem_val_list: List[Tuple[Element, Any]]) -> None:
+def change_visibility(window: sg.Window, elem_val_list: List[Tuple[sg.Element, Any]]) -> None:
     """ Take a list of element keys and change
     visibility of the element.
 
@@ -1538,7 +1537,7 @@ def change_visibility(window: Window, elem_val_list: List[Tuple[Element, Any]]) 
         window[elem_key].Update(visible=val)
 
 
-def disable_elements(window: Window, elem_list: List[Window]) -> None:
+def disable_elements(window: sg.Window, elem_list: List[sg.Window]) -> None:
     """ Take a list of element keys and disable the element.
 
     Args:
@@ -1553,7 +1552,7 @@ def disable_elements(window: Window, elem_list: List[Window]) -> None:
         window[elem_key].Update(disabled=True)
 
 
-def enable_elements(winfo: Struct, window: Window, elem_list: List[Window]) -> None:
+def enable_elements(winfo: Struct, window: sg.Window, elem_list: List[sg.Window]) -> None:
     """ Take a list of element keys and enable the element.
 
     Args:
@@ -1621,9 +1620,9 @@ def ptie_init_thread(winfo: Struct, path: str, fls1_path: str, fls2_path: str,
         # Change the appearance and values in the GUI
         metadata_change(winfo, winfo.window, [('__REC_Image__', f'{prefix}/{im_name}')])
         length_slider = len(string_vals)
-        winfo.window['__REC_Def_Combo__'].update(values=string_vals)
+        winfo.window['__REC_Def_Combo__'].update(value=string_vals[0], values=string_vals)
         winfo.window['__REC_Def_List__'].update(ptie.defvals, set_to_index=0,
-                                          scroll_to_index=0)
+                                                scroll_to_index=0)
         winfo.window['__REC_Def_List__'].metadata['length'] = length_slider
         toggle(winfo, winfo.window, elem_list=['__REC_Set_FLS__'])
 
@@ -1656,7 +1655,7 @@ def ptie_init_thread(winfo: Struct, path: str, fls1_path: str, fls2_path: str,
     print('--- Exited PTIE Initialization ---')
 
 
-def ptie_recon_thread(winfo: Struct, window: Window, graph: sg.Graph,
+def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
                       colorwheel_graph: sg.Graph, images: Dict,
                       current_tab: str) -> None:
     """ Create the PYTIE reconstruction thread.
@@ -1681,6 +1680,7 @@ def ptie_recon_thread(winfo: Struct, window: Window, graph: sg.Graph,
 
     ptie = winfo.rec_ptie
     microscope = winfo.rec_microscope
+
     def_val = float(window['__REC_Def_Combo__'].Get())
     def_ind = ptie.defvals.index(def_val)
     dataname = 'example'
@@ -1710,6 +1710,7 @@ def ptie_recon_thread(winfo: Struct, window: Window, graph: sg.Graph,
     bottom, top, left, right = None, None, None, None
     for i in range(len(winfo.rec_mask_coords)):
         x, y = winfo.rec_mask_coords[i]
+        print('winfo mask coords', i, 'x, y')
         if right is None or x > right:
             right = x
         if left is None or x < left:
@@ -1750,8 +1751,12 @@ def ptie_recon_thread(winfo: Struct, window: Window, graph: sg.Graph,
                     bottom += 1
 
     # Set ptie crop
-    ptie.crop['right'], ptie.crop['left'] = round(right * scale_x), round(left * scale_x)
-    ptie.crop['bottom'], ptie.crop['top'] = round(bottom * scale_y), round(top * scale_y)
+    scaled_right, scaled_left = round(right * scale_x), round(left * scale_x)
+    scaled_bottom, scaled_top = round(bottom * scale_y), round(top * scale_y)
+    print('Scaled left and right', scaled_right, scaled_left)
+    print('Scaled bottom and top', scaled_bottom, scaled_top)
+    ptie.crop['right'], ptie.crop['left'] = scaled_right, scaled_left
+    ptie.crop['bottom'], ptie.crop['top'] = scaled_bottom, scaled_top
 
     if not qc_passed:
         print(f'REC: QC value should be an integer or float and not negative. Change value.')
@@ -1760,10 +1765,10 @@ def ptie_recon_thread(winfo: Struct, window: Window, graph: sg.Graph,
         try:
             print(f'REC: Reconstructing for defocus value: {ptie.defvals[def_ind]} nm')
             rot, x_trans, y_trans = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
-            x_trans, y_trans = x_trans * scale_x, y_trans * scale_y
-            ptie.rotation, ptie.x_transl, ptie.y_transl = rot, int(x_trans), int(y_trans)
+            print('Translations', x_trans, y_trans)
+            ptie.rotation, ptie.x_transl, ptie.y_transl = float(rot), int(x_trans), int(y_trans)
             results = TIE(def_ind, ptie, microscope,
-                          dataname, sym, qc, hsv, save,
+                          dataname, sym, qc, save, hsv,
                           longitudinal_deriv, v=0)
 
             # This will need to consider like the cropping region
@@ -1822,7 +1827,7 @@ def ptie_recon_thread(winfo: Struct, window: Window, graph: sg.Graph,
 
 
 # -------------- Home Tab Event Handler -------------- #
-def run_home_tab(winfo: Struct, window: Window,
+def run_home_tab(winfo: Struct, window: sg.Window,
                  event: str, values: Dict) -> None:
     """Run events associated with the Home tab.
 
@@ -1845,7 +1850,7 @@ def run_home_tab(winfo: Struct, window: Window,
     # Get directories for Fiji and images
     if event == '__Fiji_Set__':
         winfo.fiji_path = values['__Fiji_Path__']
-        if not path.exists(winfo.fiji_path) or 'Fiji' not in winfo.fiji_path:
+        if not os_path.exists(winfo.fiji_path) or 'Fiji' not in winfo.fiji_path:
             print(f'{prefix}This Fiji path is incorrect, try again.')
         else:
             print(f'{prefix}Fiji path is set, you may now proceed to registration.')
@@ -1859,7 +1864,7 @@ def run_home_tab(winfo: Struct, window: Window,
         disable_elements(window, ['align_tab'])
         change_inp_readonly_bg_color(window, ['__Fiji_Path__'], 'Default')
     elif event in ['__Browser_Set__', '__Fiji_Def_Set__']:
-        python_dir = path.dirname(__file__)
+        python_dir = os_path.dirname(__file__)
         default_txt = f'{python_dir}/defaults.txt'
         with open(default_txt, 'r') as f:
             lines = f.readlines()
@@ -1870,7 +1875,7 @@ def run_home_tab(winfo: Struct, window: Window,
                     key, value = items[0], items[1]
                     if key == 'FIJI Directory' and event == '__Fiji_Def_Set__':
                         filename = window["__Fiji_Path__"].Get()
-                        if path.exists(filename) and 'Fiji' in filename:
+                        if os_path.exists(filename) and 'Fiji' in filename:
                             fnew.write(f'FIJI Directory,{filename}\n')
                             print(f'{prefix}Fiji default was set.')
                         else:
@@ -1880,7 +1885,7 @@ def run_home_tab(winfo: Struct, window: Window,
                         fnew.write(line)
                     if key == 'Browser Directory' and event == '__Browser_Set__':
                         filename = window["__Browser_Path__"].Get()
-                        if path.exists(filename):
+                        if os_path.exists(filename):
                             fnew.write(f'Browser Directory,{filename}\n')
                             print(f'{prefix}Browser working directory default was set.')
                         else:
@@ -1891,7 +1896,7 @@ def run_home_tab(winfo: Struct, window: Window,
                 elif line.startswith('//'):
                     fnew.write(line)
     elif event in ['__Browser_Reset__', '__Fiji_Def_Reset__']:
-        python_dir = path.dirname(__file__)
+        python_dir = os_path.dirname(__file__)
         default_txt = f'{python_dir}/defaults.txt'
         with open(default_txt, 'r') as f:
             lines = f.readlines()
@@ -1909,7 +1914,7 @@ def run_home_tab(winfo: Struct, window: Window,
 
 
 # -------------- Linear SIFT Tab Event Handler -------------- #
-def run_ls_tab(winfo: Struct, window: Window, current_tab: str,
+def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
                event: str, values: Dict) -> Dict:
     """Run events associated with the Linear Stack Alignment tab.
 
@@ -1929,8 +1934,8 @@ def run_ls_tab(winfo: Struct, window: Window, current_tab: str,
     """
 
     # ------------- Visualizing Elements ------------- #
-    def special_enable_disable(window: Window, adjust_button: Element,
-                               view_stack_button: Element, images: Dict[str, Any]) -> None:
+    def special_enable_disable(window: sg.Window, adjust_button: sg.Element,
+                               view_stack_button: sg.Element, images: Dict[str, Any]) -> None:
         """Determine enabling and disabling of elements based off loaded buttons and active processes.
 
         Args:
@@ -2028,7 +2033,7 @@ def run_ls_tab(winfo: Struct, window: Window, current_tab: str,
     # Set image directory and load in-focus image
     if event == '__LS_Set_Img_Dir__':
         image_dir = values['__LS_Image_Dir_Path__']
-        if path.exists(image_dir):
+        if os_path.exists(image_dir):
             winfo.ls_image_dir = image_dir
             toggle(winfo, window, ['__LS_Set_Img_Dir__'], state='Set')
             change_inp_readonly_bg_color(window, ['__LS_FLS1__', '__LS_FLS2__'], 'Default')
@@ -2097,7 +2102,7 @@ def run_ls_tab(winfo: Struct, window: Window, current_tab: str,
             fls_path = window['__LS_FLS2_Staging__'].Get()
             update_values(winfo, window, [('__LS_FLS2_Staging__', 'None')])
             target_key = '__LS_FLS2__'
-        if path.exists(fls_path) and fls_path.endswith('.fls'):
+        if os_path.exists(fls_path) and fls_path.endswith('.fls'):
             fls = g_help.FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.ls_fls_files[0] = fls
@@ -2271,8 +2276,8 @@ def run_ls_tab(winfo: Struct, window: Window, current_tab: str,
 
                 # Create files
                 if save:
-                    if path.exists(filename):
-                        remove(filename)
+                    if os_path.exists(filename):
+                        os_remove(filename)
                     if tfs_value == 'Unflip/Flip':
                         orientation = 'unflip'
                         fls_file_names = [winfo.ls_fls_files[0].path, winfo.ls_fls_files[1].path]
@@ -2447,7 +2452,7 @@ def run_ls_tab(winfo: Struct, window: Window, current_tab: str,
 
 
 # -------------- bUnwarpJ Tab Event Handler -------------- #
-def run_bunwarpj_tab(winfo: Struct, window: Window,
+def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                      current_tab: str, event: str, values: Dict) -> None:
     """Run events associated with the bUnwarpJ tab.
 
@@ -2467,8 +2472,8 @@ def run_bunwarpj_tab(winfo: Struct, window: Window,
     """
 
     # ------------- Visualizing Elements ------------- #
-    def special_enable_disable(window: Window, adjust_button: Element, view_stack_button: Element,
-                               make_mask_button: Element, images: Dict[str, Any]) -> None:
+    def special_enable_disable(window: sg.Window, adjust_button: sg.Element, view_stack_button: sg.Element,
+                               make_mask_button: sg.Element, images: Dict[str, Any]) -> None:
         """Determine enabling and disabling of elements based off loaded buttons and active processes.
 
         Args:
@@ -2599,7 +2604,7 @@ def run_bunwarpj_tab(winfo: Struct, window: Window,
     # Set image directory and load in-focus image
     if event == '__BUJ_Set_Img_Dir__':
         image_dir = values['__BUJ_Image_Dir_Path__']
-        if path.exists(image_dir):
+        if os_path.exists(image_dir):
             winfo.buj_image_dir = image_dir
             toggle(winfo, window, ['__BUJ_Set_Img_Dir__'], state='Set')
             change_inp_readonly_bg_color(window, ['__BUJ_FLS1__', '__BUJ_FLS2__'], 'Default')
@@ -2642,7 +2647,7 @@ def run_bunwarpj_tab(winfo: Struct, window: Window,
             fls_path = window['__BUJ_FLS2_Staging__'].Get()
             update_values(winfo, window, [('__BUJ_FLS2_Staging__', 'None')])
             target_key = '__BUJ_FLS2__'
-        if path.exists(fls_path) and fls_path.endswith('.fls'):
+        if os_path.exists(fls_path) and fls_path.endswith('.fls'):
             fls = g_help.FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.buj_fls_files[0] = fls
@@ -2804,8 +2809,8 @@ def run_bunwarpj_tab(winfo: Struct, window: Window,
                 if save:
                     # Delete file if it supposed to be overwritten
                     filename = filename[0]
-                    if path.exists(filename):
-                        remove(filename)
+                    if os_path.exists(filename):
+                        os_remove(filename)
 
                     # Execute fiji macro
                     fls_file_names = [winfo.buj_fls_files[0].path, winfo.buj_fls_files[1].path]
@@ -3267,11 +3272,11 @@ def run_bunwarpj_tab(winfo: Struct, window: Window,
                                        load_buj_params(values, prefix))
 
             # Decide whether file should be created
-            if not path.exists(stackpaths[0]) or not path.exists(stackpaths[1]):
+            if not os_path.exists(stackpaths[0]) or not os_path.exists(stackpaths[1]):
                 print(f'{prefix}The unflip or flip stack has been deleted since it has been loaded/created.', end=' ')
                 print('You must restart the process.')
-            elif ((mask_files[0] is not None and not path.exists(mask_files[0])) or
-                    (mask_files[1] is not None and not path.exists(mask_files[1]))):
+            elif ((mask_files[0] is not None and not os_path.exists(mask_files[0])) or
+                    (mask_files[1] is not None and not os_path.exists(mask_files[1]))):
                 print(f'{prefix}The unflip or flip mask has been deleted since it has been loaded.', end=' ')
                 print('You must create new masks or clear current masks.')
             elif sift_params is not None and buj_params is not None:
@@ -3283,11 +3288,11 @@ def run_bunwarpj_tab(winfo: Struct, window: Window,
                     save = False
                 if save:
                     src1, src2 = filenames[0], filenames[1]
-                    if not path.exists(f'{image_dir}/buj_transforms/'):
+                    if not os_path.exists(f'{image_dir}/buj_transforms/'):
                         mkdir(f'{image_dir}/buj_transforms/')
                     for src in [src1, src2]:
-                        if path.exists(src):
-                            remove(src)
+                        if os_path.exists(src):
+                            os_remove(src)
                     fls_file_names = [winfo.buj_fls_files[0].path, winfo.buj_fls_files[1].path]
                     macro = run_bUnwarp_align(image_dir, mask_files, orientation, transform, im_size,
                                                     stackpaths, sift_FE_params=sift_params,
@@ -3390,7 +3395,7 @@ def run_bunwarpj_tab(winfo: Struct, window: Window,
 
 
 # -------------- Reconstruct Tab Event Handler -------------- #
-def run_reconstruct_tab(winfo: Struct, window: Window,
+def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                         current_tab: str, event: str, values: Dict) -> None:
     """Run events associated with the reconstruct tab.
 
@@ -3409,7 +3414,7 @@ def run_reconstruct_tab(winfo: Struct, window: Window,
         None
     """
     # ------------- Visualizing Elements ------------- #
-    def special_enable_disable(winfo: Struct, window: Window) -> None:
+    def special_enable_disable(winfo: Struct, window: sg.Window) -> None:
         """Determine enabling and disabling of elements based off loaded buttons and active processes.
 
         Args:
@@ -3528,7 +3533,7 @@ def run_reconstruct_tab(winfo: Struct, window: Window,
     # Set the working directory
     if event == '__REC_Set_Img_Dir__':
         image_dir = values['__REC_Image_Dir_Path__']
-        if path.exists(image_dir):
+        if os_path.exists(image_dir):
             winfo.rec_image_dir = image_dir
             toggle(winfo, window, ['__REC_Set_Img_Dir__'], state='Set')
             change_inp_readonly_bg_color(window, ['__REC_Stack__', '__REC_FLS1__',
@@ -3542,7 +3547,7 @@ def run_reconstruct_tab(winfo: Struct, window: Window,
         stack_path = window['__REC_Stack_Stage__'].Get()
         update_values(winfo, window, [('__REC_Stack_Stage__', 'None')])
 
-        if path.exists(stack_path) and (stack_path.endswith('.tif') or stack_path.endswith('.tiff')):
+        if os_path.exists(stack_path) and (stack_path.endswith('.tif') or stack_path.endswith('.tiff')):
             image_key = 'REC_Stack'
             graph = window['__REC_Graph__']
             graph_size = graph.get_size()
@@ -3634,7 +3639,7 @@ def run_reconstruct_tab(winfo: Struct, window: Window,
             fls_path = window['__REC_FLS2_Staging__'].Get()
             update_values(winfo, window, [('__REC_FLS2_Staging__', 'None')])
             target_key = '__REC_FLS2__'
-        if path.exists(fls_path) and fls_path.endswith('.fls'):
+        if os_path.exists(fls_path) and fls_path.endswith('.fls'):
             fls = g_help.FileObject(fls_path)
             if 'FLS1' in event:
                 winfo.rec_fls_files[0] = fls
@@ -3680,17 +3685,17 @@ def run_reconstruct_tab(winfo: Struct, window: Window,
         colorwheel_graph.Erase()
         metadata_change(winfo, window, ['__REC_FLS1__', '__REC_FLS2__', '__REC_Stack__'], reset=True)
         toggle(winfo, window, ['__REC_FLS_Combo__', '__REC_TFS_Combo__', '__REC_Stack__',
-                        '__REC_FLS1__', '__REC_FLS2__', '__REC_Set_FLS__', '__REC_Image__',
-                        '__REC_Mask__'], state='Def')
-        window['__REC_Def_Combo__'].update(values=['None'])
+                               '__REC_FLS1__', '__REC_FLS2__', '__REC_Set_FLS__', '__REC_Image__',
+                               '__REC_Mask__'], state='Def')
+        window['__REC_Def_Combo__'].update(value='None', values=['None'])
         window['__REC_Def_List__'].update(values=['None'])
         window['__REC_FLS1_Text__'].update(value=window['__REC_FLS1_Text__'].metadata['Two'])
         window['__REC_FLS2_Text__'].update(value=window['__REC_FLS2_Text__'].metadata['Two'])
         window['__REC_FLS1_Text__'].metadata['State'] = 'Two'
         window['__REC_FLS2_Text__'].metadata['State'] = 'Two'
         update_values(winfo, window, [('__REC_FLS1_Staging__', ''), ('__REC_FLS2_Staging__', ''),
-                               ('__REC_Stack_Stage__', ''), ('__REC_Def_Combo__', 'None'),
-                               ('__REC_Image__', 'None')])
+                                      ('__REC_Stack_Stage__', ''), ('__REC_Def_Combo__', 'None'),
+                                      ('__REC_Image__', 'None')])
         change_list_ind_color(window, current_tab, [('__REC_Image_List__', [])])
         change_inp_readonly_bg_color(window, ['__REC_Stack__', '__REC_FLS1__',
                                               '__REC_FLS2__'], 'Default')
@@ -4015,7 +4020,7 @@ def run_reconstruct_tab(winfo: Struct, window: Window,
         # Make sure stack still exists before trying to run PyTIE
         stack_path = window['__REC_Stack__'].Get()
         print(g_help.join([image_dir, stack_path], '/'))
-        if path.exists(g_help.join([image_dir, stack_path], '/')):
+        if os_path.exists(g_help.join([image_dir, stack_path], '/')):
             change_inp_readonly_bg_color(window, ['__REC_Data_Prefix__', '__REC_QC_Input__'], 'Readonly')
             winfo.ptie_recon_thread = Thread(target=ptie_recon_thread,
                                              args=(winfo, window, graph, colorwheel_graph, images, current_tab),
@@ -4119,7 +4124,7 @@ def run_reconstruct_tab(winfo: Struct, window: Window,
 
 
 # -------------- Save Window --------------#
-def check_overwrite(winfo: Struct, save_win: Window, true_paths: List[str],
+def check_overwrite(winfo: Struct, save_win: sg.Window, true_paths: List[str],
                     orientations: List[str],
                     im_type: str, event: str, tfs) -> List[bool]:
     """Check whether the paths listed in the log box for
@@ -4153,7 +4158,7 @@ def check_overwrite(winfo: Struct, save_win: Window, true_paths: List[str],
     rec_tie_dont_overwrite_text = 'Some files already exist. Check overwrite box or change name.'
     for i in range(len(true_paths)):
         text = ''
-        exists = path.exists(true_paths[i])
+        exists = os_path.exists(true_paths[i])
         # If no orientation, this removes extra space in insertion for log
         if event != '__REC_Save_TIE__':
             overwrite_box = save_win[f'__save_win_overwrite{i+1}__'].Get()
@@ -4205,7 +4210,7 @@ def check_overwrite(winfo: Struct, save_win: Window, true_paths: List[str],
     return overwrite_signals
 
 
-def save_window_values(save_win: Window, num_paths: int, event: str,
+def save_window_values(save_win: sg.Window, num_paths: int, event: str,
                        orientations: List[str], defocus: Optional[str] = None) -> List[str]:
     """Sets ups the save window layout.
 
