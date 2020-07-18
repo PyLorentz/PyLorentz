@@ -289,6 +289,7 @@ def pre_ls_alignement(reference: str, check_sift: bool, path1: str, path2: str,
                 Options: One, Two
     Returns:
         vals: A tuple of the reference file as well as all other filenames.
+
             - vals[0]: The reference filename.
             - vals[1][0]: 2D list of all files
             - vals[1][1]: 2D list of ordered image files for path1
@@ -580,10 +581,9 @@ def ls_macro(sift_params: Dict[str, Any]) -> str:
 def ls_alignment(path1: str, path2: str, sift_params: Dict[str, Any],
                  transform_params: Tuple[float, float, float, bool],
                  ref: str, all_files: List[List[str]]) -> Tuple[List[str], List[str]]:
-    """Create ImageJ macros for each defocus and orientation
-     other than the reference infocus image.
+    """Create ImageJ macros for each defocus and orientation other than infocus.
 
-     Args:
+    Args:
          path1: The first unflip/flip path/directory.
          path2: The first unflip/flip path/directory.
          sift_params: The Linear SIFT params.
@@ -628,12 +628,10 @@ def single_ls_alignment(sift_params: Dict[str, Any], files: List[List[str]],
 
      Args:
          sift_params: The Linear SIFT params.
-         files: All ordered fileanmes in under
-            [[undefocus], [infocus] [overfocus]]
+         files: All ordered fileanmes in under [[undefocus], [infocus] [overfocus]]
          path: The single path/directory.
          param_test: Boolean for whether LS alignment is being checked
          ref: The reference filename.
-
 
     Returns:
         Tuple of list of both macros and shortnames.

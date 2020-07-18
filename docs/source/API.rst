@@ -7,3 +7,4 @@ The API is divided roughly into two sections. All of the code required for TIE r
 
    modules/PyTIE_modules
    modules/SimLTEM_modules
+   modules/GUI_modules

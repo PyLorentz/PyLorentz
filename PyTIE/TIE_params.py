@@ -1,12 +1,11 @@
 """Class for TIE reconstruction parameters. 
 
-A class file for holding TIE images and reconstruction parameters.
+A class for holding TIE images and reconstruction parameters.
 Also has several methods relating to doing the reconstruction, namely making
 masks and interactively cropping the image stacks. 
 
 AUTHOR: 
 Arthur McCray, ANL, Summer 2019
---------------------------------------------------------------------------------
 """
 
 import numpy as np
@@ -29,54 +28,49 @@ class TIE_params(object):
     TIE_template.ipynb notebook. 
 
     Attributes: 
-        imstack: A list of hyperspy Signal2D objects, one per image in the 
-            through focus series (tfs). 
-        flipstack: A list of hyperspy Signal2D objects for the flip tfs if
-            there is one. 
-        defvals: List of defocus values in nm from least to most defocus. This 
-            assumes a symmetric defocus over/under, so expects 2 values for a 5
-            image tfs. 
-        flip: Boolean for whether or not to reconstruct using the flip stack.  
-            Even if the flip stack exists the reconstruction will only use the 
-            unflip stack if self.flip = False. 
-        data_loc: String for location of data folder. 
-        sim: Bool. True if data is simulated, minimizes mask. 
-        num_files: Equiv to len(self.imstack)
-        axes: Hyperspy axes_manager from unflip infocus image. Contains useful 
-            information such as scale if loaded from dm3. 
-        shape: Shape of original image data (y, x) to be consistent with numpy
-        infocus: Averaged infocus image between unflip and flip stacks. If no 
-            flip stack, just unflip infocus image. 
-        qi: inverse laplacian helper, used in TIE_reconstruct
-        roi: hyperspy region-of-interest object. Initialized to central quarter 
-            of image, but changes interactively with self..select_region() 
-            method. Values for the roi are in nm, and continue to change as
-            the interactive region is adjusted. 
-        crop: Region of interest in pixels used to select the are to be 
+        imstack (list): A list of hyperspy Signal2D objects, one per image in 
+            the through focus series (tfs). 
+        flipstack (list): A list of hyperspy Signal2D objects for the flip tfs 
+            if there is one. 
+        defvals (list): List of defocus values in nm from least to most defocus. 
+            This assumes a symmetric defocus over/under, so expects 2 values for
+            a 5 image tfs. 
+        flip (bool): Boolean for whether or not to reconstruct using the flip 
+            stack.  Even if the flip stack exists the reconstruction will only 
+            use the unflip stack if self.flip = False. 
+        data_loc (str): String for location of data folder. 
+        no_mask (bool): Eliminates mask (generally used with simulated data). 
+        num_files (int): Equiv to len(self.imstack)
+        axes (``hyperspy.signal2D.axes_manager``): Hyperspy axes_manager from unflip 
+            infocus image. Contains useful information such as scale if loaded 
+            from dm3. 
+        shape (tuple): Shape of original image data (y, x)
+        infocus (2D array): Averaged infocus image between unflip and flip 
+            stacks. If no flip stack, just unflip infocus image. 
+        qi (2D array): 2D inverse frequency array, possibly modified with 
+            Tikhonov filter. 
+        roi (``hyperspy.roi.RectangularROI``): hyperspy region-of-interest object.
+            Initialized to central quarter of image, but changes interactively 
+            with self.select_region() method. Values for the roi are in nm, and
+            continue to change as the interactive region is adjusted. 
+        crop (tuple): Region of interest in pixels used to select the are to be 
             reconstructed. self.roi is converted from nm to pixels with the 
-            self..crop_ims() method, and does not change as the roi is 
+            self.crop_ims() method, and does not change as the roi is 
             adjusted. Initialized to full image. 
-        mask: Binary mask made form all the images. 1 where all images have
+        mask (2D array): Binary mask made form all the images. 1 where all images have
             nonzero data, 0 where any do not. Made by self.make_mask()
     """
-    def __init__(self, imstack=None, flipstack=[], defvals=None, flip=None, data_loc=None, no_mask=False):
-        """Inits TIE_params object. imstack, defvals must be specified at minimum.
+    def __init__(self, imstack=None, flipstack=[], defvals=None, flip=None, 
+        data_loc=None, no_mask=False, v=1):
+        """Constructs TIE_params object. imstack, defvals must be specified at minimum.
 
-        Args: 
-            imstack: List of hyperspy Signal2D objects, or numpy arrays containing 
-                image data which will be converted to Signal2D. One per image in
-                the through focus series (tfs). 
-            flipstack: A list of hyperspy Signal2D objects for the flip tfs 
-                if there is one. 
-            defvals: List of defocus values in nm from least to most defocus. 
-                This assumes a symmetric defocus over/under, e.g. expects 2 
-                values for a 5 image tfs. 
-            flip: Boolean for whether or not to reconstruct using the flip stack.  
-                Even if the flip stack exists the reconstruction will only use 
-                the unflip stack if self.flip = False. 
-            data_loc: String for location of data folder.
-            no_mask: Bool. If True, does not make mask for images. 
+        Flipstack, flip, no_mask, and v are optional arguments. 
+        v (int): Verbosity. 
+            - 0 : No output
+            - 1 : Default output
         """
+        vprint = print if v>=1 else lambda *a, **k: None
+
         if type(imstack) == list:
             pass
         else:
@@ -109,7 +103,7 @@ class TIE_params(object):
                 for arr in flipstack:
                     nflipimstack.append(hs.signals.Signal2D(arr))
                 self.flipstack = nflipimstack
-            print("Data not given in hyperspy signal class. You likely need to set ptie.scale (nm/pix).")
+            vprint("Data not given in hyperspy signal objects. You likely need to set ptie.scale (nm/pix).")
 
         infocus = self.imstack[self.num_files//2] # unflip infocus dm3
         self.axes = infocus.axes_manager # dm3 axes manager
@@ -118,8 +112,7 @@ class TIE_params(object):
         scale_x = self.axes[1].scale 
         assert scale_y == scale_x
         self.scale = scale_y
-        self.rotation, self.x_transl, self.y_transl = 0, 0, 0   # The rotation/translation to apply to images.
-        print('Given scale: {:.4f} nm/pix\n'.format(self.imstack[0].axes_manager[0].scale))
+        vprint('Given scale: {:.4f} nm/pix\n'.format(self.imstack[0].axes_manager[0].scale))
 
         if flip is not None:
             self.flip = flip
@@ -164,13 +157,17 @@ class TIE_params(object):
         """ Scaling prefactor used in the TIE reconstruction.
 
             Args:
-                pscope: Microscope object from microscopes.py
-                def_step: The defocus value for which is being reconstructed. If
-                    using a longitudinal derivative, def_step should be 1. 
+                pscope (``Microscope`` object): Microscope object from 
+                    microscopes.py
+                def_step (float): The defocus value for which is being 
+                    reconstructed. If using a longitudinal derivative, def_step 
+                    should be 1. 
             
-            Returns: Float
+            Returns: 
+                float: Numerical prefactor
         """
         return -1 * self.scale**2 / (16 * np.pi**3 * pscope.lam * def_step) 
+
 
     def make_mask(self, imstack = None, threshhold=0):
         """Sets self.mask to be a binary bounding mask from imstack and flipstack. 
@@ -182,13 +179,15 @@ class TIE_params(object):
         The inverse laplacian reconstruction does not deal well with a mask that 
         is all ones, that is accounted for in TIE() function rather than here. 
 
-        Optional Args: 
-            imstack: List. List of arrays or Signal2D objects from which to make mask
-                Default will use self.imstack and self.flipstack
-            threshhold: Float. Pixel value with which to threshhold the images. 
-                Default is 0. 
+        Args: 
+            imstack (list): (`optional`) List of arrays or Signal2D objects from 
+                which to make mask Default will use self.imstack and 
+                self.flipstack
+            threshhold (float): (`optional`) Pixel value with which to 
+                threshhold the images. Default is 0. 
 
-        Returns: None
+        Returns: 
+            None. Assigns result to self.mask()
         """
         if len(self.imstack) == 1: # SITIE params
             self.mask = np.ones(self.shape)
@@ -218,18 +217,20 @@ class TIE_params(object):
         self.infocus *= mask
         return
 
+
     def select_region(self, infocus=True):
         """ Interactively crop imstack to smaller size. 
 
         This method sets self.roi to be the region (square or otherwise) as
-        selected by the user. Default is center region.
+        selected by the user. Default is central quarter of image.
 
         Args:
-            infocus: Bool. If True, will display the infocus image for selecting
-                a sub-region. If False, will display a defocused image (this is 
-                useful for datasets which have no in-focus contrast). 
+            infocus (bool): If True, will display the infocus image for 
+                selecting a sub-region. If False, will display a defocused image
+                this is useful for datasets which have no in-focus contrast). 
 
-        Returns: None
+        Returns: 
+            None
         """
         if infocus:
             display_sig = self.imstack[self.num_files//2].deepcopy()
@@ -241,7 +242,6 @@ class TIE_params(object):
         # reset roi to central square
         roi = hs.roi.RectangularROI(left= dimx//4*scale, right=3*dimx//4*scale, 
                             top=dimy//4*scale, bottom=3*dimy//4*scale)
-        print(roi)
         display_sig.plot()
         roi2D = roi.interactive(display_sig, color="blue")
         self.roi = roi
@@ -254,10 +254,11 @@ class TIE_params(object):
         this an acceptable shape. 
 
         Input options: 
-            y: sets self.crop
-            n: does not set self.crop
-            reset: sets self.crop to be full image size. (This is the default 
-                initialized value.)
+
+            - "y": sets self.crop
+            - "n": does not set self.crop
+            - "reset": sets self.crop to be full image size. (This is the default 
+              initialized value.)
 
         Crops the full dm3 + flip_dm3 stack to the specified shape as defined by
         roi (hyperspy region of interest). Adjusts other axes accordingly. 
@@ -306,10 +307,19 @@ class TIE_params(object):
         return
 
     def set_scale(self, scale): 
-        """Change the scale of the images (nm/pix) in the relevant places."""
+        """Change the scale of the images (nm/pix) in the relevant places.f
+        
+        Args: 
+            scale (float): Scale of images in nm/pixel
+
+        Returns: 
+            None    
+        """
         self.axes[0].scale = scale
         self.axes[1].scale = scale
-        for sig in self.imstack + self.flipstack: 
+        for sig in self.imstack + self.flipstack:
+            sig.axes_manager[0].units = 'nm'
+            sig.axes_manager[1].units = 'nm'
             sig.axes_manager[0].scale = scale
             sig.axes_manager[1].scale = scale
 

@@ -910,12 +910,12 @@ def save_window_ly(event: str, image_dir: str,
     """Initializes save window.
 
     Args:
-    im_type: The image extension (.bmp, .tiff)
-    file_paths: List containing the file paths that will be
-        checked whether they will be overwritten
-    orientations: List of the strings of the unflip or flip or tfs orientations.
-        Otherwise may be the prefix for REC or None.
-    tfs: The string of the tfs selected value.
+        im_type: The image extension (.bmp, .tiff)
+        file_paths: List containing the file paths that will be
+            checked whether they will be overwritten
+        orientations: List of the strings of the unflip or flip or tfs orientations.
+            Otherwise may be the prefix for REC or None.
+        tfs: The string of the tfs selected value.
 
     Returns:
         layout: The layout for the save window.

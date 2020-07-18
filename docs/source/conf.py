@@ -16,7 +16,7 @@ import sys
 sys.path.append(os.path.abspath('..'))
 sys.path.append(os.path.abspath('../../PyTIE'))
 sys.path.append(os.path.abspath('../../SimLTEM'))
-
+sys.path.append(os.path.abspath('../../GUI'))
 sys.path.append(os.path.abspath('../..'))
 sys.path.append(os.path.abspath('./'))
 
@@ -48,7 +48,8 @@ extensions = ['sphinx.ext.autodoc',
 
 autodoc_mock_imports = ["dask", "hyperspy", "skimage", "colormap", "numpy",
                         "scipy", "matplotlib", "numba", "sklearn", "mpl_toolkits",
-                        "scipy.constants", "physcon", "ipywidgets"]
+                        "scipy.constants", "physcon", "ipywidgets", "cv2",
+                        "PySimpleGUI"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

@@ -166,10 +166,13 @@ class Stack(FileImage):
 def flatten_order_list(my_list: List[List]) -> List:
     """Flattens and orders a list of 3 lists into a single list.
 
-    Flattens and orders 2D list of lists of items
-                [[b , a], [c, d], [e, f]]
-    into a 1D list of items
-                    [a, b, c, d, e, f]
+    Flattens and orders 2D list of lists of items:: 
+
+        [[b , a], [c, d], [e, f]]
+
+    into a 1D list of items::
+
+        [a, b, c, d, e, f]
 
     Args:
         my_list: A 2D list of list of items.
@@ -243,11 +246,13 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
             Default is True.
 
     Returns:
-        uint8_data: The uint8 data dictionary with stack image/stack slice key
-                    and value of uint8 dtype ndarray or None if loading failed.
-        float_data: The float data dictionary with stack image/stack slice key
-                    and value of float dtype ndarray or None if loading failed.
-        size: The x, y, z size of the data or None if the loading failed.
+        tuple: Tuple containing three items: 
+
+            - uint8_data: The uint8 data dictionary with stack image/stack slice key
+              and value of uint8 dtype ndarray or None if loading failed.
+            - float_data: The float data dictionary with stack image/stack slice key
+              and value of float dtype ndarray or None if loading failed.
+            - size: The x, y, z size of the data or None if the loading failed.
     """
     try:
         # Check path has correct filetype

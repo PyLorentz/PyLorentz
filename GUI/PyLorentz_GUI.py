@@ -633,12 +633,11 @@ def get_orientation(window: Window, pref: str) -> str:
     current window.
 
     Args:
-    window: The element representing the main GUI window.
-    pref: The prefix for the the key of
-        the orientation for the window.
+        window: The element representing the main GUI window.
+        pref: The prefix for the the key of the orientation for the window.
 
     Returns:
-        orientation:  The orientation the current image should be.
+        orientation: The orientation the current image should be.
     """
 
     if window[f'__{pref}_unflip_reference__'].Get():
@@ -819,18 +818,19 @@ def file_loading(winfo: Struct, window: Window, filename: str, active_key: str,
         window: The element representing the main GUI window.
         filename: The name of the file being loaded.
         active_key: The key of the element that is active process.
-        image_key: The key of the image in the image dictionary file should be loaded to.
+        image_key: The key of the image in the image dictionary file should be 
+            loaded to.
         target_key: The target key that should be updated when image is loaded.
-        conflict_keys: All the keys that should be disabled if they are in conflict with the
-            active key.
+        conflict_keys: All the keys that should be disabled if they are in 
+            conflict with the active key.
         num_files: The number of files that should be loaded, 1 if not stack.
-        disable_elem_list: The list of elements to disable based off active key or next
-            active keys.
+        disable_elem_list: The list of elements to disable based off active key 
+            or next active keys.
 
     Returns:
         remove: Boolean value if active key should be removed
-        disable_elem_list: The list of elements to disable based off active key or next
-            active keys.
+        disable_elem_list: The list of elements to disable based off active key 
+        or next active keys.
     """
 
     remove = False
@@ -3395,15 +3395,15 @@ def run_reconstruct_tab(winfo: Struct, window: Window,
     """Run events associated with the reconstruct tab.
 
     Args:
-    winfo: The data structure holding all information about
-        windows and GUI.
-    window: The element representing the main GUI window.
-    current_tab: The key representing the current main tab of the
-        window. Ex. '
-    event: The key for the values dictionary that represents
-        an event in the window.
-    values: A dictionary where every value is paired with
-        a key represented by an event in the window.
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        current_tab: The key representing the current main tab of the
+            window. Ex. '
+        event: The key for the values dictionary that represents
+            an event in the window.
+        values: A dictionary where every value is paired with
+            a key represented by an event in the window.
 
     Returns:
         None
@@ -4210,15 +4210,15 @@ def save_window_values(save_win: Window, num_paths: int, event: str,
     """Sets ups the save window layout.
 
     Args:
-    save_win: The representation of the save window.
-    num_paths: The number of paths, to create the number
-        of overwrite checkboxes and true_path
-        input elements.
-    event: The save event from the main GUI window.
-    orientations:  A list of strings that represent
-        the orientations of the image ('flip',
-        'unflip', 'stack', etc.)
-    defocus: The defocus value for the image if its REC.
+        save_win: The representation of the save window.
+        num_paths: The number of paths, to create the number
+            of overwrite checkboxes and true_path
+            input elements.
+        event: The save event from the main GUI window.
+        orientations:  A list of strings that represent
+            the orientations of the image ('flip',
+            'unflip', 'stack', etc.)
+        defocus: The defocus value for the image if its REC.
 
     Returns:
         true_paths: The list containing the full path names.

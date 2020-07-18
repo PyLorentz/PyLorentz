@@ -22,8 +22,7 @@ from pathlib import Path
 from longitudinal_deriv import polyfit_deriv
 
 
-def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True, save=False, long_deriv=False, v=1,
-        rotate_translate=None):
+def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=False, long_deriv=False, v=1):
     """Sets up the TIE reconstruction and calls phase_reconstruct. 
 
     This function calculates the necessary arrays, derivatives, etc. and then 
@@ -34,29 +33,6 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
             is -1 which corresponds to the most defocused images for a central 
             difference method derivative. i is ignored if using a longitudinal
             derivative. 
-<<<<<<< HEAD
-        ptie: TIE_params object. Object containing the image from TIE_params.py
-        pscope : microscope object. Should have correct accelerating voltage as
-            the microscope that took the images.
-        dataname : String. The output filename to be used for saving the images. 
-                Files will be saved ptie.data_loc/images/dataname_<defval>_<key>.tiff
-        sym: Boolean. Fourier edge effects are marginally improved by 
-            symmetrizing the images before reconstructing (image reconstructed 
-            is 4x as large). Default False.
-        qc: Float. The Tikhonov frequency to use as filter, or "percent" to use 
-            15% of q, Default None. If you use a Tikhonov filter the resulting 
-            magnetization is no longer quantitative!
-        hsv: Bool. Chooses the type of colorwheel to display.
-            hsv = True     ->  An hsv colorwheel.
-            hsv = False    ->  A 4-fold colorwheel.
-        save: Bool or string. Whether you want to save the output. Default False.
-            save = True    ->  saves all images. 
-            save = 'b'     ->  save just bx, by, and color_b
-            save = 'color' ->  saves just color_b
-            save = False   ->  don't save.
-            Saves the images to ptie.data_loc/images/
-        long_deriv: Bool. Whether to use the longitudinal derivative (True) or 
-=======
         ptie (``TIE_params`` object): Object containing the images and other
             data parameters. From TIE_params.py
         pscope (``Microscope`` object): Should have same accelerating voltage
@@ -82,35 +58,9 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
             ptie.data_loc/images/dataname_<defval>_<key>.tiff, where <key> is 
             the key for the results dictionary that corresponds to the image. 
         long_deriv (bool): Whether to use the longitudinal derivative (True) or 
->>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
             central difference method (False). Default False. 
             `Currently has bugs`. Qualitatively looks alright but quantitatively
             is not accurate. 
-<<<<<<< HEAD
-        v: Int. Verbosity. 
-            0 : no output
-            1 : Default output
-            2 : Extended output for debugging.
-        rotate_translate: None or Tuple. This will adjust the view of
-            the image by rotating and translating the data.
-            None : Due not apply any transformation
-            Tuple : Index 0 - Rotation
-                    Index 1 - X Translation
-                    Index 2 - Y Translation
-
-    Returns: A dictionary of arrays. 
-        results = {
-            'byt' : y-component of integrated magnetic induction,
-            'bxt' : x-copmonent of integrated magnetic induction,
-            'bbt' : magnitude of integrated magnetic induction, 
-            'phase_m' : magnetic phase shift (radians),
-            'phase_e' : electrostatic phase shift (if using flip stack) (radians),
-            'dIdZ_m' : intensity derivative for calculating phase_m,
-            'dIdZ_e' : intensity derivative for calculating phase_e (if using flip stack), 
-            'color_b' : RGB image of magnetization,
-            'inf_im' : the in-focus image
-        }
-=======
         v (int): (`optional`) Verbosity. 
 
             ===  ========
@@ -122,7 +72,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
             ===  ========
 
     Returns: 
-        dict: A dictionary of image arrays 
+        dict: A dictionary of image arrays
         
         =========  ==============
         key        value
@@ -137,7 +87,6 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
         'color_b'  RGB image of magnetization
         'inf_im'   In-focus image
         =========  ==============
->>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
     """
     results = {
         'byt' : None,
@@ -195,26 +144,11 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     qi[0, 0] = 0
     ptie.qi = qi # saves the freq dist
 
-    # If rotation and translation to be applied
-    if ptie.rotation != 0 or ptie.x_transl != 0 or ptie.y_transl != 0:
-        rotate, x_shift, y_shift = ptie.rotation, ptie.x_transl, ptie.y_transl
-        for ii in range(len(tifs)):
-            tifs[ii] = scipy.ndimage.rotate(tifs[ii], rotate, reshape=False, order=0)
-            tifs[ii] = scipy.ndimage.shift(tifs[ii], (-y_shift, x_shift), order=0)
-        mask = scipy.ndimage.rotate(ptie.mask, rotate, reshape=False, order=0)
-        mask = scipy.ndimage.shift(mask, (-y_shift, x_shift), order=0)
-
-    # crop images and apply mask
-    if ptie.rotation == 0 and ptie.x_transl == 0 and ptie.y_transl == 0:
-        mask = ptie.mask[top:bottom, left:right]
-    else:
-        mask = mask[top:bottom, left:right]
+    # crop images and apply mask 
+    mask = ptie.mask[top:bottom, left:right]
     for ii in range(len(tifs)):
         tifs[ii] = tifs[ii][top:bottom, left:right]
         tifs[ii] *= mask
-
-    if np.min(mask) == np.max(mask):
-        mask[0, 0] = 0
 
     # Normalizing, scaling the images 
     scaled_tifs = scale_stack(tifs)
@@ -297,14 +231,14 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     results['bbt'] = np.sqrt(resultsB['ind_x']**2 + resultsB['ind_y']**2)
     results['phase_m'] = resultsB['phase']
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
-                                    hsvwheel=hsv, background='black')
+                                    hsvwheel=True, background='black') 
 
     if v >= 1:
         show_im(results['color_b'], "B-field color HSV colorwheel", cbar=False)
 
     # save the images
     if save: 
-        save_results(defval, results, ptie, dataname, sym, qc, save, v, long_deriv=long_deriv)
+        save_results(defval, results, ptie, dataname, sym, qc, save, v, long_deriv = long_deriv)
 
     vprint('Phase reconstruction completed.')
     return results
@@ -349,21 +283,6 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             value is -1 which corresponds to the most overfocused image. 
         flipstack (bool): (`optional`) Whether to pull the image from ptie.imstack[i] or
             ptie.flipstack[i]. Default is False, calls image from imstack.
-<<<<<<< HEAD
-        v: Int. Verbosity. 
-            0 : ##TODO no output
-            1 : Default output
-            2 : Extended output for debugging.
-
-    Returns: A dictionary of arrays. 
-        results = {
-            'byt' : y-component of integrated magnetic induction,
-            'bxt' : x-copmonent of integrated magnetic induction,
-            'bbt' : magnitude of integrated magnetic induction, 
-            'phase_m' : magnetic phase shift (radians),
-            'color_b' : RGB image of magnetization,
-        }
-=======
         v (int): (`optional`) Verbosity. 
 
             ===  ========
@@ -386,7 +305,6 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
         'phase_m'  Magnetic phase shift (radians)
         'color_b'  RGB image of magnetization
         =========  ==============
->>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
     """
     results = {
         'byt' : None,
@@ -411,17 +329,16 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             defval = ptie.defvals[0]
         vprint(f'SITIE defocus: {defval:g} nm')
 
-    right, left = ptie.crop['right'] , ptie.crop['left']
-    bottom, top = ptie.crop['bottom'], ptie.crop['top']
-    dim_y = bottom - top
+    right, left = ptie.crop['right']  , ptie.crop['left']
+    bottom, top = ptie.crop['bottom'] , ptie.crop['top']
+    dim_y = bottom - top 
     dim_x = right - left 
 
     if flipstack:
         print("Reconstructing with single flipped image.")
-        image = ptie.flipstack[i].data
+        image = ptie.flipstack[i].data[top:bottom, left:right]
     else:
         image = ptie.imstack[i].data[top:bottom, left:right]
-
 
     if sym:
         print("Reconstructing with symmetrized image.")
@@ -454,7 +371,7 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
     ### Now calling the phase reconstruct in the normal way
     print('Calling SITIE solver\n')
     resultsB = phase_reconstruct(ptie, infocus, 
-                                 dIdZ, pscope, defval, sym=sym)
+                                dIdZ, pscope, defval, sym = sym)
     results['byt'] = resultsB['ind_y']
     results['bxt'] = resultsB['ind_x']
     results['bbt'] = np.sqrt(resultsB['ind_x']**2 + resultsB['ind_y']**2)
@@ -589,7 +506,7 @@ def symmetrize(image):
     return imi
 
 
-def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=None, long_deriv=False):
+def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = None, long_deriv=False):
     """Save the contents of results dictionary as 32 bit tiffs.
     
     This function saves the contents of the supplied dictionary (either all or 
@@ -640,14 +557,8 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=No
     if long_deriv:
         defval = 'long'
 
-<<<<<<< HEAD
-    print('Saving images')
-    b_keys = ['byt', 'bxt', 'bbt', 'phase_e', 'phase_m',
-              'dIdZ_m', 'dIdZ_e', 'color_b', 'inf_im']
-=======
     if v >= 1: 
         print('Saving images')
->>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
     if save == 'b':
         b_keys = ['bxt', 'byt', 'color_b']
     elif save == 'color': 
@@ -666,8 +577,11 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=No
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-    for key, value in results.items():
+    for key,value in results.items():
         # save either all or just some of the images
+        if save == 'b' or save == 'color':
+            if key not in b_keys:
+                continue
         if value is None: 
             continue
 
@@ -678,20 +592,14 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=No
         
         save_name = f"{dataname}{defval:g}_{key}.tiff"
         if v >= 2: 
-            print(f'Saving {os.path.join(Path(save_path).absolute(), save_name)}')
+            print(f'Saving {os.path.join(Path(save_path).absolute(), save_name)}.tiff')
         tifffile.imsave(os.path.join(save_path, save_name), im, 
-<<<<<<< HEAD
-                        imagej=True,
-                        resolution=(res, res),
-                        metadata={'unit': 'um'})
-=======
             imagej = True,
             resolution = (res, res),
             metadata={'unit': 'nm'})
->>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
 
     # make a txt file with parameters: 
-    with open(os.path.join(save_path, dataname + str(defval) + '_' + "recon_params.txt"), "w") as txt:
+    with open(os.path.join(save_path, dataname + "recon_params.txt"), "w") as txt:
         txt.write("Reconstruction parameters for {:}\n".format(dataname[:-1]))
         txt.write("Defocus value: {} nm\n".format(defval))
         txt.write("Full E and M reconstruction: {} \n".format(ptie.flip))
