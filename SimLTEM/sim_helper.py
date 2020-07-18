@@ -1,13 +1,13 @@
 """Helper functions for simulating LTEM images. 
 
-An assortment of helper functions broadly divided into three sections. 
-    1) Simulating images from phase shifts
-    2) Helper functions for displaying vector fields
-    3) Generating variations of magnetic vortex/skyrmion states
+An assortment of helper functions broadly categorized into four sections 
 
-AUTHOR:
-Arthur McCray, ANL, Summer 2019.
---------------------------------------------------------------------------------
+- Simulating images from phase shifts
+- Processing micromagnetic outputs
+- Helper functions for displaying vector fields
+- Generating variations of magnetic vortex/skyrmion states
+
+Author: Arthur McCray, ANL, Summer 2019.
 """
 
 import numpy as np
@@ -15,13 +15,19 @@ from matplotlib import pyplot as plt
 from matplotlib import colors
 from mpl_toolkits.mplot3d import Axes3D
 import sys as sys
-sys.path.append("..")
+sys.path.append("../PyTIE/")
 import os
-from comp_phase import mansPhi
+from comp_phase import mansPhi, linsupPhi
 from microscopes import Microscope
 from skimage import io as skimage_io
-from TIE_helper import *
+# from TIE_helper import *
 import textwrap
+from itertools import takewhile
+import io 
+from TIE_reconstruct import TIE
+import skimage.external.tifffile as tifffile
+from TIE_params import TIE_params
+from TIE_helper import dist
 
 
 # ================================================================= #
@@ -29,8 +35,8 @@ import textwrap
 # ================================================================= #
 
 def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1, 
-    def_val=0, add_random=False, save_path=None,
-    isl_thk=20, isl_xip0=50, mem_thk=50, mem_xip0=1000):
+    def_val=0, add_random=False, save_path=None, save_name=None,
+    isl_thk=20, isl_xip0=50, mem_thk=50, mem_xip0=1000, v=1):
     """Simulate LTEM images for a given electron phase shift through a sample. 
 
     This function returns LTEM images simulated for in-focus and at +/- def_val 
@@ -47,35 +53,44 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
     50nm SiN membrane window. 
 
     Args:
-        mphi: 2D array (M, N). magnetic phase shift
-        ephi: 2D array (M, N). Electrostatic phase shift
-        pscope: Microscope object. Set appropriate parameters. 
-        isl_shape: 2D or 3D float array (M, N, Z). If 2D the thickness will be
-            taken as the isl_shape values multiplied by isl_thickness. If 3D, the 
-            isl_shape array will be summed along the z access becoming 2D. 
-            Default None -> uniform flat material with thickness = isl_thk. 
-        del_px: Float. Scale factor (nm/pixel). Default = 1. 
-        def_val: Float. The defocus values at which to calculate the images .
-        add_random: Bool or Float. Whether or not to add amorphous background to
-            the simulation. True or 1 will add the default background, any 
+        mphi (2D array): Numpy array of size (M, N), magnetic phase shift
+        ephi (2D array): Numpy array of size (M, N), Electrostatic phase shift
+        pscope (``Microscope`` object): Contains all microscope parameters
+            as well as methods for propagating electron wave functions. 
+        isl_shape (2D/3D array): Array of size (z,y,x) or (y,x). If 2D the 
+            thickness will be taken as the isl_shape values multiplied by 
+            isl_thickness. If 3D, the isl_shape array will be summed along 
+            the z-axis becoming and multiplied by isl_thickness.  
+            (Default) None -> uniform flat material with thickness = isl_thk. 
+        del_px (Float): Scale factor (nm/pixel). Default = 1. 
+        def_val (Float): The defocus values at which to calculate the images.
+        add_random (Float): Whether or not to add amorphous background to
+            the simulation. True or 1 will add a default background, any 
             other value will be multiplied to scale the additional phase term. 
-        save_path: String. Will save a stack [underfocus, infocus, overfocus] as
-            well as (mphi+ephi) as tiffs along with a params.text file. 
-            Default None: Does not save. 
-    Material Parameter Args:
-        isl_thk: Float. Island thickness (nm). Default 20. 
-        isl_xip0: Float. Island extinction distance (nm). Default 50. 
-        mem_thk: Float. Support membrane thickness (nm). Default 50. 
-        mem_xip0: Float. Support membrane extinction distance (nm). Default 1000. 
+        save_path: String. Will save a stack [underfocus, infocus, overfocus] 
+            as well as (mphi+ephi) as tiffs along with a params.text file. 
+            (Default) None -> Does not save. 
+        save_name (str): Name prepended to saved files. 
+        v (int): Verbosity. Set v=0 to suppress print statements. 
+        isl_thk (float): Island thickness (nm). Default 20 (nm). 
+        isl_xip0 (float): Island extinction distance (nm). Default 50 (nm). 
+        mem_thk (float): Support membrane thickness (nm). Default 50 (nm). 
+        mem_xip0 (float): Support membrane extinction distance (nm). Default 
+            1000 (nm). 
 
-    Returns: (Tphi, im_un, im_in, im_ov)
-        Tphi: 2D array (M,N). Total electron phase shift (ephi+mphi).
-        im_un: 2D array (M,N). Simulated image at delta z = -def_val.
-        im_in: 2D array (M,N). Simulated image at zero defocus.
-        im_ov: 2D array (M,N). Simulated image at delta z = +def_val.
+    Returns: 
+        tuple: (Tphi, im_un, im_in, im_ov)
+
+        - Tphi (`2D array`) -- Numpy array of size (M,N). Total electron phase shift (ephi+mphi).
+        - im_un (`2D array`) -- Numpy array of size (M,N). Simulated image at delta z = -def_val.
+        - im_in (`2D array`) -- Numpy array of size (M,N). Simulated image at zero defocus.
+        - im_ov (`2D array`) -- Numpy array of size (M,N). Simulated image at delta z = +def_val.
+
     """
+    vprint = print if v>=1 else lambda *a, **k: None
+    
     Tphi = mphi + ephi
-    print(f'Total fov is ({np.shape(Tphi)[1]*del_px},{np.shape(Tphi)[0]*del_px}) nm')
+    vprint(f'Total fov is ({np.shape(Tphi)[1]*del_px:.3g},{np.shape(Tphi)[0]*del_px:.3g}) nm')
     dy, dx = Tphi.shape
 
     if add_random:
@@ -84,11 +99,9 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
         ran_phi = np.random.uniform(low = -np.pi/128*add_random,
                                     high = np.pi/128*add_random,
                                     size=[dy,dx])
-        ran_phi *= np.max(ephi)
+        if np.max(ephi) > 1: # scale by ephi only if it's given and relevant
+            ran_phi *= np.max(ephi)
         Tphi += ran_phi
-
-    thk2 = isl_thk/del_px #thickness in pixels 
-    qq = dist(dy, dx, shift=True)
 
     #amplitude
     if isl_shape is None:
@@ -97,12 +110,12 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
         if type(isl_shape) != np.ndarray:
             isl_shape = np.array(isl_shape)
         if isl_shape.ndim == 3:
-            thk_map = np.sum(isl_shape, axis=2)*isl_thk
+            thk_map = np.sum(isl_shape, axis=0)*isl_thk
         elif isl_shape.ndim == 2:
             thk_map = isl_shape*isl_thk
         else:
-            print(textwrap.dedent(f"""
-                Mask given must be 2D (y,x) or 3D (y,x,z) array. 
+            vprint(textwrap.dedent(f"""
+                Mask given must be 2D (y,x) or 3D (z,y,x) array. 
                 It was given as a {isl_shape.ndim} dimension array."""))
             sys.exit(1)
 
@@ -110,6 +123,7 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
     ObjWave = Amp * (np.cos(Tphi) + 1j * np.sin(Tphi))
 
     # compute unflipped images
+    qq = dist(dy, dx, shift=True)
     pscope.defocus = 0.0
     im_in = pscope.getImage(ObjWave,qq,del_px)
     pscope.defocus = -def_val
@@ -118,29 +132,35 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
     im_ov = pscope.getImage(ObjWave,qq,del_px)
     
     if save_path is not None:
-        print(f'saving to {save_path}')
+        vprint(f'saving to {save_path}')
         im_stack = np.array([im_un, im_in, im_ov])
         if not os.path.exists(save_path):
                 os.makedirs(save_path)
-        skimage_io.imsave(save_path + 'align.tiff', im_stack.astype('float32'),plugin='tifffile')
-        skimage_io.imsave(save_path + 'phase.tiff', Tphi.astype('float32'),plugin='tifffile')
+        res = 1/del_px
+        tifffile.imsave(os.path.join(save_path, f'{save_name}_align.tiff'), im_stack.astype('float32'), 
+            imagej = True,
+            resolution = (res, res),
+            metadata={'unit': 'nm'})
+        tifffile.imsave(os.path.join(save_path, f'{save_name}_phase.tiff'), Tphi.astype('float32'), 
+            imagej = True,
+            resolution = (res, res),
+            metadata={'unit': 'nm'})
 
-        with open (save_path + 'params.txt', 'w') as text:
-            text.write("defocus, del_px, EE, im_size (pix), thickness (nm)\n")
-            text.write(f"def_val\t{def_val}\n")
-            text.write(f"del_px\t{del_px}\n") 
-            text.write(f"scope En.\t{pscope.E}\n")        
-            text.write(f"ims_size\t({dy},{dx})\n")
-            text.write(f"isl_thk\t{isl_thk}\n") 
-            text.write(f"isl_xip0\t{isl_xip0}\n") 
-            text.write(f"mem_thk\t{mem_thk}\n") 
-            text.write(f"mem_xip0\t{mem_xip0}\n") 
-            text.write(f"add_random\t{add_random}\n") 
+        with io.open(os.path.join(save_path, f'{save_name}_params.txt'), 'w') as text:
+            text.write(f"def_val (nm) \t{def_val:g}\n")
+            text.write(f"del_px (nm/pix) \t{del_px:g}\n") 
+            text.write(f"scope En. (V) \t{pscope.E:g}\n")        
+            text.write(f"im_size (pix) \t({dy:g},{dx:g})\n")
+            text.write(f"sample_thk (nm) \t{isl_thk:g}\n") 
+            text.write(f"sample_xip0 (nm) \t{isl_xip0:g}\n") 
+            text.write(f"mem_thk (nm) \t{mem_thk:g}\n") 
+            text.write(f"mem_xip0 (nm) \t{mem_xip0:g}\n") 
+            text.write(f"add_random \t{add_random:g}\n") 
 
     return (Tphi, im_un, im_in, im_ov)
 
 
-def std_mansPhi(mag_x=None, mag_y=None, del_px = 1, isl_shape=None, pscope=Microscope(),
+def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, del_px = 1, isl_shape=None, pscope=None,
     b0=1e4, isl_thk=20, isl_V0=20, mem_thk=50, mem_V0=10):
     """Calculates the electron phase shift through a given 2D magnetization. 
     
@@ -156,41 +176,43 @@ def std_mansPhi(mag_x=None, mag_y=None, del_px = 1, isl_shape=None, pscope=Micro
     the materials parameters and geometry given. 
     
     Args:
-        mag_x: 2D Array. X-component of the magnetization at each pixel. 
-        mag_y: 2D Array. Y-component of the magnetization at each pixel. 
-        isl_shape: 2D or 3D float array shape (M, N, Z). If 2D the thickness will
-            be taken as the isl_shape values multiplied by isl_thickness. If 3D, 
-            the isl_shape array will be summed along the z access becoming 2D. 
-            Default = None -> uniform flat material with thickness = isl_thk.
-        del_px: Float. Scale factor (nm/pixel). Default = 1. 
-    Material Parameter Args: 
-        pscope: Microscope object. Accelerating voltage is the relevant 
-            parameter. Default 200kV. 
-        b0: Float. Saturation magnetization (gauss). Default 1e4.
-        isl_thk: Float. Island thickness (nm). Default 20. 
-        isl_V0: Float. Island mean inner potential (V). Default 20. 
-        mem_thk: Float. Support membrane thickness (nm). Default 50. 
-        mem_V0: Float. Support membrane mean inner potential (V). Default 10. 
+        mag_x (2D Array): X-component of the magnetization at each pixel. 
+        mag_y (2D Array): Y-component of the magnetization at each pixel. 
+        isl_shape (2D/3D array): Array of size (z,y,x) or (y,x). If 2D the 
+            thickness will be taken as the isl_shape values multiplied by 
+            isl_thickness. If 3D, the isl_shape array will be summed along 
+            the z-axis becoming and multiplied by isl_thickness.  
+            (Default) None -> uniform flat material with thickness = isl_thk. 
+        del_px (float): Scale factor (nm/pixel) along beam direction. 
+        pscope (``Microscope`` object): Accelerating voltage is the only 
+            relevant parameter here. 
+        b0 (float): Saturation induction (gauss). Default 1e4.
+        isl_thk (float): Island thickness (nm). Default 20. 
+        isl_V0 (float): Island mean inner potential (V). Default 20. 
+        mem_thk (float): Support membrane thickness (nm). Default 50. 
+        mem_V0 (float): Support membrane mean inner potential (V). Default 10. 
         
-    Returns: (ephi, mphi)
-        ephi: Electrostatic phase shift, 2D array
-        mphi: magnetic phase shift, 2D array
+    Returns: 
+        tuple: (ephi, mphi)
+
+        - ephi (`2D array`) -- Numpy array of size (M,N). Electrostatic phase 
+          shift.
+        - mphi (`2D array`) -- Numpy array of size (M,N). Magnetic phase shift.
+
     """
+    if pscope is None: 
+        pscope = Microscope(E=200e3)
     thk2 = isl_thk/del_px #thickness in pixels 
     phi0 = 2.07e7 #Gauss*nm^2 flux quantum
     cb = 2*np.pi*b0/phi0*del_px**2 #1/px^2
 
-    # calculate magnetic phase shift with mansuripur algorithm
-    mphi = mansPhi(bx=mag_x, by=mag_y, thick = thk2)*cb
-
-    # and now electric phase shift
     if isl_shape is None:
         thk_map = np.ones(mag_x.shape)*isl_thk
     else:
         if type(isl_shape) != np.ndarray:
             isl_shape = np.array(isl_shape)
         if isl_shape.ndim == 3:
-            thk_map = np.sum(isl_shape, axis=2)*isl_thk
+            thk_map = np.sum(isl_shape, axis=0)*isl_thk
         elif isl_shape.ndim == 2:
             thk_map = isl_shape*isl_thk
         else:
@@ -199,16 +221,402 @@ def std_mansPhi(mag_x=None, mag_y=None, del_px = 1, isl_shape=None, pscope=Micro
                 It was given as a {isl_shape.ndim} dimension array."""))
             sys.exit(1)
 
+    # calculate magnetic phase shift with mansuripur algorithm
+    mphi = mansPhi(mx=mag_x, my=mag_y, thick = thk2)*cb
+
+    # and now electric phase shift
     ephi = pscope.sigma * (thk_map * isl_V0 + np.ones(mag_x.shape) * mem_thk * mem_V0)
+    ephi -= np.sum(ephi)/np.size(ephi)
     return (ephi, mphi)
+
+
+# ================================================================= #
+#            Simulating images from micromagnetic output            #
+# ================================================================= #
+
+def load_ovf(file=None, sim='norm', B0=1e4, v=1): 
+    """ Load a .ovf or .omf file of magnetization values. 
+
+    This function takes magnetization output files from OOMMF or mumax, pulls 
+    some data from the header and returns 3D arrays for each magnetization 
+    component as well as the pixel resolutions. 
+
+    Args: 
+        file (string): Path to file
+        sim (string): Define how the magnetization is scaled as it's read from
+            the file. OOMMF writes .omf files with vectors in units of A/m, 
+            while mumax writes .omf files with vectors normalized. This allows 
+            the reading to scale the vectors appropriately to gauss or simply 
+            make sure everything is normalized (as is needed for the phase 
+            calculation). 
+
+            - "OOMMF": Vectors scaled by mu0 and output in Tesla
+            - "mumax": Vectors scaled by B0 and given those units (gauss or T)
+            - "norm": (default) Normalize all vectors (does not change (0,0,0) vectors)
+            - "raw": Don't do anything with the values. 
+
+        B0 (float): Saturation induction (gauss). Only relevant if sim=="mumax"
+        v (int): Verbosity. 
+
+            - 0 : No output
+            - 1 : Default output
+            - 2 : Extended output, print full header. 
+
+    Returns: 
+        tuple: (mag_x, mag_y, mag_z, del_px)
+
+        - mag_x (`2D array`) -- x-component of magnetization (units depend on `sim`). 
+        - mag_y (`2D array`) -- y-component of magnetization (units depend on `sim`). 
+        - mag_z (`2D array`) -- z-component of magnetization (units depend on `sim`). 
+        - del_px (float) -- Scale of datafile in y/x direction (nm/pixel)
+        - zscale (float) -- Scale of datafile in z-direction (nm/pixel)
+    """
+    vprint = print if v>=1 else lambda *a, **k: None
+
+    with io.open(file, mode='r') as f:
+        try:
+            header = list(takewhile(lambda s: s[0]=='#', f))
+        except UnicodeDecodeError: #happens with binary files
+            header = []
+            with io.open(file, mode='rb') as f2:
+                for line in f2:
+                    if line.startswith('#'.encode()):
+                        header.append(line.decode())
+                    else:
+                        break
+    if v >= 2:
+        ext = os.path.splitext(file)[1]
+        print(f"-----Start {ext} Header:-----")
+        print(''.join(header).strip())
+        print(f"------End {ext} Header:------")
+
+    dtype = None 
+    header_length = 0
+    for line in header:
+        header_length += len(line)
+        if line.startswith("# xnodes"):
+            xsize = int(line.split(":",1)[1])
+        if line.startswith("# ynodes"):
+            ysize = int(line.split(":",1)[1])
+        if line.startswith("# znodes"):
+            zsize = int(line.split(":",1)[1])
+        if line.startswith("# xstepsize"):
+            xscale = float(line.split(":",1)[1])
+        if line.startswith("# ystepsize"):
+            yscale = float(line.split(":",1)[1])
+        if line.startswith("# zstepsize"):
+            zscale = float(line.split(":",1)[1])
+        if line.startswith("# Begin: Data Text"):
+            vprint('Text file found')
+            dtype = "text" 
+        if line.startswith("# Begin: Data Binary 4"):
+            vprint('Binary 4 file found')
+            dtype = "bin4"
+        if line.startswith("# Begin: Data Binary 8"):
+            vprint('Binary 8 file found')
+            dtype = "bin8"
+
+    if xsize is None or ysize is None or zsize is None: 
+        print(textwrap.dedent(f"""\
+    Simulation dimensions are not given. \
+    Expects keywords "xnodes", "ynodes, "znodes" for number of cells.
+    Currently found size (x y z): ({xsize}, {ysize}, {zsize})"""))
+        sys.exit(1)
+    else:
+        vprint(f"Simulation size (z, y, x) : ({zsize}, {ysize}, {xsize})")
+
+    if xscale is None or yscale is None or zscale is None: 
+        vprint(textwrap.dedent(f"""\
+    Simulation scale not given. \
+    Expects keywords "xstepsize", "ystepsize, "zstepsize" for scale (nm/pixel).
+    Found scales (z, y, x): ({zscale}, {yscale}, {xscale})"""))
+        del_px = np.max([i for i in [xscale,yscale,0] if i is not None])*1e9
+        if zscale is None:
+            zscale = del_px
+        else:
+            zscale *= 1e9
+        vprint(f"Proceeding with {del_px:.3g} nm/pixel for in-plane and \
+            {zscale:.3g} nm/pixel for out-of-plane.")
+    else:
+        assert xscale == yscale
+        del_px = xscale*1e9 # originally given in meters
+        zscale *= 1e9
+        if zscale != del_px:
+            vprint(f"Image (x-y) scale : {del_px:.3g} nm/pixel.")
+            vprint(f"Out-of-plane (z) scale : {zscale:.3g} nm/pixel.")
+        else:
+            vprint(f"Image scale : {del_px:.3g} nm/pixel.")
+
+    if dtype == "text":
+        data = np.genfromtxt(file) #takes care of comments automatically
+    elif dtype == "bin4":
+        # for binaries it has to give count or else will take comments at end as well
+        data = np.fromfile(file, dtype='f', count=xsize*ysize*zsize*3, offset=header_length+4)
+    elif dtype == "bin8":
+        data = np.fromfile(file, dtype='f', count=xsize*ysize*zsize*3, offset=header_length+8)
+    else: 
+        print("Unkown datatype given. Exiting.")
+        sys.exit(1)
+
+    data = data.reshape((zsize, ysize, xsize, 3)) # binary data not always shaped nicely
+
+    if sim.lower() == 'oommf':
+        vprint('Scaling for OOMMF datafile.')
+        mu0 = 4*np.pi*1e-7 # output in Tesla
+        data *= mu0
+    elif sim.lower() == 'mumax': 
+        vprint(f'Scaling for mumax datafile with B0={B0:.3g}.')
+        data *= B0 # output is same units as B0
+    elif sim.lower() == 'raw':
+        vprint('Not scaling datafile.')
+    elif sim.lower() == 'norm': 
+        data = data.reshape((zsize*ysize*xsize,3)) # to iterate through vectors
+        row_sums = np.sqrt(np.sum(data**2, axis=1))
+        rs2 = np.where(row_sums==0, 1, row_sums)
+        data = data / rs2[:,np.newaxis]
+        data = data.reshape((zsize, ysize, xsize, 3)) 
+    else: 
+        print(textwrap.dedent("""\
+        Improper argument given for sim. Please set to one of the following options:
+            'oommf' : vector values given in A/m, will be scaled by mu0
+            'mumax' : vectors all of magnitude 1, will be scaled by B0
+            'raw'   : vectors will not be scaled."""))
+        sys.exit(1)
+
+    mag_x = data[:,:,:,0]
+    mag_y = data[:,:,:,1]
+    mag_z = data[:,:,:,2]
+    
+    return(mag_x, mag_y, mag_z, del_px, zscale)
+
+
+def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None):
+    """ Define a 2D thickness map where magnetization is 0. 
+
+    Island structures or empty regions are often defined in micromagnetic 
+    simulations as regions with (0,0,0) magnetization. This function creates an 
+    array where those values are 0, and 1 otherwise. It then sums along the z
+    direction to make a 2D map. 
+
+    It can take inputs either as magnetization components or a filename which
+    it will read with the load_ovf() function. 
+
+    Args: 
+        mag_x (3D array): Numpy array of x component of the magnetization. 
+        mag_y (3D array): Numpy array of y component of the magnetization. 
+        mag_z (3D array): Numpy array of z component of the magnetization. 
+        file (str): Path to .ovf or .omf file. 
+
+    Returns:
+        ``ndarray``: 2D array of thickness values scaled to total thickness. 
+        i.e. 0 corresponds to 0 thickness and 1 to zscale*zdim. 
+    """
+    if file is not None: 
+        mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=0)
+    nonzero = (mag_x.astype('bool') | mag_y.astype('bool') | mag_z.astype('bool')).astype(int)
+    zdim = mag_x.shape[0]
+    thk_map = np.sum(nonzero, axis=0) / zdim
+    return thk_map
+
+
+def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
+    thk_map=None, pscope=None, defval=0, theta_x=0, theta_y=0, 
+    B0=1e4, sample_V0=10, sample_xip0=50, mem_thk=50, mem_xip0=1000, 
+    add_random=0, sym=False, qc=None, method='mans'):
+    """Load a micromagnetic output file and reconstruct simulated LTEM images. 
+
+    This is an "all-in-one" function that takes a magnetization datafile, 
+    material parameters, and imaging conditions to simulate LTEM images and 
+    reconstruct them.
+
+    The image simulation step uses the Mansuripur algorithm [1] for calculating 
+    the phase shift if theta_x and theta_y == 0, as it is computationally very
+    efficient. For nonzero tilts it employs the linear superposition method for 
+    deteriming phase shift, which allows for 3d magnetization inputs and robust
+    tilting the sample. A substrate can be accounted for as well, though it is 
+    assumed to be uniform and non-magnetic, i.e. applying a uniform phase shift. 
+
+    Imaging parameters are defined by the defocus value, tilt angles, and 
+    microscope object which contains accelerating voltage, aberrations, etc. 
+
+    Args: 
+        file (str): Path to file. 
+        savename (str): Name prepended to saved files. If None -> filename
+        save (int): Integer value that sets which files are saved.
+
+            - 0 -- Saves nothing, still returns results. 
+            - 1 -- (default) Saves simulated images, simulated phase shift, and 
+              reconstructed magnetizations, both the color image and x/y 
+              components. 
+            - 2 -- Saves simulated images, simulated phase shift, and all 
+              reconstruction TIE images.
+
+        v (int): Integer value which sets verbosity
+
+            - 0: All output suppressed. 
+            - 1: Default prints and final reconstructed image displayed. 
+            - 2: Extended output. Prints full datafile header, displays simulated tfs. 
+
+        flip (bool): Whether to use a single through focal series (tfs) (False) 
+            or two (True), one for sample in normal orientation and one with it 
+            flipped in the microscope. Samples that are not uniformly thin 
+            require flip=True.
+        thk_map (2D array): Numpy array of same (y,x) shape as magnetization 
+            arrays. Thickness values as factor of total thickness (zscale*zsize). 
+            If a 3D array is given, it will be summed along z-axis and divided 
+            by zsize. Pixels with thickness=0 will not have the phase calculated
+            as a method to speed of computation time. 
+
+            The make_thickness_map() function can be useful for island 
+            structures or as a guide of how to define a thickness map. 
+
+            Default None -> Uniform thickness, equivalent to array of 1's. 
+
+        pscope (``Microscope`` object): Contains all microscope parameters such 
+            as accelerating voltage, aberations, etc., along with the methods to
+            propagate the electron wave function. 
+        def_val (float): The defocus values at which to calculate the images.
+        theta_x (float): Rotation around x-axis (degrees). Default 0. 
+        theta_y (float): Rotation around y-axis (degrees). Default 0. 
+        B0 (float): Saturation induction (gauss). 
+        sample_V0 (float): Mean inner potential of sample (V).
+        sample_xip0 (float): Extinction distance (nm).
+        mem_thk (float): Support membrane thickness (nm). Default 50. 
+        mem_xip0 (float): Support membrane extinction distance (nm). Default 1000. 
+        add_random: (float): Whether or not to add amorphous background to
+            the simulation. True or 1 will add a default background, any 
+            other value will be multiplied to scale the additional phase term. 
+        sym (bool): (`optional`) Fourier edge effects are marginally improved by 
+            symmetrizing the images before reconstructing, but the process is 
+            more computationally intensive as images are 4x as large. 
+            (default) False.
+        qc (float): (`optional`) The Tikhonov frequency to use as a filter, 
+            (default) None. If you use a Tikhonov filter the resulting 
+            magnetization is no longer quantitative
+        method (str): (`optional`) Method of phase calculation to use if theta_x == 0 and 
+            theta_y == 0. If either are nonzero then the linear superposition 
+            method will be used. 
+
+            - "Mans" : Use Mansuripur algorithm (default)
+            - "Linsup" : Use linear superposition method
+
+    Returns: 
+        dict: A dictionary of image arrays 
+        
+        =============  =========================================================
+        key            value
+        =============  =========================================================
+        'byt'          y-component of integrated magnetic induction
+        'bxt'          x-component of integrated magnetic induction
+        'bbt'          Magnitude of integrated magnetic induction
+        'phase_m_sim'  Simulated magnetic phase shift
+        'phase_e_sim'  Simulated electrostatic phase shift
+        'phase_m'      Magnetic phase shift (radians)
+        'phase_e'      Electrostatic phase shift (if using flip stack) (radians),
+        'dIdZ_m'       Intensity derivative for calculating phase_m
+        'dIdZ_e'       Intensity derivative for calculating phase_e (if using 
+                       flip stack) 
+        'color_b'      RGB image of magnetization
+        'inf_im'       In-focus image
+        =============  =========================================================
+    """
+    vprint = print if v>=1 else lambda *a, **k: None
+    directory, filename = os.path.split(file)
+    directory = os.path.abspath(directory)
+    if savename is None:
+        savename = os.path.splitext(filename)[0]
+
+    mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=v, B0=B0)
+    (zsize, ysize, xsize) = mag_x.shape
+
+    # define numerical prefactors for phase shift calculation
+    phi0 = 2.07e7 #Gauss*nm^2 
+    pre_B = 2*np.pi*B0/phi0*zscale**2 #1/px^2
+    pre_E = pscope.sigma*sample_V0*zscale #1/px
+
+    if thk_map is not None:
+        if type(thk_map) != np.ndarray:
+            thk_map = np.array(thk_map)
+        if thk_map.ndim == 3:
+            thk_map_3D = thk_map
+            thk_map_2D = np.sum(thk_map, axis=0)
+            thk = zscale
+        elif thk_map.ndim == 2:
+            thk_map_3D = np.tile(thk_map,(zsize,1,1))
+            thk_map_2D = thk_map
+            thk = zsize * zscale
+    else:
+        thk_map_2D = None
+        thk_map_3D = None
+        thk = zscale*zsize
+
+    if theta_x == 0 and theta_y == 0 and method.lower() == 'mans': 
+        vprint('Calculating phase shift with Mansuripur algorithm. ')
+        mag_x2D = np.sum(mag_x, axis=0)
+        mag_y2D = np.sum(mag_y, axis=0)
+        mag_z2D = np.sum(mag_z, axis=0)
+        ephi, mphi = std_mansPhi(mag_x2D, mag_y2D, mag_z2D, del_px=zscale, isl_thk=zscale,
+            isl_shape=thk_map_2D, pscope=pscope, b0=B0, isl_V0=sample_V0)
+    else: 
+        vprint('Calculating phase shift with the linear superposition method.')
+        # calculate phase shifts with linear superposition method
+        ephi, mphi = linsupPhi(mx=mag_x, my=mag_y, mz=mag_z, Dshp=thk_map_3D, v=v,
+                           theta_x=theta_x, theta_y=theta_y, pre_B=pre_B, pre_E=pre_E)
+
+    if save < 1:
+        save_path_tfs = None
+        TIE_save = False
+    else:
+        save_path_tfs = os.path.join(directory, 'sim_tfs')
+        if save < 2:
+            TIE_save = 'b'
+        else:
+            TIE_save = True
+
+    sim_name = savename
+    if flip: 
+        sim_name = savename+'_flip'
+        Tphi_flip, im_un_flip, im_in_flip, im_ov_flip = sim_images(mphi= -1*mphi, 
+            ephi=ephi, isl_shape=thk_map_2D, pscope=pscope, del_px = del_px, def_val=defval, 
+            add_random=add_random,isl_thk=thk, isl_xip0=sample_xip0, mem_thk=mem_thk, 
+            mem_xip0=mem_xip0,v=v, save_path=save_path_tfs, save_name=sim_name)
+        sim_name = savename+'_unflip'
+
+    Tphi, im_un, im_in, im_ov = sim_images(mphi=mphi, ephi=ephi, isl_shape=thk_map_2D, 
+        pscope=pscope, del_px = del_px, def_val=defval, add_random=add_random,
+        isl_thk=thk, isl_xip0=sample_xip0, mem_thk=mem_thk, mem_xip0=mem_xip0,
+        v=0, save_path=save_path_tfs, save_name=sim_name)
+
+    if v >= 2:
+        show_sims(Tphi, im_un, im_in, im_ov, title="Simulated Unflipped Images")
+        if flip: 
+            show_sims(Tphi_flip, im_un_flip, im_in_flip, im_ov_flip, 
+                title="Simulated Flipped Images")
+
+    if flip: 
+        ptie = TIE_params(imstack=[im_un, im_in, im_ov], 
+            flipstack=[im_un_flip, im_in_flip, im_ov_flip], defvals=[defval], 
+            flip=True, no_mask=True, data_loc=directory, v=0) 
+        ptie.set_scale(del_px)
+    else:
+        ptie = TIE_params(imstack=[im_un, im_in, im_ov], flipstack=[], 
+            defvals=[defval], flip=False, no_mask=True, data_loc=directory, v=0) 
+        ptie.set_scale(del_px)
+
+    results = TIE(i=0, ptie=ptie, pscope=pscope, dataname=savename, sym=sym,
+                    qc=qc, save=TIE_save, v=v)
+    
+    results['phase_m_sim'] = mphi
+    results['phase_e_sim'] = ephi
+    return results 
+
 
 # ================================================================= #
 #           Various functions for displaying vector fields          #
 # ================================================================= #
 
-# These display functions were largely hacked together, and any advice or 
-# resources for improving/replacing them (while still working within jupyter 
-# notebooks) would be greatly appreciated. Contact: AMcCray@anl.gov
+# These display functions were largely hacked together, any improvements that 
+# work within jupyter rnotebooks would be appreciated. email: amccray@anl.gov
 
 def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
     """ Display a 3D vector field with arrows. 
@@ -222,72 +630,72 @@ def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
     and ay. 
 
     Args: 
-        mag_x: 2D array. x-component of magnetization. 
-        mag_y: 2D array. y-component of magnetization. 
-        mag_z: 2D array. z-component of magnetization. 
-        a: int. Number of arrows to plot along the x-axis, if ay=None then this 
+        mag_x (3D array): (z,y,x). x-component of magnetization. 
+        mag_y (3D array): (z,y,x). y-component of magnetization. 
+        mag_z (3D array): (z,y,x). z-component of magnetization. 
+        a (int): Number of arrows to plot along the x-axis, if ay=None then this 
             sets the y-axis too. 
-        ay: int. Number of arrows to plot along y-axis. Defaults to a. 
-        az: int. Number of arrows to plot along z-axis. if az > depth of array, 
+        ay (int): (`optional`) Number of arrows to plot along y-axis. Defaults to a. 
+        az (int): Number of arrows to plot along z-axis. if az > depth of array, 
             az is set to 1. 
-        l: Float. Scale of arrows. Larger -> longer arrows. 
-        show_all: Bool. 
-            True: All arrows are displayed with a grey background. 
-            False: Alpha value of arrows is controlled by in-plane component. 
-                As arrows point out-of-plane they become transparent, leaving 
-                only in-plane components visible. The background is black. 
+        l (float): Scale of arrows. Larger -> longer arrows. 
+        show_all (bool): 
+            - True: (default) All arrows are displayed with a grey background. 
+            - False: Alpha value of arrows is controlled by in-plane component. 
+              As arrows point out-of-plane they become transparent, leaving 
+              only in-plane components visible. The background is black. 
 
-    Returns: None
-        Displays a matplotlib axes3D object. 
+    Returns: 
+        None: None. Displays a matplotlib axes3D object. 
     """ 
     if ay is None:
         ay = a
-    ay = ((mag_x.shape[0] - 1)//a)+1
-    axx = ((mag_x.shape[1] - 1)//a)+1
 
     bmax = max(mag_x.max(), mag_y.max(),mag_z.max())
 
     if l is None:
-        l = mag_x.shape[0]/(2*bmax*a)
+        l = mag_x.shape[1]/(2*bmax*a)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     
-    dimx = mag_x.shape[0]
-    dimy = mag_x.shape[1]
     if mag_x.ndim == 3:
-        dimz = mag_x.shape[2]
+        dimz, dimy, dimx = mag_x.shape
         if az > dimz:
             az = 1
         else:
-            az = ((mag_x.shape[2] - 1)//az)+1
-        
-        X,Y,Z = np.meshgrid(np.arange(0,dimx,1),
-                       np.arange(0,dimy,1),
-                       np.arange(0,dimz*a,a))
+            az = ((dimz - 1)//az)+1
     else:
+        dimy, dimx = mag_x.shape
         dimz = 1
-        X,Y,Z = np.meshgrid(np.arange(0,dimx,1),
+        
+    Z,Y,X = np.meshgrid(np.arange(0,dimz,1),
                        np.arange(0,dimy,1),
-                       np.arange(0,1,1))
+                       np.arange(0,dimx,1), indexing='ij')
+    ay = ((dimy - 1)//ay)+1
+    axx = ((dimx - 1)//a)+1
     
     # doesnt handle (0,0,0) arrows very well, so this puts in very small ones. 
-    zeros = ~(mag_x.astype('bool')+mag_y.astype('bool')+mag_z.astype('bool'))
-    mag_z[np.where(zeros)] = bmax/100000
-    mag_x[np.where(zeros)] = bmax/100000
-    mag_y[np.where(zeros)] = bmax/100000
+    zeros = ~(mag_x.astype('bool') | mag_y.astype('bool') | mag_z.astype('bool'))
+    zinds = np.where(zeros)
+    mag_z[zinds] = bmax/1e5
+    mag_x[zinds] = bmax/1e5
+    mag_y[zinds] = bmax/1e5
 
-    U = mag_x.reshape((dimx,dimy,dimz))
-    V = mag_y.reshape((dimx,dimy,dimz))
-    W = mag_z.reshape((dimx,dimy,dimz))
+    # show_im(np.where(np.abs(mag_x)=0.01, 0, 1)[0])
+
+    U = mag_x.reshape((dimz,dimy,dimx))
+    V = mag_y.reshape((dimz,dimy,dimx))
+    W = mag_z.reshape((dimz,dimy,dimx))
 
     # maps in plane direction to hsv wheel, out of plane to white (+z) and black (-z)
-    phi = np.ravel(np.arctan2(V[::ay,: :axx,::az],U[::ay,: :axx,::az]))
+    phi = np.ravel(np.arctan2(V[::az, ::ay, ::axx],U[::az, ::ay, ::axx]))
+
     # map phi from [pi,-pi] -> [1,0]
     hue = phi/(2*np.pi)+0.5
 
     # setting the out of plane values now
-    theta = np.arctan2(W[::ay,: :axx,::az],(U[::ay,: :axx,::az]**2+V[::ay,: :axx,::az]**2))
+    theta = np.arctan2(W[::az, ::ay,::axx],(U[::az, ::ay,::axx]**2+V[::az, ::ay,::axx]**2))
     value = np.ravel(np.where(theta<0, 1+2*theta/np.pi, 1))
     sat = np.ravel(np.where(theta>0, 1-2*theta/np.pi, 1))
 
@@ -316,78 +724,43 @@ def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
     # quiver colors shaft then points: for n arrows c=[c1, c2, ... cn, c1, c1, c2, c2, ...]
     arrow_colors = np.concatenate((arrow_colors,np.repeat(arrow_colors,2, axis=0))) 
 
-    q = ax.quiver(X[::ay,: :axx,::az], Y[::ay,: :axx,::az], Z[::ay,: :axx,::az], 
-                  U[::ay,: :axx,::az], V[::ay,: :axx,::az], W[::ay,: :axx,::az],
+
+    # want box to be square so all arrow directions scaled the same
+    dim = max(dimx,dimy,dimz)
+    ax.set_xlim(0,dim)
+    ax.set_ylim(0,dimy)
+    if az >= dimz:
+        ax.set_zlim(-dim//2, dim//2)
+    else:
+        ax.set_zlim(0,dim)
+        Z += (dim-dimz)//2
+
+    q = ax.quiver(X[::az, ::ay,::axx], Y[::az, ::ay,::axx], Z[::az, ::ay,::axx], 
+                  U[::az, ::ay,::axx], V[::az, ::ay,::axx], W[::az, ::ay,::axx],
                   color = arrow_colors, 
                   length= float(l), 
                   pivot = 'middle', 
                   normalize = False)
 
-    ax.set_xlim(0,dimx)
-    ax.set_ylim(0,dimy)
-    if dimz == 1:
-        ax.set_zlim(-dimx//2, dimx//2)
-    else:
-        # ax.set_zlim(0, dimz*a)
-        ax.set_zlim(-dimx//2 + dimz, dimx//2 + dimz)
 
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
     plt.show()
-    
-def show_2D(mag_x, mag_y, a = 15, l = None, title = None):
-    """ Display a 2D vector arrow plot. 
 
-    Args: 
-        mag_x: 2D array. x-component of magnetization. 
-        mag_y: 2D array. y-component of magnetization. 
-        a: int. Number of arrows to plot along the x and y axes. Default 15. 
-        l: Float. Scale factor of arrows. Larger -> longer arrows. Default None
-            makes a guess at a good value. 
-        title: String. Title for plot. Default None. 
-
-    Returns: None
-        Displays matplotlib plot. 
-    """ 
-    a = ((mag_x.shape[0] - 1)//a)+1
-    bmax = max(mag_x.max(), mag_y.max())
-    if l is None: # approximating something that might work. 
-        l = mag_x.shape[0]/(5*bmax*a)
-    else:
-        l = 20/l
-
-    dim = mag_x.shape[0]
-    X = np.arange(0, dim, 1)
-    Y = np.arange(0, dim, 1)
-    U = mag_x 
-    V = mag_y 
-    
-    fig, ax = plt.subplots()
-    q = ax.quiver(X[::a], Y[::a], U[::a,::a], V[::a,::a], 
-                  units='inches', 
-                  scale = l,
-                  pivot = 'mid')
-    if title is not None:
-        ax.set_title(title)
-    ax.set_aspect(1)
-    plt.show()
-    return
-
-
-def show_sims(phi, im_un, im_in, im_ov):
+def show_sims(phi, im_un, im_in, im_ov, title=None):
     """Plot phase, underfocus, infocus, and overfocus images in one plot.
     
     Uses same scale of intensity values for all simulated images but not phase. 
 
     Args:
-        phi: 2D array. Image of phase shift of object (or anything). 
-        im_un: 2D array. Underfocus image. 
-        im_in: 2D array. Infocus image. 
-        im_ov: 2D array. Overfocus image. 
+        phi(2D array): Image of phase shift of object. 
+        im_un(2D array): Underfocus image. 
+        im_in(2D array): Infocus image. 
+        im_ov(2D array): Overfocus image. 
     
-    Returns: None
-        Displays matplotlib plot. 
+    Returns: 
+        None: Displays matplotlib plot. 
     """
     vmax = np.max(phi)+.05
     vmin = np.min(phi)-.05
@@ -410,6 +783,9 @@ def show_sims(phi, im_un, im_in, im_ov):
     ax3.imshow(im_ov,cmap='gray', origin = 'upper', vmax = vmax, vmin = vmin)
     plt.axis('off')
     plt.title('Overfocus')
+    if title is not None:
+        fig.suptitle(str(title))
+    plt.show()
     return
 
 
@@ -419,7 +795,7 @@ def show_sims(phi, im_un, im_in, im_ov):
 #                                                                   #
 # ================================================================= #
 
-def Lillihook(dim, rad = None, Q = 1, gamma = np.pi/2, P=1, show=False): 
+def Lillihook(dim, rad = None, Q = 1, gamma = 1.5708, P=1, show=False): 
     """Define a skyrmion magnetization. 
 
     This function makes a skyrmion magnetization as calculated and defined in 
@@ -427,27 +803,33 @@ def Lillihook(dim, rad = None, Q = 1, gamma = np.pi/2, P=1, show=False):
     z magnetization components at each pixel. 
 
     Args: 
-        dim: Int. Dimension of lattice. 
-        rad: Float. Radius parameter (see [1]). Default dim//16. 
-        Q: Int. Topological charge. 
-            1: skyrmion
-            2: biskyrmion
-            -1: antiskyrmion
-        gamma: Float. Helicity. 
-            0 or Pi: Neel
-            Pi/2 or 3Pi/2: Bloch
-        P: Polarity (z direction in center)
-        show: Bool: If True, will show the x, y, z components in plot form. 
+        dim (int): Dimension of lattice. 
+        rad (float): Radius parameter (see [1]). Default dim//16. 
+        Q (int): Topological charge. 
+            - 1: skyrmion
+            - 2: biskyrmion
+            - -1: antiskyrmion
+        gamma (float): Helicity. 
+            - 0 or Pi: Neel
+            - Pi/2 or 3Pi/2: Bloch
+        P (int): Polarity (z direction in center), +/- 1. 
+        show (bool): (`optional`) If True, will plot the x, y, z components. 
 
-    Returns: (mag_x, mag_y, mag_z)
-        mag_x: 2D array (dim, dim). x-component of magnetization vector. 
-        mag_y: 2D array (dim, dim). y-component of magnetization vector. 
-        mag_z: 2D array (dim, dim). z-component of magnetization vector. 
+    Returns: 
+        tuple: (mag_x, mag_y, mag_z)
+
+        - mag_x (``ndarray``) -- 2D Numpy array (dim, dim). x-component of 
+          magnetization vector. 
+        - mag_y (``ndarray``) -- 2D Numpy array (dim, dim). y-component of 
+          magnetization vector. 
+        - mag_z (``ndarray``) -- 2D Numpy array (dim, dim). z-component of 
+          magnetization vector. 
 
     References: 
-    [1] Lilliehöök, D., Lejnell, K., Karlhede, A. & Sondhi, S. 
-        Quantum Hall Skyrmions with higher topological charge. Phys. Rev. B 56, 
-        6805–6809 (1997).
+        1) Lilliehöök, D., Lejnell, K., Karlhede, A. & Sondhi, S. 
+           Quantum Hall Skyrmions with higher topological charge. 
+           Phys. Rev. B 56, 6805–6809 (1997).
+
     """
 
     cx, cy = [dim//2,dim//2] 
@@ -455,7 +837,7 @@ def Lillihook(dim, rad = None, Q = 1, gamma = np.pi/2, P=1, show=False):
     cx = dim//2      
     if rad is None:
         rad = dim//16
-        print(f'Rad set to {rad}.')
+        print(f'Radius parameter set to {rad}.')
     a = np.arange(dim)
     b = np.arange(dim)
     x,y = np.meshgrid(a,b)
@@ -482,8 +864,8 @@ def Lillihook(dim, rad = None, Q = 1, gamma = np.pi/2, P=1, show=False):
         show_im(mag_z, 'mag z')
         x = np.arange(0,dim,1)
         fig,ax = plt.subplots()
-        ax.plot(x,mag_z[dim//2], label='mag_z profile along x axis.')
-        ax.set_xlabel("x axis, y=0")
+        ax.plot(x,mag_z[dim//2], label='mag_z profile along x-axis.')
+        ax.set_xlabel("x-axis, y=0")
         ax.set_ylabel("mag_z")
         plt.legend()
         plt.show()
@@ -491,26 +873,33 @@ def Lillihook(dim, rad = None, Q = 1, gamma = np.pi/2, P=1, show=False):
 
 
 def Bloch(dim, chirality = 'cw', pad = True, ir=0, show=False): 
-    """Create a BLoch vortex magnetization structure. 
+    """Create a Bloch vortex magnetization structure. 
 
     Unlike Lillihook, this function does not produce a rigorously calculated 
-    magnetization structure, but rather one that looks like some experimental 
-    observations. 
+    magnetization structure. It is just a vortex that looks like some 
+    experimental observations. 
 
     Args: 
-        dim: Int. Dimension of lattice. 
-        chirality: String. 
-            'cw': clockwise rotation
-            'ccw': counter-clockwise rotation. 
-        pad: Bool. Whether or not to leave some space between the edge of the 
-            magnetization and the edge of the image. 
-        ir: Float. Inner radius of the vortex in pixels. 
-        show: Bool: If True, will show the x, y, z components in plot form. 
+        dim (int): Dimension of lattice. 
+        chirality (str):
 
-    Returns: (mag_x, mag_y, mag_z)
-        mag_x: 2D array (dim, dim). x-component of magnetization vector. 
-        mag_y: 2D array (dim, dim). y-component of magnetization vector. 
-        mag_z: 2D array (dim, dim). z-component of magnetization vector. 
+            - 'cw': clockwise rotation
+            - 'ccw': counter-clockwise rotation. 
+        pad (bool): Whether or not to leave some space between the edge of the 
+            magnetization and the edge of the image. 
+        ir (float): Inner radius of the vortex in pixels. 
+        show (bool): If True, will show the x, y, z components in plot form. 
+
+    Returns: 
+        tuple: (mag_x, mag_y, mag_z)
+
+        - mag_x (``ndarray``) -- 2D Numpy array of shape (dim, dim). x-component
+          of magnetization vector. 
+        - mag_y (``ndarray``) -- 2D Numpy array of shape (dim, dim). y-component
+          of magnetization vector. 
+        - mag_z (``ndarray``) -- 2D Numpy array of shape (dim, dim). z-component
+          of magnetization vector. 
+
     """
     cx, cy = [dim//2,dim//2]
     if pad: 
@@ -558,32 +947,39 @@ def Bloch(dim, chirality = 'cw', pad = True, ir=0, show=False):
         show_im(mag_z, 'mag z')
         x = np.arange(0,dim,1)
         fig,ax = plt.subplots()
-        ax.plot(x,mag_z[dim//2], label='mag_z profile along x axis.')
+        ax.plot(x,mag_z[dim//2], label='mag_z profile along x-axis.')
         plt.legend()
         plt.show()
     return (mag_x, mag_y, mag_z)
 
 
 def Neel(dim, chirality = 'io', pad = True, ir=0,show=False):
-    """Create a neel magnetization structure. 
+    """Create a Neel magnetization structure. 
 
     Unlike Lillihook, this function does not produce a rigorously calculated 
     magnetization structure.
 
     Args: 
-        dim: Int. Dimension of lattice. 
-        chirality: String. 
-            'io': inner to outer.
-            'oi': outer to inner.  
-        pad: Bool. Whether or not to leave some space between the edge of the 
-            magnetization and the edge of the image. 
-        ir: Float. Inner radius of the vortex in pixels. 
-        show: Bool: If True, will show the x, y, z components in plot form. 
+        dim (int): Dimension of lattice. 
+        chirality (str):
 
-    Returns: (mag_x, mag_y, mag_z)
-        mag_x: 2D array (dim, dim). x-component of magnetization vector. 
-        mag_y: 2D array (dim, dim). y-component of magnetization vector. 
-        mag_z: 2D array (dim, dim). z-component of magnetization vector. 
+            - 'cw': clockwise rotation
+            - 'ccw': counter-clockwise rotation. 
+        pad (bool): Whether or not to leave some space between the edge of the 
+            magnetization and the edge of the image. 
+        ir (float): Inner radius of the vortex in pixels. 
+        show (bool): If True, will show the x, y, z components in plot form. 
+
+    Returns: 
+        tuple: (mag_x, mag_y, mag_z)
+        
+        - mag_x (``ndarray``) -- 2D Numpy array of shape (dim, dim). x-component
+          of magnetization vector. 
+        - mag_y (``ndarray``) -- 2D Numpy array of shape (dim, dim). y-component
+          of magnetization vector. 
+        - mag_z (``ndarray``) -- 2D Numpy array of shape (dim, dim). z-component
+          of magnetization vector. 
+
     """
     cx, cy = [dim//2,dim//2]
     if pad: 
@@ -644,3 +1040,5 @@ def Neel(dim, chirality = 'io', pad = True, ir=0,show=False):
         plt.show()
 
     return (mag_x, mag_y, mag_z)
+
+### End ###

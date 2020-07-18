@@ -21,10 +21,12 @@ dependencies:
   - jupyter
   - jupyterlab
   - matplotlib
+  - mdf_forge
   - nbconvert
   - nodejs 
   - notebook
   - numpy
+  - numba
   - pandas
   - pillow
   - pip

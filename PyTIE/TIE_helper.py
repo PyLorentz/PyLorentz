@@ -1,12 +1,10 @@
 """Helper functions for TIE. 
 
-An assortment of helper functions broadly divided into two sections. First for 
-loading images, passing that data, and helping with the reconstruction; second
-a set of functions helpful for displaying images. 
+An assortment of helper functions that load images, pass data, and generally 
+are used in the reconstruction. Additionally, a couple of functions used for 
+displaying images and stacks.
 
-AUTHOR:
-Arthur McCray, ANL, Summer 2019.
---------------------------------------------------------------------------------
+Author: Arthur McCray, ANL, Summer 2019.
 """
  
 import matplotlib.pyplot as plt 
@@ -32,27 +30,31 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
     well as how to setup the .fls file please refer to the README or the 
     TIE_template.ipynb notebook. 
 
-    Args: 
-        path: String. Location of data directory. 
-        fls_file: String. Name of the .fls file which contains the image names 
-            and defocus values. 
-        al_file: String. Name of the aligned stack image file. 
-        flip: Bool. Is there a flip stack? If false, it will not assume a 
-            uniformly thick film and not reconstruct electrostatic phase shift.
-    Optional Args: 
-        flip_fls_file: String. Name of the .fls file for the flip images if they
+    Args:
+        path (str): Location of data directory. 
+        fls_file (str): Name of the .fls file which contains the image names and
+            defocus values. 
+        al_file (str): Name of the aligned stack image file. 
+        flip (Bool): True if using a flip stack, False otherwise. Uniformly 
+            thick films can be reconstructed without a flip stack. The 
+            electrostatic phase shift will not be reconstructed.
+        flip_fls_file (str): Name of the .fls file for the flip images if they 
             are not named the same as the unflip files. Will only be applied to 
             the /flip/ directory. 
-        filtersize: Int. The images are processed with a median filter to remove
-            hot pixels which occur in experimental data. This should be set to 0
-            for simulated data, though generally one would only use this 
-            function for experimental data. 
+        filtersize (int): (`optional`) The images are processed with a median 
+            filter to remove hot pixels which occur in experimental data. This 
+            should be set to 0 for simulated data, though generally one would 
+            only use this function for experimental data. 
     
-    Returns: 
-        imstack: array of hyperspy signal2D objects (one per image)
-        flipstack: array of hyperspy signal2D objects, only if flip
-        ptie: TIE_params object holding a reference to the imstack and many
-            useful parameters.
+    Returns:
+        list: List of length 3, containing the following items: 
+
+        - imstack: array of hyperspy signal2D objects (one per image)
+        - flipstack: array of hyperspy signal2D objects, empty array if 
+          flip == False  
+        - ptie: TIE_params object holding a reference to the imstack and many
+          other parameters.  
+
     """
 
     unflip_files = []
@@ -172,26 +174,28 @@ def select_tifs(i, ptie, long_deriv = False):
 
     Uses copy.deepcopy() as the data will be modified in the reconstruction 
     process, and we don't want to change the original data. This method is 
-    likely not best practice. 
-
-    In the future this might get moved to the TIE_params class. 
+    likely not best practice. In the future this might get moved to the 
+    TIE_params class. 
 
     Args: 
-        i: Int. Index of defvals for which to select the tifs. 
-        ptie: TIE_params object. 
+        i (int): Index of defvals for which to select the tifs. 
+        ptie (``TIE_params`` object): Parameters for reconstruction, holds the 
+            images. 
 
-    
-    Returns: 
-        List of np arrays, return depends on parameters:
-        if long_deriv = True:
-            returns all images in imstack followed by all images in flipstack
-        if ptie.flip: 
-            returns [ +- , -- , 0 , ++ , -+ ]
-            first +- is unflip/flip, and second +- is over/underfocus
-            0 is averaged infocus image
-        else:
-            returns [+-, 0, ++]
-        For a 3-point derivative the images are returned
+    Returns:
+        list: List of np arrays, return depends on parameters: 
+
+        - if long_deriv == False: 
+
+            - if ptie.flip == True: returns [ +- , -- , 0 , ++ , -+ ] 
+            - elif ptie.flip == False:  returns [+-, 0, ++]
+            - where first +/- is unflip/flip, second +/- is over/underfocus.
+              E.g. -+ is the flipped overfocused image. 0 is the averaged 
+              infocus image.
+
+        - elif long_deriv == True: returns all images in imstack followed by
+          all images in flipstack. 
+
     """
     if long_deriv:
         recon_tifs = []
@@ -233,17 +237,18 @@ def select_tifs(i, ptie, long_deriv = False):
 
 
 def dist(ny, nx, shift=False):
-    """Create frequency array for Fourier processing. 
+    """Creates a frequency array for Fourier processing. 
 
     Args: 
-        ny: Int. Height of array 
-        nx: Int. Width of array
-        shift: Bool. Whether to center the frequency spectrum. 
-            False: smallest values are at the corners. (Default)
-            True: smallest values at center of array. 
+        ny (int): Height of array 
+        nx (int): Width of array
+        shift (bool): Whether to center the frequency spectrum. 
+
+            - False: (default) smallest values are at the corners. 
+            - True: smallest values at center of array. 
 
     Returns: 
-        numpy array of shape (ny, nx). 
+        ``ndarray``: Numpy array of shape (ny, nx). 
     """
     ly = (np.arange(ny)-ny/2)/ny
     lx = (np.arange(nx)-nx/2)/nx
@@ -258,10 +263,10 @@ def scale_stack(imstack):
     """Scale a stack of images so all have the same total intensity. 
 
     Args: 
-        imstack: List. List of 2D arrays. 
+        imstack (list): List of 2D arrays. 
 
     Returns:
-        List of same shape as imstack
+        list: List of same shape as imstack
     """
     imstack = deepcopy(imstack)
     tots = np.sum(imstack, axis = (1,2))
@@ -278,7 +283,7 @@ def scale_stack(imstack):
 to have handy when working in Jupyter notebooks."""
 
 
-def show_im(im, title=None):
+def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_title=''):
     """Display an image on a new axis.
     
     Takes a 2D array and displays the image in grayscale with optional title on 
@@ -286,22 +291,59 @@ def show_im(im, title=None):
     too many are open it's a good idea to close with plt.close('all'). 
 
     Args: 
-        im: 2D array or list. Image to be displayed.
-    Keyword Args: 
-        title: String. Title of plot. 
-    
+        image (2D array): Image to be displayed.
+        title (str): (`optional`) Title of plot. 
+        simple (bool): (`optional`) Default output or additional labels.  
+
+            - True, will just show image. 
+            - False, (default) will show a colorbar with axes labels, and will adjust the 
+              contrast range for images with a very small range of values (<1e-12). 
+
+        origin (str): (`optional`) Control image orientation. 
+
+            - 'upper': (default) (0,0) in upper left corner, y-axis goes down. 
+            - 'lower': (0,0) in lower left corner, y-axis goes up. 
+
+        cbar (bool): (`optional`) Choose to display the colorbar or not. Only matters when
+            simple = False. 
+        cbar_title (str): (`optional`) Title attached to the colorbar (indicating the 
+            units or significance of the values). 
+
     Returns:
-        Nothing
+        None
     """
-    fig,ax = plt.subplots()
-    ax.matshow(im, cmap = 'gray', origin = 'upper')
+    fig, ax = plt.subplots()
+    if not simple and np.max(image) - np.min(image) < 1e-12:
+        # adjust coontrast range
+        vmin = np.min(image) - 1e-12
+        vmax = np.max(image) + 1e-12
+        im = ax.matshow(image, cmap = 'gray', origin=origin, vmin=vmin, vmax=vmax)
+    else:
+        im = ax.matshow(image, cmap = 'gray', origin=origin)
+
     if title is not None: 
-        ax.set_title(str(title))
+        ax.set_title(str(title), pad=0)
+
+    if simple:
+        # plt.axis('off')
+        pass
+    else:
+        plt.tick_params(axis='x',top=False)
+        ax.xaxis.tick_bottom()
+        ax.tick_params(direction='in')
+        if origin == 'lower': 
+            ax.text(y=0,x=0,s='pixels', rotation=-45, va='top', ha='right')
+        elif origin =='upper': 
+            ax.text(y=image.shape[0],x=0,s='pixels', rotation=-45, va='top', ha='right')
+
+        if cbar: 
+            plt.colorbar(im, ax=ax, pad=0.02, format="%.2g", label=str(cbar_title))
+
     plt.show()
     return
 
 
-def show_stack(images, ptie = None):
+def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
     """Shows a stack of dm3s or np images with a slider to navigate slice axis. 
     
     Uses ipywidgets.interact to allow user to view multiple images on the same
@@ -312,22 +354,23 @@ def show_stack(images, ptie = None):
     will be shown. 
 
     Args:
-        images: List of 2D arrays. Stack of images to be shown. 
-    Keyword Args:
-        ptie: TIE_params object. Will use ptie.crop to show only the region that
-            will be cropped. 
-
+        images (list): List of 2D arrays. Stack of images to be shown. 
+        ptie (``TIE_params`` object): Will use ptie.crop to show only the region
+            that will remain after being cropped. 
+        origin (str): (`optional`) Control image orientation. 
+        simple (bool): (`optional`) Default output or additional labels.  
+        title (bool): (`optional`) Try and pull a title from the signal objects. 
     Returns:
-        Nothing. 
+        None 
     """
     sig = False
     if type(images[0]) == hyperspy._signals.signal2d.Signal2D:
         sig = True
         imstack = []
-        defvals = []
+        titles = []
         for signal2D in images:
             imstack.append(signal2D.data)
-            defvals.append(signal2D.metadata.General.title)
+            titles.append(signal2D.metadata.General.title)
         images = np.array(imstack)
     else:
         images = np.array(images)
@@ -345,57 +388,104 @@ def show_stack(images, ptie = None):
 
     fig, ax = plt.subplots()
     N = images.shape[0]
+
     def view_image(i=0):
-        plt.imshow(images[i], cmap='gray', interpolation='nearest', origin='upper')
-        if sig:
-            plt.title('Defocus: {:}'.format(defvals[i]))
-        else:
-            plt.title('Stack[{:}]'.format(i))
+        im = plt.imshow(images[i], cmap='gray', interpolation='nearest', origin=origin)
+        if title: 
+            if sig:
+                plt.title('Image title: {:}'.format(titles[i]))
+            else:
+                plt.title('Stack[{:}]'.format(i))
+
+    if not simple:
+        ax.tick_params(direction='in')
+        if origin == 'lower': 
+            ax.text(y=0,x=0,s='pixels', rotation=-45, va='top', ha='right')
+        elif origin =='upper': 
+            ax.text(y=images[0].shape[0],x=0,s='pixels', rotation=-45, va='top', ha='right')
+
     interact(view_image, i=(0, N-1))
     return 
 
-def show_scaled(im, title = None):
-    """ Shows an image with intensity scaled. 
+    
+def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, hsv=True,
+            origin='upper', save=None):
+    """ Display a 2D vector arrow plot. 
 
-    Useful for looking at images before they have a median filter applied.
+    Quiver doesn't allow setting the origin as "upper" for some reason. Just 
+    flipping the axis doesn't also flip the arrow directions. 
 
     Args: 
-        im: 2D array or list. Image to be displayed.
-    Keyword Args: 
-        title: String. Title of plot. 
+        mag_x (2D array): x-component of magnetization. 
+        mag_y (2D array): y-component of magnetization. 
+        a (int): Number of arrows to plot along the x and y axes. Default 15. 
+        l (float): Scale factor of arrows. Larger l -> shorter arrows. Default None
+            guesses at a good value. None uses matplotlib default.  
+        w (float): Width scaling of arrows. None uses matplotlib default.
+        title (str): (`optional`) Title for plot. Default None. 
+        color (bool): (`optional`) Whether or not to show a colormap underneath 
+            the arrow plot. Color image is made from colorwheel.color_im(). 
+        hsv (bool): (`optional`) Only relevant if color == True. Whether to use 
+            an hsv or 4-fold colorwheel in the color image. 
+        origin (str): (`optional`) Control image orientation. 
+        save (str): (`optional`) Path to save the figure. 
+
+    Returns: 
+        None: None. Displays a matplotlib plot. 
+    """ 
+    a = ((mag_x.shape[0] - 1)//a)+1
+    bmax = max(mag_x.max(), mag_y.max())
+
+    dimy, dimx = mag_x.shape
+    X = np.arange(0, dimx, 1)
+    Y = np.arange(0, dimy, 1)
+    U = mag_x 
+    V = mag_y 
     
-    Returns:
-        Nothing
-    """
-    mean = np.mean(im)
-    std = np.std(im)
+    aspect = dimy/dimx
+    sz_inches = 8
+    fig, ax = plt.subplots(figsize=(aspect*sz_inches, sz_inches))
+    if color:
+        from colorwheel import color_im
+        im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv), cmap = 'gray',
+                        origin=origin)
 
-    low = max(np.min(im), mean - 8*std)
-    high = min(np.max(im), mean + 8*std)
+    if color: 
+        arrow_color = 'white'
+        plt.axis('off')
+    else:
+        arrow_color = 'black'
 
-    fig,ax = plt.subplots()
-    ax.matshow(im, cmap = 'gray', vmin=low, vmax=high)
+    q = ax.quiver(X[::a], Y[::a], U[::a,::a], V[::a,::a], 
+              units='xy', 
+              scale = l,
+              scale_units = 'xy',
+              width = w,
+              angles = 'xy',
+              pivot = 'mid',
+              color=arrow_color)
+
+    if not color:
+        qk = ax.quiverkey(q, X=0.95, Y=0.98, U=1, label=r'$Msat$', labelpos='S',
+                       coordinates='axes')
+        qk.text.set_backgroundcolor('w')
+
     if title is not None:
-        ax.set_title(str(title))
+        tr = False
+        ax.set_title(title)
+    else:
+        tr = True
+
+    plt.tick_params(axis='x',labelbottom=False, bottom=False, top=False)
+    plt.tick_params(axis='y',labelleft=False, left=False, right=False)
+    ax.set_aspect(aspect)
     plt.show()
 
+    if save is not None: 
+        print(f'Saving: {save}')
+        plt.axis('off')
+        # sets dpi to 5 times original image dpi so arrows are reasonably sharp
+        dpi2 = max(dimy, dimx) * 5 / sz_inches
+        plt.savefig(save, dpi=dpi2, bbox_inches='tight', transparent=tr)
 
-def get_fft(im):
-    """Returns shifted fast forier transform of an image."""
-    return np.fft.fftshift(np.fft.fft2(im))
-
-
-def get_ifft(fft):
-    """Returns real portion of inverse of a shifted fft."""
-    return np.real(np.fft.ifft2(np.fft.ifftshift(fft)))
-
-
-def show_fft(fft, title=None):
-    """Given an fft this displays the log of that fft."""
-    fig, ax = plt.subplots()
-    display = np.where(np.abs(fft)!=0,np.log(np.abs(fft)),0)
-    ax.matshow(display,cmap='gray')
-    if title is not None:
-        ax.set_title(str(title))
-    plt.show()
     return

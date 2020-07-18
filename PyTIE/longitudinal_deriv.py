@@ -1,46 +1,39 @@
 """Generate longitudinal derivatives through stack of intensity values. 
 
-___This has bugs!___
+`This has bugs!`  
 Using a longitudinal derivative instead of 3-point will, for some experimental
 datasets, give a reconstructed phase shift that is an order of magnitude 
 different. This does not seem to be the case for simulated datasets. 
-Additionally, using this derivative can affect ideal Thikonov filter values. 
+Additionally, using this derivative can affect ideal Tikhonov filter values. 
 
 This file contains routines for generating the longitudinal derivative through 
 a stack of images by fitting a quadratic polynomial to the intensity values for 
 each (y,x) pixel. 
 
-Previously it was found that for large datasets this can be slow, and as such
-a multiprocessing approach is implemented. For almost all cases however this is 
-not necessary and for small images and stacks it will be slower due to 
-additional setup time.
-
-AUTHOR:
-Arthur McCray, ANL, May 2020.
---------------------------------------------------------------------------------
+Author: Arthur McCray, ANL, May 2020.
 """
 
 import numpy as np
-import multiprocessing
-from numpy.polynomial import polynomial as P
 import time
 
 def polyfit_deriv(stack, defvals, v=1):
     """
     Calculates a longitudinal derivative of intensity values taken at different
-    defocus values. Expects the firt image to be most underfocused, and last to
+    defocus values. Expects the first image to be most underfocused, and last to
     be most overfocused. 
-    Gives a completeion percentage every 5 seconds, though for reasonable sized 
-    datasets (7 x 4096 x 4096) it only takes ~ 7 seconds.  
+
+    Prints progress every 5 seconds, though for reasonable sized datasets 
+    (7 x 4096 x 4096) it only takes ~ 7 seconds.  
 
     Args:
-        stack: 3D array (L x M x N). There are L individual (M x N) iamges.
-        defvals: 1D array length L. The defocus value of the images.
+        stack (3D array): NumPy array (L x M x N). There are L individual 
+            (M x N) iamges.
+        defvals (1D array): Array of length L. The defocus values of the images.
+        v (int): Verbosity. Set v=0 to suppress all print statements. 
 
     Returns: 
-        Numpy array (M x N) of derivative values.  
+        ``ndarray``: Numpy array (M x N) of derivative values.  
     """
-    # turning off the print function if v=0
     vprint = print if v>=1 else lambda *a, **k: None
     stack = np.array(stack)
     dim_y, dim_x = np.shape(stack[0])
@@ -56,35 +49,3 @@ def polyfit_deriv(stack, defvals, v=1):
         derivatives[i] = unf_d[1]
     vprint('100.0%')
     return derivatives
-
-
-def polyfit_deriv_multiprocess(stack, defvals):
-    """
-    Calculates a longitudinal derivative of intensity values taken at different
-    defocus values. Expects the firt image to be most underfocused, and last to
-    be most overfocused. 
-    Uses python multprocessing to theoretically improve on speed. 
-
-    Args:
-        stack: 3D array (L x M x N). There are L individual (M x N) iamges.
-        defvals: 1D array length L. The defocus value of the images.
-
-    Returns: 
-        Numpy array (M x N) of derivative values.  
-    """
-    stack = np.array(stack)
-    dim_y, dim_x = np.shape(stack[0])
-    derivatives = np.zeros(np.shape(stack[0]))
-
-    pool = multiprocessing.Pool()
-    results = [pool.apply_async(run_polyfit, args=(i,defvals, stack[:,i],2,)) for i in range(dim_y)]
-    for p in results:
-        i, val = p.get()
-        derivatives[i] = val
-    return derivatives
-
-
-def run_polyfit(i,x, y, deg):
-    """ Helper function for multiprocessing. """
-    print(np.shape(P.polyfit(x, y, deg)[1]))
-    return(i, P.polyfit(x, y, deg)[1])

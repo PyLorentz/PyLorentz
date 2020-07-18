@@ -1,15 +1,14 @@
-"""File containing TIE and SITIE reconstruction routines. 
-
-Known Bugs: 
-- Longitudinal derivative gives a magnetization scaling error for some 
-    experimental datasets. 
+"""Module containing TIE and SITIE reconstruction routines. 
 
 Routines for solving the transport of intensity equation; for use with Lorentz
 TEM throughfocal series to reconstruct B field magnetization of the sample. 
 
-AUTHOR:
-Arthur McCray, ANL, Summer 2019.
---------------------------------------------------------------------------------
+Known Bugs: 
+
+- Longitudinal derivative gives a magnetization scaling error for some 
+  experimental datasets.
+
+Author: Arthur McCray, ANL, Summer 2019.
 """
 
 import numpy as np
@@ -20,20 +19,22 @@ import os
 import sys
 import scipy 
 from pathlib import Path
-from longitudinal_deriv import polyfit_deriv, polyfit_deriv_multiprocess
+from longitudinal_deriv import polyfit_deriv
+
 
 def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True, save=False, long_deriv=False, v=1,
         rotate_translate=None):
     """Sets up the TIE reconstruction and calls phase_reconstruct. 
 
     This function calculates the necessary arrays, derivatives, etc. and then 
-    calls passes them to phase_reconstruct which solve the TIE. 
+    passes them to phase_reconstruct which solve the TIE. 
     
     Args: 
-        i: Int. index of ptie.defvals to use for reconstruction. Default value is -1
-            which corresponds to the most defocused images for a central 
+        i (int): Index of ptie.defvals to use for reconstruction. Default value 
+            is -1 which corresponds to the most defocused images for a central 
             difference method derivative. i is ignored if using a longitudinal
             derivative. 
+<<<<<<< HEAD
         ptie: TIE_params object. Object containing the image from TIE_params.py
         pscope : microscope object. Should have correct accelerating voltage as
             the microscope that took the images.
@@ -55,9 +56,37 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
             save = False   ->  don't save.
             Saves the images to ptie.data_loc/images/
         long_deriv: Bool. Whether to use the longitudinal derivative (True) or 
+=======
+        ptie (``TIE_params`` object): Object containing the images and other
+            data parameters. From TIE_params.py
+        pscope (``Microscope`` object): Should have same accelerating voltage
+            as the microscope that took the images.
+        dataname (str): The output filename to be used for saving the images. 
+        sym (bool): (`optional`) Fourier edge effects are marginally improved by 
+            symmetrizing the images before reconstructing. Default False.
+        qc (float/str): (`optional`) The Tikhonov frequency to use as filter, or 
+            "percent" to use 15% of q, Default None. If you use a Tikhonov 
+            filter the resulting magnetization is no longer quantitative. 
+        save (bool/str): Whether you want to save the output.
+
+            ===========  ============
+            input value  saved images
+            ===========  ============
+            True         All images   
+            'b'          bx, by, and color image
+            'color'      Color image  
+            False        None         
+            ===========  ============
+
+            Files will be saved as 
+            ptie.data_loc/images/dataname_<defval>_<key>.tiff, where <key> is 
+            the key for the results dictionary that corresponds to the image. 
+        long_deriv (bool): Whether to use the longitudinal derivative (True) or 
+>>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
             central difference method (False). Default False. 
-            __Currently has bugs__. Qualitatively looks alright but quantitatively
+            `Currently has bugs`. Qualitatively looks alright but quantitatively
             is not accurate. 
+<<<<<<< HEAD
         v: Int. Verbosity. 
             0 : no output
             1 : Default output
@@ -81,6 +110,34 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
             'color_b' : RGB image of magnetization,
             'inf_im' : the in-focus image
         }
+=======
+        v (int): (`optional`) Verbosity. 
+
+            ===  ========
+            v    print output
+            ===  ========
+            0    No output
+            1    Default output
+            2    Extended output for debugging. 
+            ===  ========
+
+    Returns: 
+        dict: A dictionary of image arrays 
+        
+        =========  ==============
+        key        value
+        =========  ==============
+        'byt'      y-component of integrated magnetic induction
+        'bxt'      x-component of integrated magnetic induction
+        'bbt'      Magnitude of integrated magnetic induction
+        'phase_m'  Magnetic phase shift (radians)
+        'phase_e'  Electrostatic phase shift (if using flip stack) (radians)
+        'dIdZ_m'   Intensity derivative for calculating phase_m
+        'dIdZ_e'   Intensity derivative for calculating phase_e (if using flip stack)
+        'color_b'  RGB image of magnetization
+        'inf_im'   In-focus image
+        =========  ==============
+>>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
     """
     results = {
         'byt' : None,
@@ -105,9 +162,9 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
     else:
         defval = ptie.defvals[i]
         if ptie.flip:
-            vprint('Aligning for defocus value: ', defval, ' with both flip/unflip tfs.')
+            vprint(f'Aligning for defocus value: {defval:g}, with both flip/unflip tfs.')
         else:
-            vprint('Aligning for defocus value: ', defval, ' with only unflip tfs.')
+            vprint(f'Aligning for defocus value: {defval:g}, with only unflip tfs.')
 
     right, left = ptie.crop['right']  , ptie.crop['left']
     bottom, top = ptie.crop['bottom'] , ptie.crop['top']
@@ -188,31 +245,20 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
         print()
 
     # Calculate derivatives
-    if long_deriv: 
+    if long_deriv: # Not always quantitative. Has bugs. 
         unflip_stack = tifs[:ptie.num_files]
         flip_stack = tifs[ptie.num_files:]
-
-        if long_deriv == 'multi': 
-            vprint('Computing the longitudinal derivative with Multiprocessing.')
-            unflip_deriv = polyfit_deriv_multiprocess(unflip_stack, defval)
-        else:
-            vprint('Computing the longitudinal derivative normally.')
-            unflip_deriv = polyfit_deriv(unflip_stack, defval, v)
-
+        vprint('Computing the longitudinal derivative.')
+        unflip_deriv = polyfit_deriv(unflip_stack, defval, v)
         if ptie.flip:
-            if long_deriv == 'multi':
-                vprint('Computing the flip stack longitudinal derivative with Multiprocessing.')
-                flip_deriv = polyfit_deriv_multiprocess(flip_stack, defval)
-            else:
-                vprint('Computing the flip stack longitudinal derivative normally.')
-                flip_deriv = polyfit_deriv(flip_stack, defval, v)
-
+            vprint('Computing the flip stack longitudinal derivative.')
+            flip_deriv = polyfit_deriv(flip_stack, defval, v)
             dIdZ_m = (unflip_deriv - flip_deriv)/2 
             dIdZ_e = (unflip_deriv + flip_deriv)/2 
         else:
             dIdZ_m = unflip_deriv 
 
-    else:
+    else: # three point derivative, default. 
         if ptie.flip:
             dIdZ_m = 1/2 * (scaled_tifs[3] - scaled_tifs[0] - 
                           (scaled_tifs[4] - scaled_tifs[1]))
@@ -254,7 +300,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, hsv=True,
                                     hsvwheel=hsv, background='black')
 
     if v >= 1:
-        show_im(results['color_b'], "B-field color HSV colorwheel")
+        show_im(results['color_b'], "B-field color HSV colorwheel", cbar=False)
 
     # save the images
     if save: 
@@ -269,34 +315,41 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
 
     This technique is only appplicable to uniformly thin samples from which the 
     only source of contrast is magnetic Fresnel contrast. All other sources of 
-    contrast including dirt on the sample, thickness variation, and diffraction 
+    contrast including sample contamination, thickness variation, and diffraction 
     contrast will give false magnetic inductions. For more information please 
     refer to: Chess, J. J. et al. Ultramicroscopy 177, 78–83 (2018).
     
     Args: 
-        ptie: TIE_params object. Object containing the image from TIE_params.py
-        pscope : microscope object. Should have correct accelerating voltage as
-            the microscope that took the images.
-        dataname : String. The output filename to be used for saving the images. 
-                Files will be saved ptie.data_loc/images/dataname_<defval>_<key>.tiff
-        sym: Boolean. Fourier edge effects are marginally improved by 
-            symmetrizing the images before reconstructing (image reconstructed 
-            is 4x as large). Default False.
-        qc: Float. The Tikhonov frequency to use as filter, or "percent" to use 
-            15% of q, Default None. 
-        save: Bool or string. Whether you want to save the output. Default False. 
-            save = True    ->  saves all images. 
-            save = 'b'     ->  save just bx, by, and color_b
-            save = 'color' ->  saves just color_b
-            save = False   ->  don't save.
-            Saves the images to ptie.data_loc/images/
-        long_deriv: Bool. Whether to use the longitudinal derivative (True) or 
-            central difference method (False). Default False. 
-        i: Int. index of __the ptie.imstack or ptie.flipstack__ to 
+        ptie (``TIE_params`` object): Object containing the image. From 
+            TIE_params.py
+        pscope (``Microscope`` object): Should have same accelerating voltage
+            as the microscope that took the images.
+        dataname (str): The output filename to be used for saving the images. 
+        sym (bool): (`optional`) Fourier edge effects are marginally improved by 
+            symmetrizing the images before reconstructing. Default False.
+        qc (float/str): (`optional`) The Tikhonov frequency to use as filter, or 
+            "percent" to use 15% of q, Default None. If you use a Tikhonov 
+            filter the resulting magnetization is no longer quantitative. 
+        save (bool/str): Whether you want to save the output.
+
+            ===========  ============
+            input value  saved images
+            ===========  ============
+            True         All images   
+            'b'          bx, by, and color image
+            'color'      Color image  
+            False        None         
+            ===========  ============
+
+            Files will be saved as 
+            ptie.data_loc/images/dataname_<defval>_<key>.tiff, where <key> is 
+            the key for the returned dictionary that corresponds to the image. 
+        i (int): Index of `the ptie.imstack` or `ptie.flipstack` to 
             reconstruct. This is not the defocus index like in TIE. Default 
             value is -1 which corresponds to the most overfocused image. 
-        flipstack: Bool. Whether to pull the image from the ptie.dmrstack[i] or
+        flipstack (bool): (`optional`) Whether to pull the image from ptie.imstack[i] or
             ptie.flipstack[i]. Default is False, calls image from imstack.
+<<<<<<< HEAD
         v: Int. Verbosity. 
             0 : ##TODO no output
             1 : Default output
@@ -310,6 +363,30 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             'phase_m' : magnetic phase shift (radians),
             'color_b' : RGB image of magnetization,
         }
+=======
+        v (int): (`optional`) Verbosity. 
+
+            ===  ========
+            v    print output
+            ===  ========
+            0    No output
+            1    Default output
+            2    Extended output for debugging. 
+            ===  ======== 
+
+    Returns: 
+        dict: A dictionary of image arrays 
+        
+        =========  ==============
+        key        value
+        =========  ==============
+        'byt'      y-component of integrated magnetic induction
+        'bxt'      x-component of integrated magnetic induction
+        'bbt'      Magnitude of integrated magnetic induction
+        'phase_m'  Magnetic phase shift (radians)
+        'color_b'  RGB image of magnetization
+        =========  ==============
+>>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
     """
     results = {
         'byt' : None,
@@ -332,7 +409,7 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             defval = defvals[i]
         else:
             defval = ptie.defvals[0]
-        vprint(f'SITIE defocus: {defval} nm')
+        vprint(f'SITIE defocus: {defval:g} nm')
 
     right, left = ptie.crop['right'] , ptie.crop['left']
     bottom, top = ptie.crop['bottom'], ptie.crop['top']
@@ -385,7 +462,7 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
         hsvwheel=True, background='black')
     if v >= 1:
-        show_im(results['color_b'], "B field color, HSV colorhweel")
+        show_im(results['color_b'], "B field color, HSV colorhweel", cbar=False)
     
     # save the images
     if save: 
@@ -401,23 +478,29 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
     the TIE using the inverse Laplacian method. 
 
     Args: 
-        ptie: TIE_params object. Object containing the image from TIE_params.py
-        infocus: The infocus image. Should not have any zeros as we divide by it.
-        dIdZ: The intensity derivative. 
-        pscope : microscope object. Should have correct accelerating voltage as
-            the microscope that took the images.
-        sym: Boolean. Fourier edge effects are marginally improved by 
-            symmetrizing the images before reconstructing (image reconstructed 
-            is 4x as large). 
-        long_deriv: Bool. Whether or not the longitudinal derivative was used. 
+        ptie (``TIE_params`` object): Reconstruction parameters. 
+        infocus (2D array): The infocus image. Should not have any zeros as 
+            we divide by it.
+        dIdZ (2D array): The intensity derivative array. 
+        pscope (``Microscope`` object): Should have same accelerating voltage
+            as the microscope that took the images.
+        defval (float): The defocus value for the reconstruction. Not used if 
+            long_deriv == True. 
+        sym (bool): Fourier edge effects are marginally improved by 
+            symmetrizing the images before reconstructing. Default False.
+        long_deriv (bool): Whether or not the longitudinal derivative was used. 
             Only affects the prefactor. 
 
-    Returns: A dictionary of arrays.
-        results = {
-            'ind_y' : y-component of integrated induction,
-            'ind_x' : x-copmonent of integrated induction,
-            'phase' : phase shift (radians),
-        }
+    Returns: 
+        dict: A dictionary of image arrays 
+        
+        =========  ==============
+        key        value
+        =========  ==============
+        'ind_y'    y-component of integrated induction
+        'ind_x'    x-component of integrated induction
+        'phase'    Phase shift (radians)
+        =========  ==============
     """
     results = {}
     # actual image dimensions regardless of symmetrize 
@@ -487,7 +570,14 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
 
 
 def symmetrize(image):
-    """Makes the even symmetric extension of an image (4x as large)."""
+    """Makes the even symmetric extension of an image (4x as large).
+
+    Args:
+        image (2D array): input image (M,N)
+
+    Returns:
+        ``ndarray``: Numpy array of shape (2M,2N)
+    """
     sz_y, sz_x = image.shape
     dimy = 2 * sz_y
     dimx = 2 * sz_x
@@ -510,40 +600,60 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=No
     they can be opened as-is by ImageJ with the scale set. 
 
     Args: 
-        defval: Float. The defocus value for the reconstruction. Not used if 
+        defval (float): The defocus value for the reconstruction. Not used if 
             long_deriv == True. 
-        results: Dict. Dictionary containing the 2D numpy arrays. 
-        ptie: TIE_params object. 
-        dataname: String. Name attached to the saved images. 
-        sym: Bool. If the symmetrized method was used. Only relevant as its 
-            included in the recon_params.txt.
-        qc: Float. Same as sym, included in the text file. 
-        save: Bool or string. How much of the results directory to save.  
-            save = True    ->  saves all images. 
-            save = 'b'     ->  save just bx, by, and color_b
-            save = 'color' ->  saves just color_b
-        v: Int. Verbosity. 
-            1 : Default output (none)
-            2 : Extended output, prints files as saving. 
-        directory: String. The directory name to store the saved files. If 
-            default (None) saves to ptie.data_loc/Images/ 
-        long_deriv: Bool. Same as qc. Included in text file. 
+        results (dict): Dictionary containing the 2D numpy arrays. 
+        ptie (``TIE_params`` object): Reconstruction parameters. 
+        dataname (str): Name attached to the saved images. 
+        sym (bool): If the symmetrized method was used. Only relevant as its 
+            included in the recon_params.txt file.
+        qc (float): Same as sym, included in the text file. 
+        save (bool/str): How much of the results dictionary to save.
 
-    Returns: None
+            ===========  ============
+            input value  saved images
+            ===========  ============
+            True         All images   
+            'b'          bx, by, and color image
+            'color'      Color image  
+            ===========  ============
+
+            Files will be saved as 
+            ptie.data_loc/images/dataname_<defval>_<key>.tiff, where <key> is 
+            the key for the results dictionary that corresponds to the image. 
+        v (int): (`optional`) Verbosity. 
+
+            ===  ===============
+            v    print output
+            ===  ===============
+            0    No output
+            1    Default output
+            2    Extended output, prints filenames as saving. 
+            ===  ===============
+        directory (str): An override directory name to store the saved files. If 
+            None (default), saves to ptie.data_loc/Images/ 
+        long_deriv (bool): Same as qc. Included in text file. 
+
+    Returns: 
+        None
     """
     if long_deriv:
         defval = 'long'
 
+<<<<<<< HEAD
     print('Saving images')
     b_keys = ['byt', 'bxt', 'bbt', 'phase_e', 'phase_m',
               'dIdZ_m', 'dIdZ_e', 'color_b', 'inf_im']
+=======
+    if v >= 1: 
+        print('Saving images')
+>>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
     if save == 'b':
         b_keys = ['bxt', 'byt', 'color_b']
     elif save == 'color': 
         b_keys = ['color_b']
     
-    # for some reason imagej scale requires an int
-    res = np.int(1/ptie.scale) 
+    res = 1/ptie.scale 
     if not dataname.endswith('_'):
         dataname += '_'
     
@@ -566,13 +676,19 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=No
         else: 
             im = value.astype('float32')
         
-        save_name = dataname + str(defval)+'_' + key + '.tiff'
+        save_name = f"{dataname}{defval:g}_{key}.tiff"
         if v >= 2: 
             print(f'Saving {os.path.join(Path(save_path).absolute(), save_name)}')
         tifffile.imsave(os.path.join(save_path, save_name), im, 
+<<<<<<< HEAD
                         imagej=True,
                         resolution=(res, res),
                         metadata={'unit': 'um'})
+=======
+            imagej = True,
+            resolution = (res, res),
+            metadata={'unit': 'nm'})
+>>>>>>> 1b98318eaf935ed7960e6631505faacac73c274c
 
     # make a txt file with parameters: 
     with open(os.path.join(save_path, dataname + str(defval) + '_' + "recon_params.txt"), "w") as txt:
@@ -580,13 +696,9 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=No
         txt.write("Defocus value: {} nm\n".format(defval))
         txt.write("Full E and M reconstruction: {} \n".format(ptie.flip))
         txt.write("Symmetrized: {} \n".format(sym))
-        txt.write("Thikonov filter: {} \n".format(qc))
+        txt.write("Tikhonov filter: {} \n".format(qc))
         txt.write("Longitudinal derivative: {} \n".format(long_deriv))
 
     return
 
-def print2(v=1, *args):
-    """A helper print function to disable outputs if verbosity = 0"""
-    if v>=1:
-        print(args)
-    return
+### End ###
