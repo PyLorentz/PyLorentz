@@ -7,7 +7,7 @@ References
 LTEM References
 ---------------
 
-For a brief introduction to Lorentz Transmission Electron Microscpy, the following papers and textbooks may be of some assistance: 
+For a brief introduction to Lorentz Transmission Electron Microscopy, the following papers and textbooks may be of some assistance: 
 
 - `Phatak, C., Petford-Long, A. K. & De Graef, M. Recent advances in Lorentz microscopy. <https://doi.org/10.1016/j.cossms.2016.01.002>`_ 
 

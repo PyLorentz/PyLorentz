@@ -3,7 +3,7 @@
 This module contains several routines for plotting colormaps from input 
 data consisting of 2D images of the vector field. The output image
 will be stored as a tiff color image. There are options to save it
-using a custom RGB or standard HSV colorwheel.
+using a custom RGB or standard HSV color-wheel.
 
 Author: Arthur McCray, C. Phatak, ANL, Summer 2019.
 """
@@ -23,11 +23,11 @@ def color_im(Bx, By, rad = None, hsvwheel = True, background = 'black'):
             field
         By (2D array): (M x N) array consisting of the y-component of the vector
             field 
-        rad (int): (`optional`) Radius of colorwheel in pixels. (default None -> height/16)
-            Set rad = 0 to remove colorhweel. 
+        rad (int): (`optional`) Radius of color-wheel in pixels. (default None -> height/16)
+            Set rad = 0 to remove color-wheel. 
         hsvwheel (bool): 
-            - True  -- (default) use a standard HSV colorhweel (3-fold)
-            - False -- use a four-fold colorwheel
+            - True  -- (default) use a standard HSV color-wheel (3-fold)
+            - False -- use a four-fold color-wheel
         background (str): 
             - 'black' -- (default) magnetization magnitude corresponds to value.
             - 'white' -- magnetization magnitude corresponds to saturation. 
@@ -46,7 +46,7 @@ def color_im(Bx, By, rad = None, hsvwheel = True, background = 'black'):
     bmag = np.sqrt(Bx**2 + By**2) 
 
     if rad > 0: 
-        pad = 10 # padding between edge of image and colorhweel
+        pad = 10 # padding between edge of image and color-wheel
     else:
         pad = 0
         rad = 0
@@ -55,7 +55,7 @@ def color_im(Bx, By, rad = None, hsvwheel = True, background = 'black'):
     cimage = np.zeros((dimy, dimx, 3))
 
     if hsvwheel:
-        # Here we will proceed with using the standard HSV colorwheel routine.
+        # Here we will proceed with using the standard HSV color-wheel routine.
         # Get the Hue (angle) as By/Bx and scale between [0,1]
         hue = (np.arctan2(By,Bx) + np.pi)/(2*np.pi)
 
@@ -72,9 +72,9 @@ def color_im(Bx, By, rad = None, hsvwheel = True, background = 'black'):
                 'black' -> magnetization magnitude corresponds to value."""))
             sys.exit(1)
 
-        if rad > 0: # add the colorhweel
+        if rad > 0: # add the color-wheel
             cimage[:,:-2*rad-pad,:] = cb
-            # make the colorwheel and add to image
+            # make the color-wheel and add to image
             wheel = colorwheel_HSV(rad, background = background)
             cimage[dimy//2-rad:dimy//2+rad, dimx-2*rad - pad//2:-pad//2,:] = wheel
         else: 
@@ -117,7 +117,7 @@ def color_im(Bx, By, rad = None, hsvwheel = True, background = 'black'):
         cimage[:, :dimx - 2*rad - pad, 2] = blue
         cimage = cimage/np.max(cimage)
 
-        # add colorwheel
+        # add color-wheel
         if rad > 0:
             mid_y = dimy // 2 
             cimage[mid_y-rad : mid_y+rad, dimx-2*rad:, :] = colorwheel_RGB(rad)
@@ -126,11 +126,11 @@ def color_im(Bx, By, rad = None, hsvwheel = True, background = 'black'):
 
 
 def colorwheel_HSV(rad, background):
-    """Creates an HSV colorwheel as a np array to be inserted into the cimage.
+    """Creates an HSV color-wheel as a np array to be inserted into the color-image.
     
     Args:
-        rad (int): (`optional`) Radius of colorwheel in pixels. (default None -> height/16)
-            Set rad = 0 to remove colorhweel. 
+        rad (int): (`optional`) Radius of color-wheel in pixels. (default None -> height/16)
+            Set rad = 0 to remove color-wheel. 
         background (str): 
             - 'black' -- (default) magnetization magnitude corresponds to value.
             - 'white' -- magnetization magnitude corresponds to saturation. 
@@ -161,11 +161,11 @@ def colorwheel_HSV(rad, background):
 
 
 def colorwheel_RGB(rad):
-    """Makes a 4-quadrant RGB colorwheel as a np array to be inserted into the cimage
+    """Makes a 4-quadrant RGB color-wheel as a np array to be inserted into the color-image
     
     Args:
-        rad (int): (`optional`) Radius of colorwheel in pixels. (default None -> height/16)
-            Set rad = 0 to remove colorhweel. 
+        rad (int): (`optional`) Radius of color-wheel in pixels. (default None -> height/16)
+            Set rad = 0 to remove color-wheel. 
 
     Returns:
         ``ndarray``: Numpy array of shape (2*rad, 2*rad). 

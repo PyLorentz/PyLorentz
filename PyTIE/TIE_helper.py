@@ -426,7 +426,7 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
         color (bool): (`optional`) Whether or not to show a colormap underneath 
             the arrow plot. Color image is made from colorwheel.color_im(). 
         hsv (bool): (`optional`) Only relevant if color == True. Whether to use 
-            an hsv or 4-fold colorwheel in the color image. 
+            an hsv or 4-fold color-wheel in the color image. 
         origin (str): (`optional`) Control image orientation. 
         save (str): (`optional`) Path to save the figure. 
 

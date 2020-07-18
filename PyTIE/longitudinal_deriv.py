@@ -27,7 +27,7 @@ def polyfit_deriv(stack, defvals, v=1):
 
     Args:
         stack (3D array): NumPy array (L x M x N). There are L individual 
-            (M x N) iamges.
+            (M x N) images.
         defvals (1D array): Array of length L. The defocus values of the images.
         v (int): Verbosity. Set v=0 to suppress all print statements. 
 

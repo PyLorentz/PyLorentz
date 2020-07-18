@@ -237,7 +237,7 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, del_px = 1, isl_shape=None, 
 def load_ovf(file=None, sim='norm', B0=1e4, v=1): 
     """ Load a .ovf or .omf file of magnetization values. 
 
-    This function takes magnetization output files from OOMMF or mumax, pulls 
+    This function takes magnetization output files from OOMMF or Mumax, pulls 
     some data from the header and returns 3D arrays for each magnetization 
     component as well as the pixel resolutions. 
 
@@ -245,7 +245,7 @@ def load_ovf(file=None, sim='norm', B0=1e4, v=1):
         file (string): Path to file
         sim (string): Define how the magnetization is scaled as it's read from
             the file. OOMMF writes .omf files with vectors in units of A/m, 
-            while mumax writes .omf files with vectors normalized. This allows 
+            while Mumax writes .omf files with vectors normalized. This allows 
             the reading to scale the vectors appropriately to gauss or simply 
             make sure everything is normalized (as is needed for the phase 
             calculation). 
@@ -432,7 +432,7 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     The image simulation step uses the Mansuripur algorithm [1] for calculating 
     the phase shift if theta_x and theta_y == 0, as it is computationally very
     efficient. For nonzero tilts it employs the linear superposition method for 
-    deteriming phase shift, which allows for 3d magnetization inputs and robust
+    determining phase shift, which allows for 3d magnetization inputs and robust
     tilting the sample. A substrate can be accounted for as well, though it is 
     assumed to be uniform and non-magnetic, i.e. applying a uniform phase shift. 
 
@@ -473,7 +473,7 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
             Default None -> Uniform thickness, equivalent to array of 1's. 
 
         pscope (``Microscope`` object): Contains all microscope parameters such 
-            as accelerating voltage, aberations, etc., along with the methods to
+            as accelerating voltage, aberrations, etc., along with the methods to
             propagate the electron wave function. 
         def_val (float): The defocus values at which to calculate the images.
         theta_x (float): Rotation around x-axis (degrees). Default 0. 
@@ -622,7 +622,7 @@ def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
     """ Display a 3D vector field with arrows. 
 
     Arrow color is determined by direction, with in-plane mapping to a HSV 
-    colorwheel and out of plane to white (+z) and black (-z). 
+    color-wheel and out of plane to white (+z) and black (-z). 
 
     Plot can be manipulated by clicking and dragging with the mouse. a, ay, and 
     az control the  number of arrows that will be plotted along each axis, i.e. 

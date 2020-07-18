@@ -1,6 +1,6 @@
 PyLorentz Features and Code
 ===========================
-The PyLorentz code is written to be accessible and easily integrated into existing workflows. However it is still possible to get wrong results if one doesn't have familiarity with the systems involved, which in this case are both the materials involved as well as LTEM. It can be easy to arrive at results that aren't physically possible, especially when simulating samples. PyLorentz can not protect against this beyond providing a few :ref:`references <LTEM_background>` that give some background on LTEM. 
+The PyLorentz code is written to be accessible and easily integrated into existing work-flows. However it is still possible to get wrong results if one doesn't have familiarity with the systems involved, which in this case are both the materials involved as well as LTEM. It can be easy to arrive at results that aren't physically possible, especially when simulating samples. PyLorentz can not protect against this beyond providing a few :ref:`references <LTEM_background>` that give some background on LTEM. 
 
 Additionally, while the TIE GUI is a complete product intending to make PyLorentz accessible to everyone, to access all of the features and get the most out of this product a user would find it helpful to be familiar with basic python.  
 
@@ -17,7 +17,7 @@ Features
 
 * Uses inverse Laplacian method to solve the Transport of Intensity Equation (TIE)
 * Can reconstruct the magnetization from samples of variable thickness by using two through focal series (tfs) taken with opposite electron beam directions. :ref:`[1] <TIE_refs>`
-* Samples of uniform thicknss can be reconstructed from a single tfs.
+* Samples of uniform thickness can be reconstructed from a single tfs.
 * Thin samples of uniform thickness, from which the only source of contrast is magnetic Fresnel contrast, can be reconstructed with a single defocused image using Single-Image-TIE (SITIE). 
 
 	* This  method does not apply to all samples; for more information please refer to Chess et al. :ref:`[2]<TIE_refs>`. 
@@ -33,11 +33,11 @@ Features
 
 **SimLTEM**
 
-* Easily import .omf and .ovf file outputs from OOMMF and mumax. 
+* Easily import .omf and .ovf file outputs from OOMMF and Mumax. 
 * Calculate electron phase shift through samples of a given magnetization with either the Mansuripur algorithm or linear superposition method. 
 * Simulate LTEM images from these phase shifts and reconstruct the magnetic induction for comparison with experimental results. 
 * Automate full tilt series for tomographic reconstruction of 3D magnetic samples. 
-* PyLorentz code is easily integrated into existing python workflows. 
+* PyLorentz code is easily integrated into existing python work-flows. 
 
 **GUI/Align**
 

@@ -14,6 +14,6 @@ Licensed under the BSD 3-Clause License. For details, please refer to the `LICEN
 
 PyLorentz has a DOI through Zenodo: `link <https://zenodo.org/badge/latestdoi/263821805>`_
 
-**Acknowledgements**
+**Acknowledgments**
  
 This work was supported by the U.S. Department of Energy, Office of Science, Office of Basic Energy Sciences, Materials Sciences and Engineering Division.

@@ -1,7 +1,7 @@
 """Module containing TIE and SITIE reconstruction routines. 
 
 Routines for solving the transport of intensity equation; for use with Lorentz
-TEM throughfocal series to reconstruct B field magnetization of the sample. 
+TEM through focal series (tfs) to reconstruct B field magnetization of the sample. 
 
 Known Bugs: 
 
@@ -105,9 +105,9 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         unders = list(reversed([-1*ii for ii in ptie.defvals]))
         defval = unders + [0] + ptie.defvals
         if ptie.flip:
-            vprint('Aligning with complete longitudinal derivates:\n', defval, '\nwith both flip/unflip tfs.')
+            vprint('Aligning with complete longitudinal derivatives:\n', defval, '\nwith both flip/unflip tfs.')
         else:
-            vprint('Aligning with complete longitudinal derivates:\n', defval, '\nwith only unflip tfs.')
+            vprint('Aligning with complete longitudinal derivatives:\n', defval, '\nwith only unflip tfs.')
     else:
         defval = ptie.defvals[i]
         if ptie.flip:
@@ -138,7 +138,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
             vprint("Reconstructing with Tikhonov value: {:}".format(qc))
 
         qi = q**2 / (q**2 + qc**2)**2
-    else: # normal laplacian method
+    else: # normal Laplacian method
         vprint("Reconstructing with normal Laplacian method")
         qi = 1 / q**2
     qi[0, 0] = 0
@@ -247,7 +247,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
 def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=-1, flipstack=False, v=1):
     """Uses a modified derivative to get the magnetic phase shift with TIE from a single image.
 
-    This technique is only appplicable to uniformly thin samples from which the 
+    This technique is only applicable to uniformly thin samples from which the 
     only source of contrast is magnetic Fresnel contrast. All other sources of 
     contrast including sample contamination, thickness variation, and diffraction 
     contrast will give false magnetic inductions. For more information please 
@@ -434,7 +434,7 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
         y = dim_y
         x = dim_x
 
-    # fourier transform of longitudnal derivatives
+    # Fourier transform of longitudinal derivatives
     fft1 = np.fft.fft2(dIdZ)  
 
     # applying 2/3 qc cutoff mask (see de Graef 2003)
@@ -444,7 +444,7 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
     qc_mask = np.fft.ifftshift(qc_mask)
     fft1 *= qc_mask
         
-    # apply first inverse laplacian operator
+    # apply first inverse Laplacian operator
     tmp1 = -1*np.fft.ifft2(fft1*qi) 
     
     # apply gradient operator and divide by in focus image

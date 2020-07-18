@@ -173,7 +173,7 @@ def mansPhi(mx = 1.0,my = 1.0,mz = None,beam = [0.0,0.0,1.0],thick = 1.0,embed =
     degrees (depending on sample conditions) it loses accuracy. 
 
     The `embed` argument places the magnetization into a larger array to increase
-    fourier resolution, but this also seems to introduce a background phase shift
+    Fourier resolution, but this also seems to introduce a background phase shift
     into some images. Use at your own risk. 
 
     Args: 
@@ -184,7 +184,7 @@ def mansPhi(mx = 1.0,my = 1.0,mz = None,beam = [0.0,0.0,1.0],thick = 1.0,embed =
         thick (float): Thickness of the sample in pixels. i.e. thickness in nm 
             divided by del_px which is nm/pixel. 
         embed (int): Whether or not to embed the mx, my, mz into a larger array
-            for fourier-space computation. In theory this improves edge effects 
+            for Fourier-space computation. In theory this improves edge effects 
             at the cost of reduced speed, however it also seems to add a 
             background phase gradient in some simulations. 
 

@@ -169,22 +169,22 @@ class TIE_params(object):
         return -1 * self.scale**2 / (16 * np.pi**3 * pscope.lam * def_step) 
 
 
-    def make_mask(self, imstack = None, threshhold=0):
+    def make_mask(self, imstack = None, threshold=0):
         """Sets self.mask to be a binary bounding mask from imstack and flipstack. 
         
-        Makes all images binary using a threshhold value, and then 
+        Makes all images binary using a threshold value, and then 
         multiplies these arrays. Can also take a stack of images that aren't 
         signal2D. 
 
-        The inverse laplacian reconstruction does not deal well with a mask that 
+        The inverse Laplacian reconstruction does not deal well with a mask that 
         is all ones, that is accounted for in TIE() function rather than here. 
 
         Args: 
             imstack (list): (`optional`) List of arrays or Signal2D objects from 
                 which to make mask Default will use self.imstack and 
                 self.flipstack
-            threshhold (float): (`optional`) Pixel value with which to 
-                threshhold the images. Default is 0. 
+            threshold (float): (`optional`) Pixel value with which to 
+                threshold the images. Default is 0. 
 
         Returns: 
             None. Assigns result to self.mask()
@@ -199,11 +199,11 @@ class TIE_params(object):
 
         if type(imstack[0]) == hyperspy._signals.signal2d.Signal2D:
             for sig in imstack:
-                im_mask = np.where(sig.data <= threshhold, 0, 1)
+                im_mask = np.where(sig.data <= threshold, 0, 1)
                 mask *= im_mask
         else: # assume they're images
             for im in imstack:
-                im_mask = np.where(im <= threshhold, 0, 1)
+                im_mask = np.where(im <= threshold, 0, 1)
                 mask *= im_mask
 
         # shrink mask slightly 
