@@ -442,12 +442,17 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
     U = mag_x 
     V = mag_y 
     
-    aspect = dimy/dimx
     sz_inches = 8
-    fig, ax = plt.subplots(figsize=(aspect*sz_inches, sz_inches))
+    rad = mag_x.shape[0]//16
+    rad = max(rad, 16)
+    pad=10 #pixels
+    width = np.shape(mag_y)[1] + 2*rad + pad
+    aspect = dimy/width
+
+    fig, ax = plt.subplots(figsize=(8,8/aspect))
     if color:
         from colorwheel import color_im
-        im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv), cmap = 'gray',
+        im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap = 'gray',
                         origin=origin)
 
     if color: 
@@ -478,7 +483,7 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
 
     plt.tick_params(axis='x',labelbottom=False, bottom=False, top=False)
     plt.tick_params(axis='y',labelleft=False, left=False, right=False)
-    ax.set_aspect(aspect)
+    # ax.set_aspect(aspect)
     plt.show()
 
     if save is not None: 
