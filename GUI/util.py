@@ -26,8 +26,7 @@ import hyperspy.api as hs
 from matplotlib import cm as mpl_cm
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
-from PySimpleGUI import Graph
-
+import PySimpleGUI as sg
 # Miscellaneous to potentially apply later:
 # https://imagejdocu.tudor.lu/plugin/utilities/python_dm3_reader/start
 # https://python-forum.io/Thread-Tkinter-createing-a-tkinter-photoimage-from-array-in-python3
@@ -574,7 +573,7 @@ def run_macro(ijm_macro_script: str, key: str,
 # ============================================================= #
 #                 Mask Interaction on GUI Graph                 #
 # ============================================================= #
-def draw_mask_points(winfo: Struct, graph: Graph,
+def draw_mask_points(winfo: Struct, graph: sg.Graph,
                      current_tab: str, double_click: bool = False) -> None:
     """Draw mask markers to appear on graph.
 
@@ -611,7 +610,7 @@ def draw_mask_points(winfo: Struct, graph: Graph,
             winfo.rec_mask_markers.append(id)
 
 
-def erase_marks(winfo: Struct, graph: Graph,
+def erase_marks(winfo: Struct, graph: sg.Graph,
                      current_tab: str, full_erase: bool = False) -> None:
     """Erase markers off graph. Delete stored markers if full_erase enabled.
 
@@ -669,7 +668,7 @@ def create_mask(winfo: Struct, filenames: List[str], ref_img: FileImage):
         imwrite(f"{filename}", img)
 
 
-def draw_square_mask(winfo: Struct, graph: Graph) -> None:
+def draw_square_mask(winfo: Struct, graph: sg.Graph) -> None:
     """Create the square mask for the REC graph.
 
         Args:
@@ -731,4 +730,4 @@ def draw_square_mask(winfo: Struct, graph: Graph) -> None:
         y_bottom = graph_y
 
     winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
-
+    print('Set mask coords:', winfo.rec_mask_coords)

@@ -1710,7 +1710,6 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
     bottom, top, left, right = None, None, None, None
     for i in range(len(winfo.rec_mask_coords)):
         x, y = winfo.rec_mask_coords[i]
-        print('winfo mask coords', i, 'x, y')
         if right is None or x > right:
             right = x
         if left is None or x < left:
@@ -1751,10 +1750,8 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
                     bottom += 1
 
     # Set ptie crop
-    scaled_right, scaled_left = round(right * scale_x), round(left * scale_x)
+    scaled_left, scaled_right = round(left * scale_x), round(right * scale_x)
     scaled_bottom, scaled_top = round(bottom * scale_y), round(top * scale_y)
-    print('Scaled left and right', scaled_right, scaled_left)
-    print('Scaled bottom and top', scaled_bottom, scaled_top)
     ptie.crop['right'], ptie.crop['left'] = scaled_right, scaled_left
     ptie.crop['bottom'], ptie.crop['top'] = scaled_bottom, scaled_top
 

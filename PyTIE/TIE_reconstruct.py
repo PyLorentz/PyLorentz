@@ -145,8 +145,23 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     qi[0, 0] = 0
     ptie.qi = qi # saves the freq dist
 
+    # If rotation and translation to be applied
+    if ptie.rotation != 0 or ptie.x_transl != 0 or ptie.y_transl != 0:
+        rotate, x_shift, y_shift = ptie.rotation, ptie.x_transl, ptie.y_transl
+        for ii in range(len(tifs)):
+            tifs[ii] = scipy.ndimage.rotate(tifs[ii], rotate, reshape=False, order=0)
+            tifs[ii] = scipy.ndimage.shift(tifs[ii], (-y_shift, x_shift), order=0)
+        mask = scipy.ndimage.rotate(ptie.mask, rotate, reshape=False, order=0)
+        mask = scipy.ndimage.shift(mask, (-y_shift, x_shift), order=0)
+
+    # crop images and apply mask
+    if ptie.rotation == 0 and ptie.x_transl == 0 and ptie.y_transl == 0:
+        mask = ptie.mask[top:bottom, left:right]
+    else:
+        mask = mask[top:bottom, left:right]
+
     # crop images and apply mask 
-    mask = ptie.mask[top:bottom, left:right]
+    # mask = ptie.mask[top:bottom, left:right]
     for ii in range(len(tifs)):
         tifs[ii] = tifs[ii][top:bottom, left:right]
         tifs[ii] *= mask
@@ -333,7 +348,7 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
     right, left = ptie.crop['right']  , ptie.crop['left']
     bottom, top = ptie.crop['bottom'] , ptie.crop['top']
     dim_y = bottom - top 
-    dim_x = right - left 
+    dim_x = right - left
 
     if flipstack:
         print("Reconstructing with single flipped image.")
