@@ -634,7 +634,7 @@ class WindowStyle(object):
                 val.update(pad=((5, 0), (4, 5)), disabled=True)
             elif key == '__REC_Mask__':
                 val.update(pad=((50, 0), (4, 4)), disabled=True,
-                           metadata={'Set': 'Confirm Mask', 'Def': 'Select Mask',
+                           metadata={'Set': 'Confirm Region', 'Def': 'Select Region',
                                      'State': 'Def'})
             elif key == '__REC_Erase_Mask__':
                 val.update(disabled=True, pad=((10, 0), (4, 4)))
@@ -663,7 +663,7 @@ class WindowStyle(object):
                 val.update(size=(16, 1), disabled=True,
                            default_value='Central Diff.', pad=((8, 0), (5, 0)))
             elif key == '__REC_Colorwheel__':
-                val.update(size=(8, 1), disabled=True,
+                val.update(size=(6, 1), disabled=True,
                            default_value='HSV', pad=((8, 0), (3, 0)))
             # Checkbox Element
             elif key == '__REC_Symmetrize__':
@@ -687,7 +687,6 @@ class WindowStyle(object):
                 val.update(filename=background_img, background_color=theme_background, pad=((5, 5), (28, 0)),
                            metadata={'Set': spinner_gif, 'Def': background_img,
                                      'State': 'Def'})
-
             # Input field element
             elif key == '__REC_Stack__':
                 val.update(size=(24, 1), use_readonly_for_disable=True,
@@ -711,15 +710,15 @@ class WindowStyle(object):
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7')
             elif key == '__REC_transform_rot__':
-                val.update(pad=(5, 5), size=(4, 1),
+                val.update(pad=(5, 5), size=(4, 1), disabled=True,
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7')
             elif key == '__REC_transform_x__':
-                val.update(pad=(5, 5), size=(4, 1),
+                val.update(pad=(5, 5), size=(4, 1), disabled=True,
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7')
             elif key == '__REC_transform_y__':
-                val.update(pad=(5, 5), size=(4, 1),
+                val.update(pad=(5, 5), size=(4, 1), disabled=True,
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7')
             elif key == '__REC_Mask_Size__':
@@ -729,10 +728,15 @@ class WindowStyle(object):
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7')
             elif key == '__REC_QC_Input__':
-                val.update(pad=((8, 0), (7, 0)),
+                val.update(pad=((8, 0), (7, 0)), disabled=True,
                            size=(6, 1), justification='right',
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7')
+            elif key == '__REC_Arrow_Num__':
+                val.update(justification='right', disabled=True,
+                           use_readonly_for_disable=True,
+                           disabled_readonly_background_color='#A7A7A7',
+                           size=(3, 1), pad=((0, 0), (4, 0)))
             elif key == '__REC_Image_Dir_Path__':
                 val.update(size=(35, 1), pad=((2, 0), (7, 0)),
                            use_readonly_for_disable=True,
@@ -759,10 +763,10 @@ class WindowStyle(object):
                            disabled=True, enable_events=True, orientation='vertical',
                            default_value=0, metadata={'slider_range': (0, 0)})
             elif key == '__REC_Image_Slider__':
-                val.update(range=(0, 6), disable_number_display=True,
+                val.update(range=(0, 7), disable_number_display=True,
                            pad=((0, 0), (1, 0)), size=(7, 16),
                            enable_events=True, orientation='vertical',
-                           default_value=6, metadata={'slider_range': (0, 6)})
+                           default_value=7, metadata={'slider_range': (0, 7)})
             elif key == '__REC_Defocus_Slider__':
                 val.update(range=(0, 0), disable_number_display=True,
                            pad=((0, 0), (1, 0)), size=(4, 16),
