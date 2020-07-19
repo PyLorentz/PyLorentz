@@ -499,4 +499,7 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         dpi2 = max(dimy, dimx) * 5 / sz_inches
         plt.savefig(save, dpi=dpi2, bbox_inches='tight', transparent=tr)
 
-    return fig
+    if GUI_handle:
+        return fig
+    else:
+        return
