@@ -409,7 +409,7 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
 
     
 def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=True,
-            origin='upper', save=None, GUI_handle=False):
+            origin='upper', save=None, GUI_handle=False, GUI_color_array=None):
     """ Display a 2D vector arrow plot. 
 
     Quiver doesn't allow setting the origin as "upper" for some reason. Just 
@@ -453,9 +453,12 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
 
     fig, ax = plt.subplots(figsize=(8, 8/aspect))
     if color:
-        from colorwheel import color_im
-        im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap='gray',
-                        origin=origin)
+        if not GUI_handle:
+            from colorwheel import color_im
+            im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap='gray',
+                       origin=origin)
+        else:
+            im = ax.matshow(GUI_color_array, cmap='gray', origin=origin)
         arrow_color = 'white'
         plt.axis('off')
     else:

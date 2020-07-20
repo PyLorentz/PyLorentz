@@ -168,11 +168,12 @@ def init_rec(winfo: Struct, window: sg.Window) -> None:
     winfo.rec_qc = None
     winfo.rec_microscope = None
     winfo.rec_colorwheel = None
+    winfo.rec_past_recon_thread = None
 
     # --- Set up loading files --- #
     winfo.rec_defocus_slider_set = 0
     winfo.rec_image_slider_set = 7
-    winfo.rec_image_slider_dict = {'Stack': 0, 'Color': 1,
+    winfo.rec_image_slider_dict = {'Stack': 0, 'Color': 1, 'Vector Im.': 2,
                                    'MagX': 3, 'MagY': 4, 'Mag': 5,
                                    'Electr. Phase': 6, 'Mag. Phase': 7,
                                    'Electr. Deriv.': 8, 'Mag. Deriv.': 9,
@@ -360,7 +361,8 @@ def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
         change_list_ind_color(window, current_tab, [('__REC_Image_List__', [])])
         change_inp_readonly_bg_color(window, ['__REC_Stack__', '__REC_FLS1__',
                                               '__REC_FLS2__', '__REC_Data_Prefix__',
-                                              '__REC_QC_Input__', '__REC_Arrow_Num__'], 'Readonly')
+                                              '__REC_QC_Input__', '__REC_Arrow_Num__',
+                                              '__REC_Arrow_Len__', '__REC_Arrow_Wid__'], 'Readonly')
         update_values(winfo, window, [('__REC_Image_Dir_Path__', ""), ('__REC_Image__', 'None'),
                                       ('__REC_transform_x__', '0'), ('__REC_transform_y__', '0'),
                                       ('__REC_transform_rot__', "0"), ('__REC_Mask_Size__', '50'),
@@ -368,7 +370,8 @@ def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
                                       ('__REC_FLS2_Staging__', ''), ('__REC_Colorwheel__', 'HSV'),
                                       ('__REC_Def_Combo__', 'None'), ('__REC_QC_Input__', '0.00'),
                                       ('__REC_Data_Prefix__', 'Example'), ('__REC_M_Volt__', '200'),
-                                      ('__REC_Arrow_Num__', '15')])
+                                      ('__REC_Arrow_Num__', '15'), ('__REC_Arrow_Len__', '1'),
+                                      ('__REC_Arrow_Wid__', '1'), ('__REC_Arrow_Color__', 'On')])
 
         # Re-init reconstruct
         init_rec(winfo, window)
@@ -1759,7 +1762,6 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
         try:
             print(f'REC: Reconstructing for defocus value: {ptie.defvals[def_ind]} nm')
             rot, x_trans, y_trans = (winfo.rec_transform[0], winfo.rec_transform[1], winfo.rec_transform[2])
-            print('Translations', x_trans, y_trans)
             ptie.rotation, ptie.x_transl, ptie.y_transl = float(rot), int(x_trans), int(y_trans)
             results = TIE(def_ind, ptie, microscope,
                           dataname, sym, qc, save, hsv,
@@ -1792,7 +1794,9 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
                 uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
                                                                      uint8_data, float_data)
                 if uint8_data:
-                    image = g_help.FileImage(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), f'/{key}')
+                    image = g_help.FileImage(uint8_data, float_data, (winfo.graph_slice[0],
+                                                                      winfo.graph_slice[1], 1), f'/{key}',
+                                             float_array=float_array)
                     image.byte_data = g_help.vis_1_im(image)
                     winfo.rec_images[key] = image
                     loaded_green_list.append(key)
@@ -1815,7 +1819,7 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
         except:
             print(f'REC: There was an error when running TIE.')
             raise
-    # enable_elements(winfo, winfo.window, ["__REC_Reset_FLS__", "__REC_Reset_Img_Dir__"])
+
     winfo.ptie_recon_thread = None
     print('--- Exited Reconstruction ---')
 
@@ -3426,6 +3430,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                        '__REC_Load_FLS2__', '__REC_Load_Stack__', '__REC_Image_List__',
                        '__REC_M_Volt__', '__REC_Def_Combo__', '__REC_QC_Input__',
                        "__REC_Reset_FLS__", "__REC_TFS_Combo__", "__REC_Arrow_Num__",
+                       '__REC_Arrow_Wid__', '__REC_Arrow_Len__', '__REC_Arrow_Color__',
                        '__REC_Mask_Size__', '__REC_Mask__', "__REC_Erase_Mask__",
                        "__REC_transform_y__", "__REC_transform_x__", "__REC_transform_rot__",
                        '__REC_Data_Prefix__', '__REC_Run_TIE__', '__REC_Save_TIE__',
@@ -3453,9 +3458,11 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 enable_list.extend(['__REC_Mask__', '__REC_Erase_Mask__',
                                     '__REC_Data_Prefix__', '__REC_Def_Combo__',
                                     '__REC_QC_Input__', "__REC_Derivative__",
-                                    "__REC_Colorwheel__", "__REC_Arrow_Num__"])
+                                    "__REC_Colorwheel__"])
                 if window['__REC_Mask__'].metadata['State'] == 'Def':
                     enable_list.extend(['__REC_Run_TIE__'])
+                    enable_list.extend(["__REC_Arrow_Num__", '__REC_Arrow_Color__',
+                                        '__REC_Arrow_Wid__', '__REC_Arrow_Len__'])
                 else:
                     enable_list.extend(['__REC_Mask_Size__', "__REC_transform_y__",
                                         "__REC_transform_x__",  "__REC_transform_rot__"])
@@ -3498,6 +3505,28 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     image_dir = winfo.rec_image_dir
     images = winfo.rec_images
     colorwheel_choice = window['__REC_Colorwheel__'].Get()[0]
+
+    if winfo.ptie_recon_thread is not None:
+        winfo.rec_past_recon_thread = 'alive'
+    elif winfo.ptie_recon_thread is None and winfo.rec_past_recon_thread is not None:
+        if 'color_b' in images:
+            # Add the vector image
+            hsv = window['__REC_Colorwheel__'].get() == 'HSV'
+            color_float_array = images['color_b'].float_array
+            mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
+            vector_color = window['__REC_Arrow_Color__'].get()
+            vector_num = int(window['__REC_Arrow_Num__'].get())
+            vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
+            byte_img = g_help.add_vectors(mag_x, mag_y, color_float_array,
+            vector_color, hsv, vector_num, vector_len, vector_wid, save = None)
+            shape = color_float_array.shape
+            im = g_help.FileImage(np.empty(shape), np.empty(shape),
+                                  (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
+            im.byte_data = byte_img
+            winfo.rec_images['vector'] = im
+            redraw_graph(graph, winfo.rec_images['vector'].byte_data)
+            print('hi')
+        winfo.rec_past_recon_thread = None
 
     # if 'TIMEOUT' not in event:
     #     print(event)
@@ -3871,7 +3900,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         elif image_choice == 'Color':
             image_key = 'color_b'
             im_name = 'Color'
-        elif image_choice == 'Vector_Im':
+        elif image_choice == 'Vector Im.':
             image_key = 'vector'
             im_name = 'Vectorized Msat'
         elif image_choice == 'MagX':
@@ -3978,9 +4007,9 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             draw_mask = False
         colorwheel_graph.Erase()
         window['__REC_Image_List__'].update(set_to_index=0, scroll_to_index=0)
-        update_slider(winfo, window, [('__REC_Image_Slider__', {"value": 6})])
+        update_slider(winfo, window, [('__REC_Image_Slider__', {"value": 7})])
         winfo.rec_last_image_choice = 'Stack'
-        winfo.rec_image_slider_set = 6
+        winfo.rec_image_slider_set = 7
 
     # Clicking on graph and making markers for mask
     elif event in ['__REC_Graph__', '__REC_Graph__+UP'] and mask_button.metadata['State'] == 'Set':
@@ -4017,7 +4046,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     elif event == '__REC_Run_TIE__':
         # Make sure stack still exists before trying to run PyTIE
         stack_path = window['__REC_Stack__'].Get()
-        print(g_help.join([image_dir, stack_path], '/'))
         if os_path.exists(g_help.join([image_dir, stack_path], '/')):
             change_inp_readonly_bg_color(window, ['__REC_Data_Prefix__', '__REC_QC_Input__'], 'Readonly')
             winfo.ptie_recon_thread = Thread(target=ptie_recon_thread,
@@ -4076,7 +4104,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             results = winfo.rec_tie_results
 
             results['color_b'] = color_im(results['bxt'], results['byt'],
-                                   hsvwheel=hsvwheel, background='black')
+                                          hsvwheel=hsvwheel, background='black')
             float_array = g_help.slice(results['color_b'], winfo.graph_slice)
             uint8_data, float_data = {}, {}
             uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),

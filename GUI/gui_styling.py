@@ -628,10 +628,10 @@ class WindowStyle(object):
                 val.update(pad=((5, 0), (7, 0)))
             # Button Element
             elif key == '__REC_Set_FLS__':
-                val.update(pad=((130, 0), (4, 5)), disabled=True,
+                val.update(pad=((130, 0), (2, 5)), disabled=True,
                            metadata={'State': 'Def'})
             elif key == '__REC_Reset_FLS__':
-                val.update(pad=((5, 0), (4, 5)), disabled=True)
+                val.update(pad=((5, 0), (2, 5)), disabled=True)
             elif key == '__REC_Mask__':
                 val.update(pad=((50, 0), (4, 4)), disabled=True,
                            metadata={'Set': 'Confirm Region', 'Def': 'Select Region',
@@ -665,6 +665,9 @@ class WindowStyle(object):
             elif key == '__REC_Colorwheel__':
                 val.update(size=(6, 1), disabled=True,
                            default_value='HSV', pad=((8, 0), (3, 0)))
+            elif key == '__REC_Arrow_Color__':
+                val.update(size=(3, 1), disabled=True,
+                           default_value='On', pad=((0, 0), (4, 0))),
             # Checkbox Element
             elif key == '__REC_Symmetrize__':
                 val.update(default=False, pad=((0, 0), (7, 0)))
@@ -737,6 +740,16 @@ class WindowStyle(object):
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7',
                            size=(3, 1), pad=((0, 0), (4, 0)))
+            elif key == '__REC_Arrow_Len__':
+                val.update(justification='right', disabled=True,
+                           use_readonly_for_disable=True,
+                           disabled_readonly_background_color='#A7A7A7',
+                           size=(2, 1), pad=((0, 0), (4, 0)))
+            elif key == '__REC_Arrow_Wid__':
+                val.update(justification='right', disabled=True,
+                           use_readonly_for_disable=True,
+                           disabled_readonly_background_color='#A7A7A7',
+                           size=(2, 1), pad=((0, 0), (4, 0)))
             elif key == '__REC_Image_Dir_Path__':
                 val.update(size=(35, 1), pad=((2, 0), (7, 0)),
                            use_readonly_for_disable=True,

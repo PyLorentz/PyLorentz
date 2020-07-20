@@ -15,7 +15,7 @@ import sys
 from TIE_helper import dist
 
 
-def color_im(Bx, By, rad = None, hsvwheel = True, background = 'black'):
+def color_im(Bx, By, rad=None, hsvwheel=True, background='black'):
     """Make the RGB image from x and y component vector maps. 
 
     Args: 

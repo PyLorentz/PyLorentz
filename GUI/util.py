@@ -24,7 +24,6 @@ import hyperspy.api as hs
 import matplotlib
 from matplotlib import cm as mpl_cm
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
 import PySimpleGUI as sg
@@ -32,9 +31,8 @@ import PySimpleGUI as sg
 # Local imports
 sys_path.append("../PyTIE/")
 from TIE_helper import *
+# matplotlib.use('TkAgg')
 
-
-matplotlib.use('TkAgg')
 
 # Miscellaneous to potentially apply later:
 # https://imagejdocu.tudor.lu/plugin/utilities/python_dm3_reader/start
@@ -109,14 +107,17 @@ class FileImage(FileObject):
     """
 
     def __init__(self, uint8_data: 'np.ndarray', flt_data: 'np.ndarray',
-                 size: Tuple[int, int, int], path: str) -> None:
+                 size: Tuple[int, int, int], path: str,
+                 float_array: Optional['np.ndarray']=None) -> None:
         """Initialize the FileImage Object.
 
         Args:
             uint8_data: Ndarray of uint8 data of image.
             flt_data: Ndarray of float data of image.
             size: Tuple of x, y, z size of the image.
-            path: The path to the FileImage object
+            path: The path to the FileImage object.
+            float_array: The original numpy array of data. Necessary for certain
+                reconstruction images.
         """
 
         super().__init__(path)
@@ -126,6 +127,7 @@ class FileImage(FileObject):
             self.x_size, self.y_size, self.z_size = size
             self.lat_dims = self.x_size, self.y_size
             self.byte_data = None                           # Byte data
+            self.float_array = float_array
 
 
 class Stack(FileImage):
@@ -529,12 +531,23 @@ def slice(image: 'np.ndarray', slice_size: Tuple[int, int]) -> 'np.ndarray':
     return image[startx:endx, starty:endy, :]
 
 
-def add_vectors(mag_x, mag_y, color, hsv, arrows, save=False):
+def figure_to_bytes(fig):
 
-    fig = show_2D(mag_x, mag_y, a=arrows, l=None, w=None, title=None, color=color, hsv=hsv,
-                  origin='upper', save=save, GUI_handle=True)
+    plt.figure(fig.number)
+    byte_img = BytesIO()
+    plt.savefig(byte_img, format='png')
+    byte_img.seek(0)
+    im = Image.open(byte_img)
+    byte_img = convert_to_bytes(im)
+    return byte_img
 
-    pass
+
+def add_vectors(mag_x, mag_y, color_np_array, color, hsv, arrows, length, width, save=None):
+
+    fig = show_2D(mag_x, mag_y, a=arrows, l=length, w=width, title=None, color=color, hsv=hsv,
+                  save=save, GUI_handle=True, GUI_color_array=color_np_array)
+    byte_img = figure_to_bytes(fig)
+    return byte_img
 
 
 # ============================================================= #

@@ -53,7 +53,7 @@ def element_keys() -> Dict[str, List[str]]:
                   "__BUJ_FLS_Combo__", "__BUJ_TFS_Combo__",
                   "__BUJ_LS_exp_transf__", "__BUJ_exp_transf__", "__BUJ_Mask_View__",
                   "__REC_Def_Combo__", "__REC_FLS_Combo__", "__REC_TFS_Combo__",
-                  "__REC_Derivative__", "__REC_Colorwheel__"]
+                  "__REC_Derivative__", "__REC_Colorwheel__", "__REC_Arrow_Color__"]
     column_keys = ["__BUJ_Load_Mask_Col__"]
     graph_keys = ["__LS_Graph__",
                   "__BUJ_Graph__",
@@ -82,6 +82,7 @@ def element_keys() -> Dict[str, List[str]]:
                   "__REC_Image_Dir_Path__", "__REC_Image__", "__REC_QC_Input__",
                   "__REC_transform_y__", "__REC_transform_x__",
                   "__REC_transform_rot__", "__REC_Mask_Size__", "__REC_Arrow_Num__",
+                  "__REC_Arrow_Len__", "__REC_Arrow_Wid__",
                   "__REC_FLS1__", "__REC_FLS2__", "__REC_Stack__", "__REC_Stack_Stage__",
                   "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__", "__REC_Data_Prefix__"
                   ]
@@ -836,15 +837,15 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                              [sg.Text('Vector Im. |', pad=((2, 0), (4, 0))),
                               sg.Text('Arrows:', pad=((0, 0), (4, 0))),
                               sg.Input('15', **style.styles('__REC_Arrow_Num__')),
-                              sg.Text('Color:', pad=((2, 0), (4, 0))),
-                              sg.Combo(['On', 'Off'], default_value='On'),
+                              sg.Text('Color:', pad=((4, 0), (4, 0))),
+                              sg.Combo(['On', 'Off'], **style.styles('__REC_Arrow_Color__')),
                               sg.Text('L:', pad=((2, 0), (4, 0))),
-                              sg.Input('', size=(2, 1), pad=((0, 0), (4, 0))),
+                              sg.Input('1', **style.styles('__REC_Arrow_Len__')),
                               sg.Text('W:', pad=((2, 0), (4, 0))),
-                              sg.Input('', size=(2, 1), pad=((0, 0), (4, 0)))],
+                              sg.Input('1', **style.styles('__REC_Arrow_Wid__'))],
                              [sg.HorizontalSeparator(color='black', pad=(5, 5))],
                              [sg.Text('Images:', pad=((64, 0), (0, 0))),
-                              sg.Listbox(['Stack', 'Color', 'Vector_Im', 'MagX', 'MagY', 'Mag. Magnitude',
+                              sg.Listbox(['Stack', 'Color', 'Vector Im.', 'MagX', 'MagY', 'Mag. Magnitude',
                                           'Electr. Phase', 'Mag. Phase', 'Electr. Deriv.', 'Mag. Deriv.',
                                           'In Focus', 'Default Stack'],
                                           **style.styles('__REC_Image_List__')),
@@ -865,11 +866,11 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
         right_panel = sg.Col([[sg.Column(reconstruct_graph)],
                                [sg.Column(files_column)]])
         left_panel = sg.Col([[sg.Frame("Load Data", load_data_frame, relief=sg.RELIEF_SUNKEN,
-                                       pad=((8, 0), (3, 3)), font=('Times New Roman', 19))],
+                                       pad=((8, 0), (1, 1)), font=('Times New Roman', 18))],
                              [sg.Frame("Region Select", subregion_frame, relief=sg.RELIEF_SUNKEN,
-                                       pad=((8, 0), (3, 3)), font=('Times New Roman', 19))],
+                                       pad=((8, 0), (1, 1)), font=('Times New Roman', 18))],
                              [sg.Frame("TIE", TIE_menu, relief=sg.RELIEF_SUNKEN,
-                                       pad=((8, 0), (3, 3)), font=('Times New Roman', 19))]])
+                                       pad=((8, 0), (1, 1)), font=('Times New Roman', 18))]])
 
         return [[left_panel, right_panel]]
 
