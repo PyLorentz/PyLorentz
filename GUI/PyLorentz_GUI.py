@@ -3515,6 +3515,11 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             color_float_array = images['color_b'].float_array
             mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
             vector_color = window['__REC_Arrow_Color__'].get()
+            print(vector_color)
+            if vector_color == 'On':
+                vector_color = True
+            elif vector_color == 'Off':
+                vector_color = False
             vector_num = int(window['__REC_Arrow_Num__'].get())
             vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
             byte_img = g_help.add_vectors(mag_x, mag_y, color_float_array,
