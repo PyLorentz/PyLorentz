@@ -443,13 +443,17 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
     V = mag_y 
     
     sz_inches = 8
-    rad = mag_x.shape[0]//16
-    rad = max(rad, 16)
-    pad=10 #pixels
-    width = np.shape(mag_y)[1] + 2*rad + pad
-    aspect = dimy/width
+    if color: 
+        rad = mag_x.shape[0]//16
+        rad = max(rad, 16)
+        pad=10 #pixels
+        width = np.shape(mag_y)[1] + 2*rad + pad
+        aspect = dimy/width
+    else:
+        aspect = 1
 
-    fig, ax = plt.subplots(figsize=(8,8/aspect))
+    fig, ax = plt.subplots()
+    ax.set_aspect(aspect)
     if color:
         from colorwheel import color_im
         im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap = 'gray',
@@ -474,6 +478,9 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
         qk = ax.quiverkey(q, X=0.95, Y=0.98, U=1, label=r'$Msat$', labelpos='S',
                        coordinates='axes')
         qk.text.set_backgroundcolor('w')
+        if origin == 'upper': 
+            ax.invert_yaxis()
+
 
     if title is not None:
         tr = False
@@ -487,6 +494,7 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
     plt.show()
 
     if save is not None: 
+        fig.set_size_inches(8,8/aspect)
         print(f'Saving: {save}')
         plt.axis('off')
         # sets dpi to 5 times original image dpi so arrows are reasonably sharp
