@@ -3518,7 +3518,8 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             vector_num = int(window['__REC_Arrow_Num__'].get())
             vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
             byte_img = g_help.add_vectors(mag_x, mag_y, color_float_array,
-            vector_color, hsv, vector_num, vector_len, vector_wid, save = None)
+                                          vector_color, hsv, vector_num, vector_len,
+                                          vector_wid, save=None)
             shape = color_float_array.shape
             im = g_help.FileImage(np.empty(shape), np.empty(shape),
                                   (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')

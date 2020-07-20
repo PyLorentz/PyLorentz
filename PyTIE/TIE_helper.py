@@ -448,11 +448,14 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
     if color: 
         rad = mag_x.shape[0]//16
         rad = max(rad, 16)
-        pad=10 #pixels
+        pad = 10 #pixels
         width = np.shape(mag_y)[1] + 2*rad + pad
         aspect = dimy/width
     else:
         aspect = 1
+
+    if GUI_handle:
+        plt.ioff()
 
     fig, ax = plt.subplots()
     ax.set_aspect(aspect)
@@ -460,7 +463,7 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         if not GUI_handle:
             from colorwheel import color_im
             im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap='gray',
-                       origin=origin)
+                            origin=origin)
         else:
             im = ax.matshow(GUI_color_array, cmap='gray', origin=origin)
         arrow_color = 'white'
