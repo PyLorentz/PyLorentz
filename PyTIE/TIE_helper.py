@@ -408,8 +408,8 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
     return 
 
     
-def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, hsv=True,
-            origin='upper', save=None):
+def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=True,
+            origin='upper', save=None, GUI_handle=False):
     """ Display a 2D vector arrow plot. 
 
     Quiver doesn't allow setting the origin as "upper" for some reason. Just 
@@ -428,10 +428,12 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
         hsv (bool): (`optional`) Only relevant if color == True. Whether to use 
             an hsv or 4-fold color-wheel in the color image. 
         origin (str): (`optional`) Control image orientation. 
-        save (str): (`optional`) Path to save the figure. 
+        save (str): (`optional`) Path to save the figure.
+        GUI_handle (bool): ('optional') Handle for indicating if using GUI.
+            Default is False.
 
     Returns: 
-        None: None. Displays a matplotlib plot. 
+        fig: Returns the figure handle.
     """ 
     a = ((mag_x.shape[0] - 1)//a)+1
     bmax = max(mag_x.max(), mag_y.max())
@@ -456,27 +458,30 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
     ax.set_aspect(aspect)
     if color:
         from colorwheel import color_im
-        im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap = 'gray',
+        im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap='gray',
                         origin=origin)
-
-    if color: 
         arrow_color = 'white'
         plt.axis('off')
     else:
         arrow_color = 'black'
+        if GUI_handle:
+            plt.axis('off')
 
-    q = ax.quiver(X[::a], Y[::a], U[::a,::a], V[::a,::a], 
-              units='xy', 
-              scale = l,
-              scale_units = 'xy',
-              width = w,
-              angles = 'xy',
-              pivot = 'mid',
-              color=arrow_color)
+    q = ax.quiver(X[::a], Y[::a], U[::a, ::a], V[::a, ::a],
+                  units='xy',
+                  scale=l,
+                  scale_units='xy',
+                  width=w,
+                  angles='xy',
+                  pivot='mid',
+                  color=arrow_color)
 
     if not color:
-        qk = ax.quiverkey(q, X=0.95, Y=0.98, U=1, label=r'$Msat$', labelpos='S',
-                       coordinates='axes')
+        if not GUI_handle:
+            qk = ax.quiverkey(q, X=0.95, Y=0.98, U=1, label=r'$Msat$', labelpos='S',
+                              coordinates='axes')
+        else:
+            qk = ax.quiverkey(q, X=1, Y=1, U=1, label='')
         qk.text.set_backgroundcolor('w')
         if origin == 'upper': 
             ax.invert_yaxis()
@@ -488,10 +493,11 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
     else:
         tr = True
 
-    plt.tick_params(axis='x',labelbottom=False, bottom=False, top=False)
-    plt.tick_params(axis='y',labelleft=False, left=False, right=False)
+    plt.tick_params(axis='x', labelbottom=False, bottom=False, top=False)
+    plt.tick_params(axis='y', labelleft=False, left=False, right=False)
     # ax.set_aspect(aspect)
-    plt.show()
+    if not GUI_handle:
+        plt.show()
 
     if save is not None: 
         fig.set_size_inches(8,8/aspect)
@@ -501,4 +507,7 @@ def show_2D(mag_x, mag_y, a = 15, l = None, w=None, title = None, color=False, h
         dpi2 = max(dimy, dimx) * 5 / sz_inches
         plt.savefig(save, dpi=dpi2, bbox_inches='tight', transparent=tr)
 
-    return
+    if GUI_handle:
+        return fig
+    else:
+        return

@@ -81,7 +81,7 @@ def element_keys() -> Dict[str, List[str]]:
 
                   "__REC_Image_Dir_Path__", "__REC_Image__", "__REC_QC_Input__",
                   "__REC_transform_y__", "__REC_transform_x__",
-                  "__REC_transform_rot__", "__REC_Mask_Size__",
+                  "__REC_transform_rot__", "__REC_Mask_Size__", "__REC_Arrow_Num__",
                   "__REC_FLS1__", "__REC_FLS2__", "__REC_Stack__", "__REC_Stack_Stage__",
                   "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__", "__REC_Data_Prefix__"
                   ]
@@ -797,7 +797,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                             ]]
 
         subregion_frame = [[sg.Text('Unset', key='__REC_Mask_Text__', font='Times 19', pad=((10, 0), (4, 4))),
-                            sg.Button('Select Mask', **style.styles('__REC_Mask__')),
+                            sg.Button('Select Region', **style.styles('__REC_Mask__')),
                             sg.Button('Reset', **style.styles('__REC_Erase_Mask__')),
                             ],
                            [sg.Col([[sg.Text('Rotation:', pad=((50, 0), (0, 0))),
@@ -827,16 +827,26 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                               sg.Checkbox('', **style.styles('__REC_Symmetrize__'))],
                              [sg.Text('Derivative:', pad=((16, 0), (5, 0))),
                               sg.Combo(['Central Diff.'], #, 'Longitudinal Deriv.'
-                                        **style.styles('__REC_Derivative__'))],
-                             [sg.Text('Colorwheel:', pad=((8, 0), (4, 0))),
-                              sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__'))]]),
+                                        **style.styles('__REC_Derivative__'))]]),
                      sg.Col([[sg.Button('Run', **style.styles('__REC_Run_TIE__')),
                               sg.Image(**style.styles('__REC_PYTIE_Spinner__'))],
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]])],
+                             [sg.Text('Colorwheel:', pad=((8, 0), (4, 0))),
+                              sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__'))],
+                             [sg.Text('Vector Im. |', pad=((2, 0), (4, 0))),
+                              sg.Text('Arrows:', pad=((0, 0), (4, 0))),
+                              sg.Input('15', **style.styles('__REC_Arrow_Num__')),
+                              sg.Text('Color:', pad=((2, 0), (4, 0))),
+                              sg.Combo(['On', 'Off'], default_value='On'),
+                              sg.Text('L:', pad=((2, 0), (4, 0))),
+                              sg.Input('', size=(2, 1), pad=((0, 0), (4, 0))),
+                              sg.Text('W:', pad=((2, 0), (4, 0))),
+                              sg.Input('', size=(2, 1), pad=((0, 0), (4, 0)))],
                              [sg.HorizontalSeparator(color='black', pad=(5, 5))],
                              [sg.Text('Images:', pad=((64, 0), (0, 0))),
-                              sg.Listbox(['Stack', 'Color', 'MagX', 'MagY', 'Mag. Magnitude', 'Electr. Phase', 'Mag. Phase',
-                                          'Electr. Deriv.', 'Mag. Deriv.', 'In Focus', 'Default Stack'],
+                              sg.Listbox(['Stack', 'Color', 'Vector_Im', 'MagX', 'MagY', 'Mag. Magnitude',
+                                          'Electr. Phase', 'Mag. Phase', 'Electr. Deriv.', 'Mag. Deriv.',
+                                          'In Focus', 'Default Stack'],
                                           **style.styles('__REC_Image_List__')),
                               sg.Slider(**style.styles('__REC_Image_Slider__'))]]
 

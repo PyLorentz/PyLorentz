@@ -15,18 +15,27 @@ with catch_warnings() as w:
     simplefilter('ignore')
 from PIL import Image
 import subprocess
-from sys import platform
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
-if TYPE_CHECKING:
-    from main import Main
+from sys import platform, path as sys_path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Third-Party Imports
 from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 import hyperspy.api as hs
+import matplotlib
 from matplotlib import cm as mpl_cm
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
 import PySimpleGUI as sg
+
+# Local imports
+sys_path.append("../PyTIE/")
+from TIE_helper import *
+
+
+matplotlib.use('TkAgg')
+
 # Miscellaneous to potentially apply later:
 # https://imagejdocu.tudor.lu/plugin/utilities/python_dm3_reader/start
 # https://python-forum.io/Thread-Tkinter-createing-a-tkinter-photoimage-from-array-in-python3
@@ -518,6 +527,14 @@ def slice(image: 'np.ndarray', slice_size: Tuple[int, int]) -> 'np.ndarray':
     endx, endy = slice_size
     startx, starty = 0, 0
     return image[startx:endx, starty:endy, :]
+
+
+def add_vectors(mag_x, mag_y, color, hsv, arrows, save=False):
+
+    fig = show_2D(mag_x, mag_y, a=arrows, l=None, w=None, title=None, color=color, hsv=hsv,
+                  origin='upper', save=save, GUI_handle=True)
+
+    pass
 
 
 # ============================================================= #

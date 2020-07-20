@@ -25,7 +25,10 @@ import warnings
 # Third-party imports
 from numpy import setdiff1d
 import PySimpleGUI as sg
+import matplotlib
+matplotlib.use('TkAgg')
 from matplotlib import colors
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # Local imports
 sys_path.append("../PyTIE/")
@@ -168,16 +171,19 @@ def init_rec(winfo: Struct, window: sg.Window) -> None:
 
     # --- Set up loading files --- #
     winfo.rec_defocus_slider_set = 0
-    winfo.rec_image_slider_set = 6
+    winfo.rec_image_slider_set = 7
     winfo.rec_image_slider_dict = {'Stack': 0, 'Color': 1,
-                                   'MagX': 2, 'MagY': 3, 'Mag': 4,
-                                   'Electr. Phase': 5, 'Mag. Phase': 6,
-                                   'Electr. Deriv.': 7, 'Mag. Deriv.': 8,
-                                   'In Focus': 9, 'Default Stack': 10}
+                                   'MagX': 3, 'MagY': 4, 'Mag': 5,
+                                   'Electr. Phase': 6, 'Mag. Phase': 7,
+                                   'Electr. Deriv.': 8, 'Mag. Deriv.': 9,
+                                   'In Focus': 10, 'Default Stack': 11}
 
     # Declare transformation timers and related variables
     winfo.rec_transform = (0, 0, 0, None)
     winfo.rec_past_transform = (0, 0, 0, None)
+    winfo.rec_arrow_timer = (0, )
+    winfo.rec_arrow_num = (15, )
+    winfo.rec_past_arrow_num = (15, )
     winfo.rec_mask_timer = (0,)
     winfo.rec_mask = (50,)
     winfo.rec_past_mask = (50,)
@@ -299,19 +305,19 @@ def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
         graph.Erase()
         metadata_change(winfo, window, ['__LS_Image1__', '__LS_Image2__', '__LS_Stack__'], reset=True)
         toggle(winfo, window, ['__LS_Image1__', '__LS_Image2__', '__LS_Stack__',
-                        '__LS_Adjust__', '__LS_View_Stack__', '__LS_Set_Img_Dir__',
-                        '__LS_FLS1__', '__LS_FLS2__', '__LS_Set_FLS__', '__LS_FLS_Combo__',
-                        '__LS_TFS_Combo__',], state='Def')
+                               '__LS_Adjust__', '__LS_View_Stack__', '__LS_Set_Img_Dir__',
+                               '__LS_FLS1__', '__LS_FLS2__', '__LS_Set_FLS__', '__LS_FLS_Combo__',
+                               '__LS_TFS_Combo__'], state='Def')
         change_inp_readonly_bg_color(window, ['__LS_FLS2__', '__LS_FLS1__'], 'Readonly')
-        update_values(winfo, window, [('__LS_Image_Dir_Path__', ""), ('__LS_FLS1_Staging__', ''), ('__LS_FLS2_Staging__', ''),
-                               ('__LS_transform_x__', '0'), ('__LS_transform_y__', '0'), ('__LS_transform_rot__', "0"),
-                               ('__LS_horizontal_flip__', True)])
+        update_values(winfo, window, [('__LS_Image_Dir_Path__', ""), ('__LS_FLS1_Staging__', ''),
+                                      ('__LS_FLS2_Staging__', ''), ('__LS_transform_rot__', "0"),
+                                      ('__LS_transform_x__', '0'), ('__LS_transform_y__', '0'),
+                                      ('__LS_horizontal_flip__', True)])
         update_slider(winfo, window, [('__LS_Stack_Slider__', {"value": 0, "slider_range": (0, 0)})])
         window['__LS_unflip_reference__'].update(True)
 
         # Declare image path and related variables
         init_ls(winfo)
-
     elif current_tab == 'bunwarpj_tab':
         graph = window['__BUJ_Graph__']
         graph.Erase()
@@ -335,7 +341,6 @@ def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
 
         # Re-init bUnwarpJ
         init_buj(winfo)
-
     elif current_tab == 'reconstruct_tab':
         graph = window['__REC_Graph__']
         colorwheel_graph = window['__REC_Colorwheel_Graph__']
@@ -345,7 +350,7 @@ def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
         toggle(winfo, window, ['__REC_Set_Img_Dir__', '__REC_FLS_Combo__', '__REC_TFS_Combo__',
                                '__REC_Stack__', '__REC_FLS1__', '__REC_FLS2__', '__REC_Set_FLS__',
                                '__REC_Mask__', '__REC_Image__'], state='Def')
-        window['__REC_Def_Combo__'].update(value='None', values=['None'])
+        window['__REC_Def_Combo__'].update(values=['None'])
         window['__REC_Def_List__'].update(values=['None'])
         window['__REC_Symmetrize__'].update(value=False)
         window['__REC_FLS1_Text__'].update(value=window['__REC_FLS1_Text__'].metadata['Two'])
@@ -355,22 +360,23 @@ def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
         change_list_ind_color(window, current_tab, [('__REC_Image_List__', [])])
         change_inp_readonly_bg_color(window, ['__REC_Stack__', '__REC_FLS1__',
                                               '__REC_FLS2__', '__REC_Data_Prefix__',
-                                              '__REC_QC_Input__'], 'Readonly')
+                                              '__REC_QC_Input__', '__REC_Arrow_Num__'], 'Readonly')
         update_values(winfo, window, [('__REC_Image_Dir_Path__', ""), ('__REC_Image__', 'None'),
-                               ('__REC_transform_x__', '0'), ('__REC_transform_y__', '0'),
-                               ('__REC_transform_rot__', "0"), ('__REC_Mask_Size__', '50'),
-                               ('__REC_Stack_Stage__', ''), ('__REC_FLS1_Staging__', ''),
-                               ('__REC_FLS2_Staging__', ''), ('__REC_Colorwheel__', 'HSV'),
-                               ('__REC_Def_Combo__', 'None'), ('__REC_QC_Input__', '0.00'),
-                               ('__REC_Data_Prefix__', 'Example'), ('__REC_M_Volt__', '200')])
+                                      ('__REC_transform_x__', '0'), ('__REC_transform_y__', '0'),
+                                      ('__REC_transform_rot__', "0"), ('__REC_Mask_Size__', '50'),
+                                      ('__REC_Stack_Stage__', ''), ('__REC_FLS1_Staging__', ''),
+                                      ('__REC_FLS2_Staging__', ''), ('__REC_Colorwheel__', 'HSV'),
+                                      ('__REC_Def_Combo__', 'None'), ('__REC_QC_Input__', '0.00'),
+                                      ('__REC_Data_Prefix__', 'Example'), ('__REC_M_Volt__', '200'),
+                                      ('__REC_Arrow_Num__', '15')])
 
         # Re-init reconstruct
         init_rec(winfo, window)
-        update_slider(winfo, window, [('__REC_Defocus_Slider__', {'value':winfo.rec_defocus_slider_set,
-                                                           'slider_range':(0, 0)}),
-                               ('__REC_Slider__', {'value': 0,
-                                                   'slider_range': (0, 0)}),
-                               ('__REC_Image_Slider__', {'value': winfo.rec_image_slider_set})])
+        update_slider(winfo, window, [('__REC_Defocus_Slider__', {'value': winfo.rec_defocus_slider_set,
+                                                                  'slider_range': (0, 0)}),
+                                      ('__REC_Slider__', {'value': 0,
+                                                          'slider_range': (0, 0)}),
+                                      ('__REC_Image_Slider__', {'value': winfo.rec_image_slider_set})])
         window['__REC_Image_List__'].update(set_to_index=0, scroll_to_index=0)
         window['__REC_Def_List__'].update(set_to_index=0, scroll_to_index=0)
 
@@ -649,17 +655,14 @@ def get_orientation(window: sg.Window, pref: str) -> str:
 
 
 def get_mask_transform(winfo: Struct, window: sg.Window,
-                       current_tab: str) -> Tuple[Union[float, int],
-                                                  Union[float, int],
-                                                  Union[float, int]]:
+                       current_tab: str) -> Tuple[Union[float, int], Union[float, int], Union[float, int]]:
     """Get the mask transformation of the REC window.
 
     Args:
         winfo: The data structure holding all information about
             windows and GUI.
         window: The element representing the main GUI window.
-        pref: The prefix for the the key of
-            the orientation for the window.
+        current_tab: The current tab of the window.
 
     Returns:
         transform: The transformation to apply to REC mask
@@ -686,7 +689,7 @@ def retrieve_transform(winfo: Struct, window: sg.Window, current_tab: str,
         window: The element representing the main GUI window.
         current_tab: The key representing the current main tab of the
             window.
-        rotxy_list: The list containing the tuple that has values and
+        transf_list: The list containing the tuple that has values and
             timers for each of rotation, x, and y inputs.
         old_transform: The previous transformation that was applied to img.
         new_transform: The next transformation to potentially apply to
@@ -1336,13 +1339,7 @@ def update_slider(winfo: Struct, window: sg.Window,
 
 def update_rotxy(winfo: Struct, window: sg.Window,
                  current_tab: str,
-                 new_transform: Tuple[Union[int, float],
-                                      Union[int, float],
-                                      Union[int, float],
-                                      bool]) -> Tuple[Union[int, float],
-                                                      Union[int, float],
-                                                      Union[int, float],
-                                                      bool]:
+                 new_transform: Tuple[Union[int, float], Union[int, float], Union[int, float], bool]) -> Tuple[Union[int, float], Union[int, float], Union[int, float], bool]:
     """Update the rotation, x-trans, y-trans, and
     flip coordinates for the transform to apply to
     series of images.
@@ -1809,10 +1806,10 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
             redraw_graph(colorwheel_graph, winfo.rec_colorwheel)
             metadata_change(winfo, window, [('__REC_Image__', f'{def_val} Color')])
             toggle(winfo, window, ['__REC_Image__'], state='Set')
-            update_slider(winfo, window, [('__REC_Image_Slider__', {"value": 6 - 1})])
+            update_slider(winfo, window, [('__REC_Image_Slider__', {"value": 7 - 1})])
             window['__REC_Image_List__'].update(set_to_index=1, scroll_to_index=1)
             change_inp_readonly_bg_color(window, ['__REC_Data_Prefix__', '__REC_QC_Input__'], 'Default')
-            winfo.rec_image_slider_set = 6 - 1
+            winfo.rec_image_slider_set = 7 - 1
             winfo.rec_last_image_choice = 'Color'
             winfo.rec_ptie = ptie
         except:
@@ -3428,7 +3425,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                        '__REC_FLS_Combo__', '__REC_Load_FLS1__', '__REC_Set_FLS__',
                        '__REC_Load_FLS2__', '__REC_Load_Stack__', '__REC_Image_List__',
                        '__REC_M_Volt__', '__REC_Def_Combo__', '__REC_QC_Input__',
-                       "__REC_Reset_FLS__", "__REC_TFS_Combo__",
+                       "__REC_Reset_FLS__", "__REC_TFS_Combo__", "__REC_Arrow_Num__",
                        '__REC_Mask_Size__', '__REC_Mask__', "__REC_Erase_Mask__",
                        "__REC_transform_y__", "__REC_transform_x__", "__REC_transform_rot__",
                        '__REC_Data_Prefix__', '__REC_Run_TIE__', '__REC_Save_TIE__',
@@ -3456,7 +3453,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 enable_list.extend(['__REC_Mask__', '__REC_Erase_Mask__',
                                     '__REC_Data_Prefix__', '__REC_Def_Combo__',
                                     '__REC_QC_Input__', "__REC_Derivative__",
-                                    "__REC_Colorwheel__"])
+                                    "__REC_Colorwheel__", "__REC_Arrow_Num__"])
                 if window['__REC_Mask__'].metadata['State'] == 'Def':
                     enable_list.extend(['__REC_Run_TIE__'])
                 else:
@@ -3512,6 +3509,9 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     # Import event handler names (overlaying, etc.)
     adjust = mask_button.metadata['State'] == 'Set' and (winfo.rec_past_transform != transform or
                                                          winfo.rec_past_mask != mask_transform)
+
+    change_vector_num = winfo.rec_arrow_num != winfo.rec_past_arrow_num
+
     change_img = winfo.rec_last_image_choice != values['__REC_Image_List__'][0]
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
@@ -3543,7 +3543,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     elif event == '__REC_Stack_Stage__':
         stack_path = window['__REC_Stack_Stage__'].Get()
         update_values(winfo, window, [('__REC_Stack_Stage__', 'None')])
-
         if os_path.exists(stack_path) and (stack_path.endswith('.tif') or stack_path.endswith('.tiff')):
             image_key = 'REC_Stack'
             graph = window['__REC_Graph__']
@@ -3580,7 +3579,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         else:
             if len(stack_path) != 0 and stack_path != "None":
                 print(f'{prefix}Stack path is not valid.')
-
 
     # Set number of FLS files to use
     elif event == '__REC_FLS_Combo__' or event == '__REC_TFS_Combo__':
@@ -3666,7 +3664,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
 
         # --- Set up loading files --- #
         winfo.rec_defocus_slider_set = 0
-        winfo.rec_image_slider_set = 6
+        winfo.rec_image_slider_set = 7
 
         # Image selection
         winfo.rec_tie_results = None
@@ -3699,7 +3697,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         change_inp_readonly_bg_color(window, ['__REC_Data_Prefix__', '__REC_QC_Input__'], 'Readonly')
         # Re-init reconstruct
         update_slider(winfo, window, [('__REC_Defocus_Slider__', {'value': winfo.rec_defocus_slider_set,
-                                                           'slider_range': (0, 0)}),
+                                                                  'slider_range': (0, 0)}),
                                ('__REC_Slider__', {'value': 0,
                                                    'slider_range': (0, 0)}),
                                ('__REC_Image_Slider__', {'value': winfo.rec_image_slider_set})])
@@ -3828,7 +3826,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
 
     # Scroll through image options
     elif scroll_images:
-        max_slider_val = 6
+        max_slider_val = 7
         if event in ['MouseWheel:Down', 'MouseWheel:Up']:
             slider_set = winfo.rec_image_slider_set
             if event == 'MouseWheel:Up':
@@ -3841,7 +3839,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         window['__REC_Image_List__'].update(scroll_to_index=max_slider_val-slider_val)
         winfo.rec_image_slider_set = slider_val
 
-    # Scroll through image options
+    # Scroll through defocus options
     elif scroll_defocus:
         max_slider_val = max(window['__REC_Def_List__'].metadata['length'] - 3, 0)
         if event in ['MouseWheel:Down', 'MouseWheel:Up']:
@@ -3873,6 +3871,9 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         elif image_choice == 'Color':
             image_key = 'color_b'
             im_name = 'Color'
+        elif image_choice == 'Vector_Im':
+            image_key = 'vector'
+            im_name = 'Vectorized Msat'
         elif image_choice == 'MagX':
             image_key = 'bxt'
             im_name = 'X-Comp. of Mag. Induction'
@@ -4053,7 +4054,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             stack = images['REC_Stack']
             slider_val = int(values["__REC_Slider__"])
             display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
-        # if winfo.rec_past_mask != mask_transform or mask_transform=:
         g_help.erase_marks(winfo, graph, current_tab, full_erase=True)
         g_help.draw_square_mask(winfo, graph)
     winfo.rec_past_transform = transform
@@ -4575,4 +4575,3 @@ def run_GUI() -> None:
 
 if __name__ == '__main__':
     run_GUI()
-# sg.main()
