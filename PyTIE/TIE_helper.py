@@ -445,13 +445,17 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
     V = mag_y 
     
     sz_inches = 8
-    rad = mag_x.shape[0]//16
-    rad = max(rad, 16)
-    pad = 10  # pixels
-    width = np.shape(mag_y)[1] + 2*rad + pad
-    aspect = dimy/width
+    if color: 
+        rad = mag_x.shape[0]//16
+        rad = max(rad, 16)
+        pad=10 #pixels
+        width = np.shape(mag_y)[1] + 2*rad + pad
+        aspect = dimy/width
+    else:
+        aspect = 1
 
-    fig, ax = plt.subplots(figsize=(8, 8/aspect))
+    fig, ax = plt.subplots()
+    ax.set_aspect(aspect)
     if color:
         if not GUI_handle:
             from colorwheel import color_im
@@ -482,6 +486,9 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         else:
             qk = ax.quiverkey(q, X=1, Y=1, U=1, label='')
         qk.text.set_backgroundcolor('w')
+        if origin == 'upper': 
+            ax.invert_yaxis()
+
 
     if title is not None:
         tr = False
@@ -496,6 +503,7 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         plt.show()
 
     if save is not None: 
+        fig.set_size_inches(8,8/aspect)
         print(f'Saving: {save}')
         plt.axis('off')
         # sets dpi to 5 times original image dpi so arrows are reasonably sharp
