@@ -744,12 +744,12 @@ class WindowStyle(object):
                 val.update(justification='right', disabled=True,
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7',
-                           size=(2, 1), pad=((0, 0), (4, 0)))
+                           size=(3, 1), pad=((0, 0), (4, 0)))
             elif key == '__REC_Arrow_Wid__':
                 val.update(justification='right', disabled=True,
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7',
-                           size=(2, 1), pad=((0, 0), (4, 0)))
+                           size=(3, 1), pad=((0, 0), (4, 0)))
             elif key == '__REC_Image_Dir_Path__':
                 val.update(size=(35, 1), pad=((2, 0), (7, 0)),
                            use_readonly_for_disable=True,

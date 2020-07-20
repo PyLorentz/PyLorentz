@@ -182,9 +182,8 @@ def init_rec(winfo: Struct, window: sg.Window) -> None:
     # Declare transformation timers and related variables
     winfo.rec_transform = (0, 0, 0, None)
     winfo.rec_past_transform = (0, 0, 0, None)
-    winfo.rec_arrow_timer = (0, )
-    winfo.rec_arrow_num = (15, )
-    winfo.rec_past_arrow_num = (15, )
+    winfo.rec_past_arrow_transform = (15, 1, 1, 'On')
+
     winfo.rec_mask_timer = (0,)
     winfo.rec_mask = (50,)
     winfo.rec_past_mask = (50,)
@@ -657,6 +656,23 @@ def get_orientation(window: sg.Window, pref: str) -> str:
     return orientation
 
 
+def get_arrow_transform(window: sg.Window):
+    """Get the mask transformation of the REC window.
+
+        Args:
+            window: The element representing the main GUI window.
+
+        Returns:
+            new_transform: The transformation to apply to REC mask
+        """
+
+    new_transform = [window['__REC_Arrow_Num__'].Get(),
+                     window['__REC_Arrow_Len__'].Get(),
+                     window['__REC_Arrow_Wid__'].Get(),
+                     window['__REC_Arrow_Color__'].Get()]
+    return new_transform
+
+
 def get_mask_transform(winfo: Struct, window: sg.Window,
                        current_tab: str) -> Tuple[Union[float, int], Union[float, int], Union[float, int]]:
     """Get the mask transformation of the REC window.
@@ -712,16 +728,16 @@ def retrieve_transform(winfo: Struct, window: sg.Window, current_tab: str,
         timers = [0]
     else:
         timers = [0, 0, 0]
-    timer_cutoff = 15  # timeout
+    timer_cutoff = 45  # timeout
 
     # Loop through rotation, x, and y values (or size values if mask)
     val_set = False
     for val, timer, i in transf_list:
-        # If not int, "", or "-", don't increase timer
+        # If not float, "", or "-", don't increase timer
         if not g_help.represents_float(val) and not mask:
             val_triggered = True
             timer += 1
-            if val not in ["", "-", '.']:
+            if val not in ["", "-", '.', "-."]:
                 val = '0'
                 val_set = True
                 timer = timer_cutoff
@@ -738,6 +754,10 @@ def retrieve_transform(winfo: Struct, window: sg.Window, current_tab: str,
                 val = '100'
                 val_set = True
                 timer = timer_cutoff
+            elif float(val) < 1 and mask:
+                val = '1'
+                val_set = True
+                timer = timer_cutoff
             else:
                 timer = 0
 
@@ -745,8 +765,10 @@ def retrieve_transform(winfo: Struct, window: sg.Window, current_tab: str,
         if timer == timer_cutoff:
             timer_triggered = True
             timer = 0
-            if not val_set:
+            if not val_set and not mask:
                 val = '0'
+            elif not val_set and mask:
+                val = '50'
 
         timers[i], new_transform[i] = timer, val
 
@@ -3435,7 +3457,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                        "__REC_transform_y__", "__REC_transform_x__", "__REC_transform_rot__",
                        '__REC_Data_Prefix__', '__REC_Run_TIE__', '__REC_Save_TIE__',
                        "__REC_Slider__", "__REC_Colorwheel__", "__REC_Derivative__",
-                       '__REC_Reset_Img_Dir__']
+                       '__REC_Reset_Img_Dir__', "__REC_Arrow_Set__"]
 
         if window['__REC_Set_Img_Dir__'].metadata['State'] == 'Set':
             if winfo.ptie_recon_thread is None and winfo.ptie_init_thread is None:
@@ -3462,7 +3484,9 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 if window['__REC_Mask__'].metadata['State'] == 'Def':
                     enable_list.extend(['__REC_Run_TIE__'])
                     enable_list.extend(["__REC_Arrow_Num__", '__REC_Arrow_Color__',
-                                        '__REC_Arrow_Wid__', '__REC_Arrow_Len__'])
+                                        '__REC_Arrow_Wid__', '__REC_Arrow_Len__']),
+                    if 'color_b' in winfo.rec_images:
+                        enable_list.extend(["__REC_Arrow_Set__"])
                 else:
                     enable_list.extend(['__REC_Mask_Size__', "__REC_transform_y__",
                                         "__REC_transform_x__",  "__REC_transform_rot__"])
@@ -3473,7 +3497,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 enable_list.extend(["__REC_Image_List__"])
 
             if (window['__REC_Image_List__'].get()[0] in ['Stack', 'Default Stack'] or
-                window['__REC_Mask__'].metadata['State'] == 'Set'):
+                    window['__REC_Mask__'].metadata['State'] == 'Set'):
                 enable_list.extend(["__REC_Slider__"])
 
         elif window['__REC_Set_Img_Dir__'].metadata['State'] == 'Def':
@@ -3515,23 +3539,21 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             color_float_array = images['color_b'].float_array
             mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
             vector_color = window['__REC_Arrow_Color__'].get()
-            print(vector_color)
             if vector_color == 'On':
                 vector_color = True
             elif vector_color == 'Off':
                 vector_color = False
             vector_num = int(window['__REC_Arrow_Num__'].get())
             vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
+            graph_size = graph.get_size()
             byte_img = g_help.add_vectors(mag_x, mag_y, color_float_array,
                                           vector_color, hsv, vector_num, vector_len,
-                                          vector_wid, save=None)
+                                          vector_wid, graph_size, save=None)
             shape = color_float_array.shape
             im = g_help.FileImage(np.empty(shape), np.empty(shape),
                                   (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
             im.byte_data = byte_img
             winfo.rec_images['vector'] = im
-            redraw_graph(graph, winfo.rec_images['vector'].byte_data)
-            print('hi')
         winfo.rec_past_recon_thread = None
 
     # if 'TIMEOUT' not in event:
@@ -3544,8 +3566,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     # Import event handler names (overlaying, etc.)
     adjust = mask_button.metadata['State'] == 'Set' and (winfo.rec_past_transform != transform or
                                                          winfo.rec_past_mask != mask_transform)
-
-    change_vector_num = winfo.rec_arrow_num != winfo.rec_past_arrow_num
 
     change_img = winfo.rec_last_image_choice != values['__REC_Image_List__'][0]
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
@@ -3594,7 +3614,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 toggle(winfo, window, ['__REC_Stack__', '__REC_Image__'], state="Set")
                 update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
                 winfo.rec_last_image_choice = 'Stack'
-                change_list_ind_color(window, current_tab, [('__REC_Image_List__', [0, 10])])
+                change_list_ind_color(window, current_tab, [('__REC_Image_List__', [0, 11])])
                 change_inp_readonly_bg_color(window, ['__REC_Stack__'], 'Readonly')
                 if winfo.rec_files1:
                     if winfo.rec_files1 and winfo.rec_files2:
@@ -3968,7 +3988,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             elif image_key in images and images[image_key] is not None:
                 image = images[image_key]
                 display_img = image.byte_data
-                if image_key == 'color_b':
+                if image_key == 'color_b' or (image_key == 'vector' and window['__REC_Arrow_Color__'].Get() == 'On'):
                     display_img2 = winfo.rec_colorwheel
                 else:
                     colorwheel_graph.Erase()
@@ -4082,6 +4102,44 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         else:
             print(f"{prefix}Reconstruction results haven't been generated.")
 
+    elif event == "__REC_Arrow_Set__":
+        arrow_transform = get_arrow_transform(window)
+        if (g_help.represents_int_above_0(arrow_transform[0]) and
+                g_help.represents_float(arrow_transform[1]) and
+                g_help.represents_float(arrow_transform[2]) and
+                arrow_transform[0] not in [''] and
+                arrow_transform[1] not in ['', '.'] and
+                arrow_transform[2] not in ['', '.'] and
+                float(arrow_transform[1]) > 0 and float(arrow_transform[2]) > 0):
+
+            # Change the vector image
+            arrow_transform = (int(arrow_transform[0]),
+                               float(arrow_transform[1]),
+                               float(arrow_transform[2]),
+                               arrow_transform[3])
+            winfo.rec_past_transform = arrow_transform
+            hsv = window['__REC_Colorwheel__'].get() == "HSV"
+            color_float_array = images['color_b'].float_array
+            mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
+            v_num, v_len, v_wid, v_color = arrow_transform
+            v_color = v_color == 'On'
+            graph_size = graph.get_size()
+            byte_img = g_help.add_vectors(mag_x, mag_y, color_float_array,
+                                          v_color, hsv, v_num, v_len,
+                                          v_wid, graph_size, save=None)
+            shape = color_float_array.shape
+            im = g_help.FileImage(np.empty(shape), np.empty(shape),
+                                  (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
+            im.byte_data = byte_img
+            winfo.rec_images['vector'] = im
+            image_choice = values['__REC_Image_List__'][0]
+            if image_choice == 'Vector Im.':
+                display_img = im.byte_data
+                display_img2 = winfo.rec_colorwheel
+        else:
+            print(f'{pref}Some of the arrow values are incorrect. Check to make sure', end=' '),
+            print(f'that the number of arrows is an integer > 0, & the len/width are floats > 0.')
+
     # Adjust stack and related variables
     if adjust:
         if winfo.rec_past_transform != transform:
@@ -4093,6 +4151,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     winfo.rec_past_transform = transform
     winfo.rec_past_mask = mask_transform
 
+    # Change the colorwheel
     if change_colorwheel:
         if winfo.rec_tie_results:
             colorwheel_type = window['__REC_Colorwheel__'].get()
@@ -4108,19 +4167,42 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             rgba_colorwheel = g_help.make_rgba(uint8_colorwheel[0])
             winfo.rec_colorwheel = g_help.convert_to_bytes(rgba_colorwheel)
             results = winfo.rec_tie_results
-
             results['color_b'] = color_im(results['bxt'], results['byt'],
                                           hsvwheel=hsvwheel, background='black')
             float_array = g_help.slice(results['color_b'], winfo.graph_slice)
             uint8_data, float_data = {}, {}
             uint8_data, float_data = g_help.convert_float_unint8(float_array, graph.get_size(),
                                                                  uint8_data, float_data)
-            image = g_help.FileImage(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), 'color_b')
+            image = g_help.FileImage(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), 'color_b',
+                                     float_array=float_array)
             image.byte_data = g_help.vis_1_im(image)
             winfo.rec_images['color_b'] = image
+
+            # Add the vector image
+            color_float_array = float_array
+            mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
+            vector_color = window['__REC_Arrow_Color__'].get()
+            if vector_color == 'On':
+                vector_color = True
+                vector_num = int(window['__REC_Arrow_Num__'].get())
+                vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
+                graph_size = graph.get_size()
+                byte_img = g_help.add_vectors(mag_x, mag_y, color_float_array,
+                                              vector_color, hsvwheel, vector_num, vector_len,
+                                              vector_wid, graph_size, save=None)
+                shape = color_float_array.shape
+                im = g_help.FileImage(np.empty(shape), np.empty(shape),
+                                      (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
+                im.byte_data = byte_img
+                winfo.rec_images['vector'] = im
+
             if window['__REC_Image_List__'].get()[0] == 'Color':
                 display_img = image.byte_data
                 display_img2 = winfo.rec_colorwheel
+            elif window['__REC_Image_List__'].get()[0] == 'Vector Im.' and vector_color:
+                display_img = im.byte_data
+                display_img2 = winfo.rec_colorwheel
+
     winfo.rec_last_colorwheel_choice = colorwheel_choice
 
     # Reset page

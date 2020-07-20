@@ -445,32 +445,40 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
     V = mag_y 
     
     sz_inches = 8
-    if color: 
-        rad = mag_x.shape[0]//16
-        rad = max(rad, 16)
-        pad = 10 #pixels
-        width = np.shape(mag_y)[1] + 2*rad + pad
-        aspect = dimy/width
-    else:
-        aspect = 1
-
-    if GUI_handle:
-        plt.ioff()
+    if not GUI_handle or save is not None:
+        if color:
+            rad = mag_x.shape[0]//16
+            rad = max(rad, 16)
+            pad = 10 # pixels
+            width = np.shape(mag_y)[1] + 2*rad + pad
+            aspect = dimy/width
+        else:
+            aspect = 1
 
     fig, ax = plt.subplots()
-    ax.set_aspect(aspect)
+    if GUI_handle:
+        fig, ax = plt.subplots(figsize=(10, 10))
+        plt.ioff()
+        ax.set_aspect('equal', adjustable='box')
+    else:
+        fig, ax = plt.subplots()
+        ax.set_aspect(aspect)
+
     if color:
         if not GUI_handle:
             from colorwheel import color_im
             im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap='gray',
                             origin=origin)
         else:
-            im = ax.matshow(GUI_color_array, cmap='gray', origin=origin)
+            im = ax.matshow(GUI_color_array, cmap='gray', origin=origin, aspect='equal')
         arrow_color = 'white'
         plt.axis('off')
     else:
         arrow_color = 'black'
         if GUI_handle:
+            white_array = np.zeros([dimx, dimy, 3], dtype=np.uint8)
+            white_array.fill(255)
+            im = ax.matshow(white_array, cmap='gray', origin=origin, aspect='equal')
             plt.axis('off')
 
     q = ax.quiver(X[::a], Y[::a], U[::a, ::a], V[::a, ::a],
@@ -486,11 +494,9 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         if not GUI_handle:
             qk = ax.quiverkey(q, X=0.95, Y=0.98, U=1, label=r'$Msat$', labelpos='S',
                               coordinates='axes')
-        else:
-            qk = ax.quiverkey(q, X=1, Y=1, U=1, label='')
-        qk.text.set_backgroundcolor('w')
-        if origin == 'upper': 
-            ax.invert_yaxis()
+            qk.text.set_backgroundcolor('w')
+            if origin == 'upper':
+                ax.invert_yaxis()
 
 
     if title is not None:
@@ -506,7 +512,7 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         plt.show()
 
     if save is not None: 
-        fig.set_size_inches(8,8/aspect)
+        fig.set_size_inches(8, 8/aspect)
         print(f'Saving: {save}')
         plt.axis('off')
         # sets dpi to 5 times original image dpi so arrows are reasonably sharp
@@ -514,6 +520,6 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         plt.savefig(save, dpi=dpi2, bbox_inches='tight', transparent=tr)
 
     if GUI_handle:
-        return fig
+        return fig, ax
     else:
         return

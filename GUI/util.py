@@ -233,6 +233,26 @@ def represents_float(s: str) -> bool:
         return False
 
 
+def represents_int_above_0(s: str) -> bool:
+    """Evaluate if the string is an integer.
+
+    Args:
+        s: A string to check if it wil be a float.
+
+    Returns:
+        True if it converts to float, False otherwise.
+    """
+
+    try:
+        val = int(s)
+        if val > 0:
+            return True
+        else:
+            return False
+    except ValueError:
+        return False
+
+
 # ============================================================= #
 #                  Image Loading & Manipulating.                #
 # ============================================================= #
@@ -531,23 +551,51 @@ def slice(image: 'np.ndarray', slice_size: Tuple[int, int]) -> 'np.ndarray':
     return image[startx:endx, starty:endy, :]
 
 
-def figure_to_bytes(fig):
+def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
+                hsv: bool, arrows: int, length: int, width: int,
+                graph_size: Tuple[int, int], GUI_handle: bool = True,
+                save: Optional[bool] = None) -> Optional['bytes']:
+    """Vectorize the magnetic saturation images for GUI.
 
-    plt.figure(fig.number)
-    byte_img = BytesIO()
-    plt.savefig(byte_img, format='png')
-    byte_img.seek(0)
-    im = Image.open(byte_img)
-    byte_img = convert_to_bytes(im)
-    return byte_img
+    Args:
+        mag_x: The x-component of the magnetic induction.
+        mag_y: The y-component of the magnetic induction.
+        color_np_array: The colorized magnetic saturation array.
+        color: The boolean value for a color image (True) or black & white image (False).
+        hsv: The boolean value for hsv color image (True) or 4-fold color image (False).
+        arrows: The number of arrows to place along the rows and cols of the image.
+        length: The length of the arrows.
+        width: The width of the arrows.
+        graph_size: The (x, y) size of the GUI display graph.
+        GUI_handle: The handle to pass to TIE_helper.show_2D() signalling whether to use GUI
+            or matplotlib. This defaults to True for the GUI.
+        save: The value to determine saving of the vectorized image.
+
+    Returns:
+        Optional: The byte image for the vectorized data.
+    """
 
 
-def add_vectors(mag_x, mag_y, color_np_array, color, hsv, arrows, length, width, save=None):
+    fig, ax = show_2D(mag_x, mag_y, a=arrows, l=length, w=width, title=None, color=color, hsv=hsv,
+                      save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
+    if GUI_handle:
+        plt.figure(fig.number)
+        fig.tight_layout(pad=0)
+        plt.axis('off')
+        ax.xaxis.set_major_locator(matplotlib.ticker.NullLocator())
+        ax.yaxis.set_major_locator(matplotlib.ticker.NullLocator())
 
-    fig = show_2D(mag_x, mag_y, a=arrows, l=length, w=width, title=None, color=color, hsv=hsv,
-                  save=save, GUI_handle=True, GUI_color_array=color_np_array)
-    byte_img = figure_to_bytes(fig)
-    return byte_img
+        # Resize with CV
+        fig.canvas.draw()
+        data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+        data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        data = resize(data, graph_size, interpolation=INTER_AREA)
+        rgba_image = make_rgba(data)
+        return_img = convert_to_bytes(rgba_image)
+        return return_img
+    else:
+        return
+
 
 
 # ============================================================= #

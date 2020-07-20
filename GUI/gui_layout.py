@@ -41,7 +41,7 @@ def element_keys() -> Dict[str, List[str]]:
 
                    "__REC_Image_Dir_Browse__", "__REC_Set_Img_Dir__", "__REC_Reset_Img_Dir__",
                    "__REC_Save_TIE__", "__REC_Run_TIE__",
-                   "__REC_Erase_Mask__", "__REC_Mask__",
+                   "__REC_Erase_Mask__", "__REC_Mask__", "__REC_Arrow_Set__",
                    "__REC_Load_FLS2__", "__REC_Load_FLS1__", "__REC_Reset_FLS__", "__REC_Load_Stack__",
                    "__REC_Set_FLS__"
                    ]
@@ -833,7 +833,8 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                               sg.Image(**style.styles('__REC_PYTIE_Spinner__'))],
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]])],
                              [sg.Text('Colorwheel:', pad=((8, 0), (4, 0))),
-                              sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__'))],
+                              sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__')),
+                              sg.Button('Set Vector Im.', key='__REC_Arrow_Set__', pad=((60, 0), (4, 0)))],
                              [sg.Text('Vector Im. |', pad=((2, 0), (4, 0))),
                               sg.Text('Arrows:', pad=((0, 0), (4, 0))),
                               sg.Input('15', **style.styles('__REC_Arrow_Num__')),
