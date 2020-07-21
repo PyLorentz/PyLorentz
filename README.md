@@ -38,7 +38,7 @@ If you usePyLorentz, please cite us. We have a DOI through Zenodo:
 ### GUI/Align
 * TIE reconstruction through a graphical user interface (gui) 
 * Additional features include improved region selection and easily images before saving. 
-* Image registration routines incorporated (via `FIJI <https://fiji.sc/>`_) for aligning experimental data. 
+* Image registration routines incorporated (via `FIJI <https://fiji.sc/>`) for aligning experimental data. 
 
 ## Getting started
 With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo directly, fork the project, or download the files directly in a .zip. 
