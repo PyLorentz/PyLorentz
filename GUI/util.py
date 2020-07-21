@@ -13,7 +13,7 @@ import os
 from warnings import catch_warnings, simplefilter
 with catch_warnings() as w:
     simplefilter('ignore')
-from PIL import Image
+from PIL import Image, ImageDraw
 import subprocess
 from sys import platform, path as sys_path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -166,6 +166,7 @@ class Stack(FileImage):
         """Create the byte data for all the images in the stack."""
 
         self.byte_data = {}
+        self.rgba_data = {}
         for pic in range(self.z_size):
             self.byte_data[pic] = vis_1_im(self, pic)
 
@@ -328,6 +329,12 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
         return None, None, None
 
 
+def array_resize(array, new_size):
+
+    resized_array = resize(array, new_size, interpolation=INTER_AREA)
+    return resized_array
+
+
 def convert_float_unint8(float_array: 'np.ndarray[np.float64, np.float32]', graph_size: Tuple[int, int],
                          uint8_data: Optional[Dict] = None, float_data: Optional[Dict] = None,
                          z: int = 0) -> Tuple[Dict[int, 'np.ndarray[np.uint8]'], Dict[int, 'np.ndarray[np.float64, np.float32]']]:
@@ -369,6 +376,34 @@ def convert_float_unint8(float_array: 'np.ndarray[np.float64, np.float32]', grap
     return uint8_data, float_data
 
 
+def apply_rot_transl(data: 'np.ndarray', d_theta: Union[int, float] = 0, d_x: Union[int, float] = 0,
+                           d_y: Union[int, float] = 0, h_flip: Optional[bool] = None):
+
+    # Apply horizontal flip if necessary
+    if h_flip:
+        data = flip(data, 1)
+
+    # Convert to PIL Image
+    rgba_img = Image.fromarray(data).convert('RGBA')
+
+    # Rotate, take note of size change due to expand=True value
+    old_size = rgba_img.size
+    rgba_img = rgba_img.rotate(d_theta, expand=True)
+    new_size = rgba_img.size
+
+    # Translate
+    affine_matrix = (1, 0, -d_x, 0, 1, d_y)
+    rgba_img = rgba_img.transform(rgba_img.size, Image.AFFINE, affine_matrix)
+
+    # Reshape the expanded array
+    old_side, new_side = old_size[0], new_size[0]
+    box_diff = (new_side - old_side) // 2
+    left, top, right, bottom = box_diff, box_diff, new_side - box_diff, new_side - box_diff
+    crop_box = (left, top, right, bottom)
+    rgba_img = rgba_img.crop(crop_box)
+    return rgba_img
+
+
 def make_rgba(data: 'np.ndarray[np.uint8]', adjust: bool = False,
               d_theta: Union[int, float] = 0, d_x: Union[int, float] = 0,
               d_y: Union[int, float] = 0, h_flip: Optional[bool] = None,
@@ -404,28 +439,8 @@ def make_rgba(data: 'np.ndarray[np.uint8]', adjust: bool = False,
             cm = mpl_cm.get_cmap('Spectral')    # spectral, bwr,twilight, twilight_shifted, hsv shows good contrast
             data = cm(data, bytes=True)
 
-        # Apply horizontal flip if necessary
-        if h_flip:
-            data = flip(data, 1)
-
-        # Convert to PIL Image
-        rgba_img = Image.fromarray(data).convert('RGBA')
-
-        # Rotate, take note of size change due to expand=True value
-        old_size = rgba_img.size
-        rgba_img = rgba_img.rotate(d_theta, expand=True)
-        new_size = rgba_img.size
-
-        # Translate
-        affine_matrix = (1, 0, -d_x, 0, 1, d_y)
-        rgba_img = rgba_img.transform(rgba_img.size, Image.AFFINE, affine_matrix)
-
-        # Reshape the expanded array
-        old_side, new_side = old_size[0], new_size[0]
-        box_diff = (new_side-old_side) // 2
-        left, top, right, bottom = box_diff, box_diff, new_side-box_diff, new_side-box_diff
-        crop_box = (left, top, right, bottom)
-        rgba_img = rgba_img.crop(crop_box)
+        # Apply transformation  if necessary
+        rgba_img = apply_rot_transl(data, d_theta, d_x, d_y, h_flip)
     else:
         # Convert to PIL Image
         rgba_img = Image.fromarray(data).convert('RGBA')
@@ -511,7 +526,7 @@ def adjust_image(data: 'np.ndarray[np.float32, np.float64]',
     # Create the rgba and the return byte image.
     rgba_image = make_rgba(data, adjust=True, d_theta=d_theta, d_x=d_x, d_y=d_y, h_flip=h_flip, color='None')
     return_img = convert_to_bytes(rgba_image)
-    return return_img
+    return return_img, rgba_image
 
 
 def vis_1_im(image: FileImage, layer: int = 0) -> bytes:
@@ -597,6 +612,31 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         plt.close('all')
         return
 
+
+def apply_crop_to_stack(coords, graph_size, transform, stack, i):
+
+    # Create mask image (np mask)
+    mask = zeros(graph_size, np.uint8)
+    coords = [[coords[i][0], coords[i][1]] for i in range(len(coords))]
+    mask = create_mask(mask, coords, 1)
+    mask = flipud(mask)
+
+    # Create transformed image (PIL)
+    # d_theta, d_x, d_y, h_flip = transform
+    # d_x = round(d_x / stack.x_size * graph_size[0])
+    # d_y = round(d_y / stack.y_size * graph_size[1])
+    # img = make_rgba(stack.flt_data[i], True, d_theta, d_x, d_y, h_flip, color='None')
+    img = stack.rgba_data[i]
+    img_array = np.asarray(img)
+    img = np.dot(img_array[..., :3], [0.2989, 0.5870, 0.1140])
+
+    # Black out the masked region
+    masked_image = np.multiply(img, mask)
+    rgba_masked_image = make_rgba(masked_image)
+    display_img = convert_to_bytes(rgba_masked_image)
+    return display_img, rgba_masked_image
+    # except:
+    #     return
 
 
 # ============================================================= #
@@ -717,7 +757,14 @@ def erase_marks(winfo: Struct, graph: sg.Graph,
             graph.DeleteFigure(line)
 
 
-def create_mask(winfo: Struct, filenames: List[str], ref_img: FileImage):
+def create_mask(img, mask_coords, color):
+
+    pts = array(mask_coords)
+    img = fillPoly(img, pts=np.int32([pts]), color=color)
+    return img
+
+
+def save_mask(winfo: Struct, filenames: List[str], ref_img: FileImage):
     """Save created mask(s) as .bmp with a given filename(s).
 
         Args:
@@ -731,13 +778,12 @@ def create_mask(winfo: Struct, filenames: List[str], ref_img: FileImage):
 
     # Choose the graph
     graph = winfo.window['__BUJ_Graph__']
-    sizex, sizey = graph.CanvasSize
+    coords = winfo.buj_mask_coords
 
     # Get mask coordinates and create cv.fillPoly image
-    coords = winfo.buj_mask_coords
-    img = zeros((sizex, sizey), np_uint8)
-    pts = array(coords)
-    img = fillPoly(img, pts=[pts], color=(255, 255, 255))
+    graph_size = graph.CanvasSize
+    img = zeros(graph_size, np_uint8)
+    img = create_mask(img, coords, (255, 255, 255))
 
     # Resize the mask and flip due to inverted y-axis for graph compared to saved file
     orig_sizex, orig_sizey = ref_img.lat_dims
@@ -809,4 +855,3 @@ def draw_square_mask(winfo: Struct, graph: sg.Graph) -> None:
         y_bottom = graph_y
 
     winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
-    print('Set mask coords:', winfo.rec_mask_coords)

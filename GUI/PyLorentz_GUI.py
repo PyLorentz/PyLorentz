@@ -1426,6 +1426,61 @@ def update_mask_size(winfo: Struct, window: sg.Window,
     return mask_transform
 
 
+
+def set_crop_data(winfo, graph, images, ptie):
+
+    # Set crop data
+    bottom, top, left, right = None, None, None, None
+    for i in range(len(winfo.rec_mask_coords)):
+        x, y = winfo.rec_mask_coords[i]
+        if right is None or x > right:
+            right = x
+        if left is None or x < left:
+            left = x
+        if bottom is None or graph.get_size()[1] - y > bottom:
+            bottom = graph.get_size()[1] - y
+        if top is None or graph.get_size()[1] - y < top:
+            top = graph.get_size()[1] - y
+    if (bottom, top, left, right) == (None, None, None, None):
+        bottom, top, left, right = graph.get_size()[1], 0, 0, graph.get_size()[0]
+
+    # Scaling the image from the graph region to the regular sized image
+    reg_width, reg_height = images['REC_Stack'].lat_dims
+    scale_x, scale_y = reg_width / graph.get_size()[0], reg_height / graph.get_size()[1]
+
+    # Make sure the image is square
+    if round(right * scale_x) - round(left * scale_x) != round(bottom * scale_y) - round(top * scale_y):
+        print(f'REC: The crop region was not square. Fixing.')
+        if round(right * scale_x) - round(left * scale_x) < round(bottom * scale_y) - round(top * scale_y):
+            if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
+                if right == reg_width:
+                    left -= 1
+                else:
+                    right += 1
+            elif (round(bottom * scale_y) - round(top * scale_y)) % 2 != 0:
+                bottom -= 1
+        if round(right * scale_x) - round(left * scale_x) > round(bottom * scale_y) - round(top * scale_y):
+            if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
+                right -= 1
+                if right == reg_width:
+                    left -= 1
+                else:
+                    right += 1
+            elif (round(bottom * scale_y) - round(top * scale_y)) % 2 != 0:
+                if bottom == reg_height:
+                    top -= 1
+                else:
+                    bottom += 1
+
+    # Set ptie crop
+    scaled_left, scaled_right = round(left * scale_x), round(right * scale_x)
+    scaled_bottom, scaled_top = round(bottom * scale_y), round(top * scale_y)
+    ptie.crop['right'], ptie.crop['left'] = scaled_right, scaled_left
+    ptie.crop['bottom'], ptie.crop['top'] = scaled_bottom, scaled_top
+    winfo.graph_slice = (round(right * scale_x) - round(left * scale_x),
+                         round(bottom * scale_x) - round(top * scale_x))
+
+
 # ------------- Visualizing Elements ------------- #
 def set_pretty_focus(winfo: Struct, window: sg.Window, event: str) -> None:
     """ Sets the focus to reduce unwanted placements of
@@ -1640,6 +1695,16 @@ def ptie_init_thread(winfo: Struct, path: str, fls1_path: str, fls2_path: str,
             prefix = 'unflip'
         im_name = files1[0]
 
+        # Apply ptie_mask to stack
+        stack = winfo.rec_images['REC_Stack']
+        transform = (0, 0, 0, False)
+        resized_mask = g_help.array_resize(ptie.mask, winfo.window['__REC_Graph__'].get_size())
+        for i in range(stack.z_size):
+            stack.uint8_data[i] = np.multiply(stack.uint8_data[i], resized_mask)
+            stack.flt_data[i] = np.multiply(stack.flt_data[i], resized_mask)
+            stack.byte_data[i], stack.rgba_data[i] = g_help.adjust_image(stack.flt_data[i], transform, stack.x_size,
+                                                                         winfo.window['__REC_Graph__'].get_size()[0])
+
         # Change the appearance and values in the GUI
         metadata_change(winfo, winfo.window, [('__REC_Image__', f'{prefix}/{im_name}')])
         length_slider = len(string_vals)
@@ -1651,6 +1716,7 @@ def ptie_init_thread(winfo: Struct, path: str, fls1_path: str, fls2_path: str,
 
         update_slider(winfo, winfo.window, [('__REC_Defocus_Slider__', {"slider_range": (0, max(length_slider - 3, 0)),
                                              "value": 0})])
+        update_slider(winfo, winfo.window, [('__REC_Slider__', {"value": 0, "slider_range": (0, stack.z_size-1)})])
         enable_elements(winfo, winfo.window, ['__REC_Def_Combo__', '__REC_QC_Input__',
                                               '__REC_Mask__', "__REC_Erase_Mask__",
                                               '__REC_Data_Prefix__', '__REC_Run_TIE__',
@@ -1659,6 +1725,12 @@ def ptie_init_thread(winfo: Struct, path: str, fls1_path: str, fls2_path: str,
         change_inp_readonly_bg_color(winfo.window, ['__REC_Stack__', '__REC_FLS1__',  '__REC_FLS2__',
                                                     '__REC_M_Volt__'], 'Readonly')
         change_inp_readonly_bg_color(winfo.window, ['__REC_Data_Prefix__', '__REC_QC_Input__'], 'Default')
+
+        values = winfo.window['__REC_Image_List__'].GetListValues()
+        index = winfo.window['__REC_Image_List__'].GetIndexes()
+        selected = values[index[0]]
+        if selected == 'Stack':
+            redraw_graph(winfo.window['__REC_Graph__'], stack.byte_data[0])
 
         # Load all relevant PTIE data into winfo
         winfo.rec_defocus_slider_set = 0
@@ -1730,53 +1802,7 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
         longitudinal_deriv = False
 
     # Set crop data
-    bottom, top, left, right = None, None, None, None
-    for i in range(len(winfo.rec_mask_coords)):
-        x, y = winfo.rec_mask_coords[i]
-        if right is None or x > right:
-            right = x
-        if left is None or x < left:
-            left = x
-        if bottom is None or graph.get_size()[1] - y > bottom:
-            bottom = graph.get_size()[1] - y
-        if top is None or graph.get_size()[1] - y < top:
-            top = graph.get_size()[1] - y
-    if (bottom, top, left, right) == (None, None, None, None):
-        bottom, top, left, right = graph.get_size()[1], 0, 0, graph.get_size()[0]
-
-    # Scaling the image from the graph region to the regular sized image
-    reg_width, reg_height = images['REC_Stack'].lat_dims
-    scale_x, scale_y = reg_width / graph.get_size()[0], reg_height / graph.get_size()[1]
-
-    # Make sure the image is square
-    if round(right * scale_x) - round(left * scale_x) != round(bottom * scale_y) - round(top * scale_y):
-        print(f'REC: The crop region was not square. Fixing.')
-        if round(right * scale_x) - round(left * scale_x) < round(bottom * scale_y) - round(top * scale_y):
-            if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
-                if right == reg_width:
-                    left -= 1
-                else:
-                    right += 1
-            elif (round(bottom * scale_y) - round(top * scale_y)) % 2 != 0:
-                bottom -= 1
-        if round(right * scale_x) - round(left * scale_x) > round(bottom * scale_y) - round(top * scale_y):
-            if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
-                right -= 1
-                if right == reg_width:
-                    left -= 1
-                else:
-                    right += 1
-            elif (round(bottom * scale_y) - round(top * scale_y)) % 2 != 0:
-                if bottom == reg_height:
-                    top -= 1
-                else:
-                    bottom += 1
-
-    # Set ptie crop
-    scaled_left, scaled_right = round(left * scale_x), round(right * scale_x)
-    scaled_bottom, scaled_top = round(bottom * scale_y), round(top * scale_y)
-    ptie.crop['right'], ptie.crop['left'] = scaled_right, scaled_left
-    ptie.crop['bottom'], ptie.crop['top'] = scaled_bottom, scaled_top
+    set_crop_data(winfo, graph, images, ptie)
 
     if not qc_passed:
         print(f'REC: QC value should be an integer or float and not negative. Change value.')
@@ -1795,8 +1821,6 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
             winfo.rec_def_val = def_val
             winfo.rec_sym = sym
             winfo.rec_qc = qc
-            winfo.graph_slice = (round(right * scale_x) - round(left * scale_x),
-                                 round(bottom * scale_x) - round(top * scale_x))
 
             loaded_green_list = []
             for key in results:
@@ -3137,7 +3161,7 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                     if filenames == 'close':
                         return filenames
                     elif filenames:
-                        g_help.create_mask(winfo, filenames, image)
+                        g_help.save_mask(winfo, filenames, image)
                         if flag == (True, False):
                             image = g_help.FileImage(None, None, None, filenames[0])
                             images['BUJ_unflip_mask'] = image
@@ -3568,7 +3592,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     # Import event handler names (overlaying, etc.)
     adjust = mask_button.metadata['State'] == 'Set' and (winfo.rec_past_transform != transform or
                                                          winfo.rec_past_mask != mask_transform)
-
     change_img = winfo.rec_last_image_choice != values['__REC_Image_List__'][0]
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
@@ -3601,17 +3624,21 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         stack_path = window['__REC_Stack_Stage__'].Get()
         update_values(winfo, window, [('__REC_Stack_Stage__', 'None')])
         if os_path.exists(stack_path) and (stack_path.endswith('.tif') or stack_path.endswith('.tiff')):
-            image_key = 'REC_Stack'
             graph = window['__REC_Graph__']
             graph_size = graph.get_size()
-            uint8_data, flt_data, size = g_help.load_image(stack_path, graph_size,  event, stack=True, prefix=' LS: ')
+            uint8_data, flt_data, size = g_help.load_image(stack_path, graph_size,  event, stack=True, prefix='REC: ')
             if uint8_data:
                 stack = g_help.Stack(uint8_data, flt_data, size, stack_path)
+                stack_def = g_help.Stack(uint8_data, flt_data, size, stack_path)
                 slider_range = (0, stack.z_size - 1)
                 slider_val = 0
-                winfo.rec_images[image_key] = stack
-                display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size,
-                                                  graph.get_size()[0])
+                winfo.rec_images['REC_Stack'] = stack
+                winfo.rec_images['REC_Def_Stack'] = stack_def
+                for i in range(stack.z_size):
+                    stack.byte_data[i], stack.rgba_data[i] = g_help.adjust_image(stack.flt_data[i], transform,
+                                                                                 stack.x_size, graph.get_size()[0])
+                    if i == slider_val:
+                        display_img = stack.byte_data[i]
                 metadata_change(winfo, window, [('__REC_Stack__', stack.shortname)])
                 toggle(winfo, window, ['__REC_Stack__', '__REC_Image__'], state="Set")
                 update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
@@ -3813,18 +3840,21 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     elif event == '__REC_Slider__':
         stack_choice = window['__REC_Image_List__'].get()[0]
         if stack_choice == 'Stack':
-            adjustment = False
+            stack_key = 'REC_Stack'
         elif stack_choice == 'Default Stack':
-            adjustment = True
-        stack_key = 'REC_Stack'
+            stack_key = 'REC_Def_Stack'
         stack = images[stack_key]
         slider_val = int(values["__REC_Slider__"])
 
         # Update window
-        if not adjustment:
+        if stack_key == 'REC_Def_Stack':
             display_img = stack.byte_data[slider_val]
-        elif adjustment:
-            display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
+        elif stack_key == 'REC_Stack':
+            if window['__REC_Mask__'].metadata['State'] == 'Set':
+                display_img, stack.rgba_data[i] = g_help.adjust_image(stack.flt_data[slider_val], transform,
+                                                                      stack.x_size, graph.get_size()[0])
+            else:
+                display_img = g_help.convert_to_bytes(stack.rgba_data[slider_val])
 
         if winfo.rec_files1:
             if winfo.rec_files1 and winfo.rec_files2:
@@ -3844,42 +3874,46 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     # Scroll through stacks in the graph area
     elif scroll:
         stack_choice = window['__REC_Image_List__'].get()[0]
-        if stack_choice == 'Stack':
-            adjustment = True
-        elif stack_choice == 'Default Stack':
-            adjustment = False
-        if stack_choice in ['Stack', 'Default Stack'] or window['__REC_Mask__'].metadata['State'] == 'Set':
+
+        if stack_choice in ['Stack'] or window['__REC_Mask__'].metadata['State'] == 'Set':
             stack = images['REC_Stack']
-            slider_val = int(values["__REC_Slider__"])
-            max_slider_val = stack.z_size - 1
-            # Scroll up or down
-            if event == 'MouseWheel:Down':
-                slider_val = min(max_slider_val, slider_val+1)
-            elif event == 'MouseWheel:Up':
-                slider_val = max(0, slider_val-1)
+        elif stack_choice == 'Default Stack':
+            stack = images['REC_Def_Stack']
 
-            # Update the window
-            if not adjustment:
-                display_img = stack.byte_data[slider_val]
-            elif window['__REC_Mask__'].metadata['State'] == 'Set' or adjustment:
-                display_img = g_help.adjust_image(stack.flt_data[slider_val], transform,
-                                                  stack.x_size, graph.get_size()[0])
+        slider_val = int(values["__REC_Slider__"])
+        max_slider_val = stack.z_size - 1
+        # Scroll up or down
+        if event == 'MouseWheel:Down':
+            slider_val = min(max_slider_val, slider_val+1)
+        elif event == 'MouseWheel:Up':
+            slider_val = max(0, slider_val-1)
 
-            update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val})])
-            if winfo.rec_files1:
-                if winfo.rec_files1 and winfo.rec_files2:
-                    if slider_val < len(winfo.rec_files1):
-                        prefix = 'unflip'
-                        im_name = winfo.rec_files1[slider_val]
-                    elif slider_val >= len(winfo.rec_files1):
-                        prefix = 'flip'
-                        im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
-                else:
-                    prefix = 'tfs'
-                    im_name = winfo.rec_files1[slider_val]
-                metadata_change(winfo, window, [('__REC_Image__', f'{prefix}/{im_name}')])
+        # Update the window
+        if stack_choice == 'Stack':
+            if window['__REC_Mask__'].metadata['State'] == 'Set':
+                display_img, stack.rgba_data[i] = g_help.adjust_image(stack.flt_data[slider_val], transform,
+                                                                      stack.x_size, graph.get_size()[0])
             else:
-                metadata_change(winfo, window, [('__REC_Image__', f'Image {slider_val+1}')])
+                display_img = g_help.convert_to_bytes(stack.rgba_data[slider_val])
+
+        elif stack_choice == 'Default Stack':
+            display_img = stack.byte_data[slider_val]
+
+        update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val})])
+        if winfo.rec_files1:
+            if winfo.rec_files1 and winfo.rec_files2:
+                if slider_val < len(winfo.rec_files1):
+                    prefix = 'unflip'
+                    im_name = winfo.rec_files1[slider_val]
+                elif slider_val >= len(winfo.rec_files1):
+                    prefix = 'flip'
+                    im_name = winfo.rec_files2[slider_val % len(winfo.rec_files1)]
+            else:
+                prefix = 'tfs'
+                im_name = winfo.rec_files1[slider_val]
+            metadata_change(winfo, window, [('__REC_Image__', f'{prefix}/{im_name}')])
+        else:
+            metadata_change(winfo, window, [('__REC_Image__', f'Image {slider_val+1}')])
 
     # Scroll through image options
     elif scroll_images:
@@ -3921,10 +3955,8 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         image_choice = values['__REC_Image_List__'][0]
         if image_choice == 'Stack':
             image_key = 'REC_Stack'
-            adjustment = True
         elif image_choice == 'Default Stack':
-            image_key = 'REC_Stack'
-            adjustment = False
+            image_key = 'REC_Def_Stack'
         elif image_choice == 'Color':
             image_key = 'color_b'
             im_name = 'Color'
@@ -3979,13 +4011,12 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                     metadata_change(winfo, window, [('__REC_Image__', f'{prefix}/{im_name}')])
                 else:
                     metadata_change(winfo, window, [('__REC_Image__', f'Image {slider_val + 1}')])
-                if adjustment:
-                    display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
-                else:
+                if image_key == 'REC_Stack':
+                    display_img = g_help.convert_to_bytes(stack.rgba_data[slider_val])
+                elif image_key == 'REC_Def_Stack':
                     display_img = stack.byte_data[slider_val]
                 colorwheel_graph.Erase()
-                update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range}),
-                                       ])
+                update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
             # Other image set
             elif image_key in images and images[image_key] is not None:
                 image = images[image_key]
@@ -4008,7 +4039,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         stack = images['REC_Stack']
         slider_range = (0, stack.z_size - 1)
         slider_val = int(values["__REC_Slider__"])
-        display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
+
         if winfo.rec_files1:
             if winfo.rec_files1 and winfo.rec_files2:
                 if slider_val < len(winfo.rec_files1):
@@ -4024,15 +4055,26 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         if mask_button.metadata['State'] == 'Def':
             toggle(winfo, window, ['__REC_Mask__'], state='Set')
             update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
-
-            # winfo.rec_mask = float(window['__REC_Mask_Size__'].Get())
             draw_mask = True
+            display_img, rgba_img = g_help.adjust_image(stack.flt_data[slider_val],
+                                                        transform, stack.x_size, graph.get_size()[0])
             g_help.draw_square_mask(winfo, graph)
 
         # Quit mask making make_mask_button
         elif mask_button.metadata['State'] == 'Set':
             toggle(winfo, window, ['__REC_Mask__'], state='Def')
             draw_mask = False
+
+            # Apply cropping to all images
+            coords = winfo.rec_mask_coords
+            graph_size = graph.CanvasSize
+            for i in range(stack.z_size):
+                temp_img, stack.rgba_data[i] = g_help.adjust_image(stack.flt_data[i],
+                                                                   transform, stack.x_size, graph.get_size()[0])
+                temp_img, stack.rgba_data[i] = g_help.apply_crop_to_stack(coords, graph_size, transform, stack, i)
+                if i == slider_val:
+                    display_img = temp_img
+
         colorwheel_graph.Erase()
         window['__REC_Image_List__'].update(set_to_index=0, scroll_to_index=0)
         update_slider(winfo, window, [('__REC_Image_Slider__', {"value": 7})])
@@ -4121,6 +4163,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         else:
             print(f"{prefix}Reconstruction results haven't been generated.")
 
+    # Update the arrow images
     elif event == "__REC_Arrow_Set__":
         arrow_transform = get_arrow_transform(window)
         if (g_help.represents_int_above_0(arrow_transform[0]) and
@@ -4164,7 +4207,9 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         if winfo.rec_past_transform != transform:
             stack = images['REC_Stack']
             slider_val = int(values["__REC_Slider__"])
-            display_img = g_help.adjust_image(stack.flt_data[slider_val], transform, stack.x_size, graph.get_size()[0])
+            display_img, stack.rgba_data[slider_val] = g_help.adjust_image(stack.flt_data[slider_val],
+                                                                           transform, stack.x_size,
+                                                                           graph.get_size()[0])
         g_help.erase_marks(winfo, graph, current_tab, full_erase=True)
         g_help.draw_square_mask(winfo, graph)
     winfo.rec_past_transform = transform
