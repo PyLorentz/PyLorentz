@@ -210,7 +210,8 @@ def mansPhi(mx = 1.0,my = 1.0,mz = None,beam = [0.0,0.0,1.0],thick = 1.0,embed =
     beam = beam / np.sqrt(np.sum(beam**2))
 
     #Get dimensions
-    [xsz,ysz] = mx.shape
+    [ysz,xsz] = mx.shape
+    print(xsz, ysz)
 
     #Embed
     if (embed == 1.0):
@@ -222,13 +223,13 @@ def mansPhi(mx = 1.0,my = 1.0,mz = None,beam = [0.0,0.0,1.0],thick = 1.0,embed =
         bdim = int(embed)
         bdimx,bdimy = bdim,bdim
 
-    bigmx = np.zeros([bdimx,bdimy])
-    bigmy = np.zeros([bdimx,bdimy])
-    bigmx[(bdimx-xsz)//2:(bdimx+xsz)//2,(bdimy-ysz)//2:(bdimy+ysz)//2] = mx
-    bigmy[(bdimx-xsz)//2:(bdimx+xsz)//2,(bdimy-ysz)//2:(bdimy+ysz)//2] = my
+    bigmx = np.zeros([bdimy,bdimx])
+    bigmy = np.zeros([bdimy,bdimx])
+    bigmx[(bdimy-ysz)//2:(bdimy+ysz)//2,(bdimx-xsz)//2:(bdimx+xsz)//2] = mx
+    bigmy[(bdimy-ysz)//2:(bdimy+ysz)//2,(bdimx-xsz)//2:(bdimx+xsz)//2] = my
     if mz is not None:
-        bigmz = np.zeros([bdimx,bdimy])
-        bigmz[(bdimx-xsz)//2:(bdimx+xsz)//2,(bdimy-ysz)//2:(bdimy+ysz)//2] = mz
+        bigmz = np.zeros([bdimy,bdimx])
+        bigmz[(bdimy-ysz)//2:(bdimy+ysz)//2,(bdimx-xsz)//2:(bdimx+xsz)//2] = mz
     
     #Compute the auxiliary arrays requried for computation
     dsx = 2.0*np.pi/bdimx 
