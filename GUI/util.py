@@ -552,7 +552,7 @@ def slice(image: 'np.ndarray', slice_size: Tuple[int, int]) -> 'np.ndarray':
 
 
 def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
-                hsv: bool, arrows: int, length: int, width: int,
+                hsv: bool, arrows: int, length: float, width: float,
                 graph_size: Tuple[int, int], GUI_handle: bool = True,
                 save: Optional[bool] = None) -> Optional['bytes']:
     """Vectorize the magnetic saturation images for GUI.
@@ -564,7 +564,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         color: The boolean value for a color image (True) or black & white image (False).
         hsv: The boolean value for hsv color image (True) or 4-fold color image (False).
         arrows: The number of arrows to place along the rows and cols of the image.
-        length: The length of the arrows.
+        length: The inverse length of the arrows. Inverted when passed to show_2D.
         width: The width of the arrows.
         graph_size: The (x, y) size of the GUI display graph.
         GUI_handle: The handle to pass to TIE_helper.show_2D() signalling whether to use GUI
@@ -575,8 +575,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         Optional: The byte image for the vectorized data.
     """
 
-
-    fig, ax = show_2D(mag_x, mag_y, a=arrows, l=length, w=width, title=None, color=color, hsv=hsv,
+    fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
     if GUI_handle:
         plt.figure(fig.number)
@@ -592,8 +591,10 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         data = resize(data, graph_size, interpolation=INTER_AREA)
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
+        plt.close('all')
         return return_img
     else:
+        plt.close('all')
         return
 
 

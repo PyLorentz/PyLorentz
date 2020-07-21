@@ -103,8 +103,8 @@ def init_ls(winfo: Struct) -> None:
     winfo.ls_files2 = None
     winfo.ls_fls_files = [None, None]
 
-
     # Declare transformation variables
+    winfo.ls_rotxy_timers = (0, 0, 0)
     winfo.ls_transform = (0, 0, 0, 1)
     winfo.ls_past_transform = (0, 0, 0, 1)
 
@@ -136,6 +136,7 @@ def init_buj(winfo: Struct) -> None:
     winfo.buj_last_image_choice = None
 
     # Declare transformation timers and related variables
+    winfo.buj_rotxy_timers = (0, 0, 0)
     winfo.buj_transform = (0, 0, 0, 1)
     winfo.buj_past_transform = (0, 0, 0, 1)
 
@@ -180,6 +181,7 @@ def init_rec(winfo: Struct, window: sg.Window) -> None:
                                    'In Focus': 10, 'Default Stack': 11}
 
     # Declare transformation timers and related variables
+    winfo.rec_rotxy_timers = (0, 0, 0)
     winfo.rec_transform = (0, 0, 0, None)
     winfo.rec_past_transform = (0, 0, 0, None)
     winfo.rec_past_arrow_transform = (15, 1, 1, 'On')
@@ -248,10 +250,6 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.proc = None
     winfo.kill_proc = []
 
-
-    # --- Set up FIJI/ImageJ --- #
-    winfo.rotxy_timers = 0, 0, 0
-
     # --- Set up linear SIFT tab --- #
     init_ls(winfo)
 
@@ -298,8 +296,6 @@ def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
         None
     """
     # Reset timers
-    winfo.rotxy_timers = 0, 0, 0
-
     if current_tab == "ls_tab":
         graph = window['__LS_Graph__']
         graph.Erase()
@@ -774,7 +770,12 @@ def retrieve_transform(winfo: Struct, window: sg.Window, current_tab: str,
 
     # Update timers
     if not mask:
-        winfo.rotxy_timers = tuple(timers)
+        if current_tab == "ls_tab":
+            winfo.ls_rotxy_timers = tuple(timers)
+        elif current_tab == "bunwarpj_tab":
+            winfo.buj_rotxy_timers = tuple(timers)
+        elif current_tab == 'reconstruct_tab':
+            winfo.rec_rotxy_timers = tuple(timers)
     else:
         winfo.rec_mask_timer = tuple(timers)
 
@@ -803,17 +804,17 @@ def get_transformations(winfo: Struct, window: sg.Window,
             rotation, x-translate, y-translate, and flip.
     """
 
-    # Grab the timers for the inputs
-    timers = winfo.rotxy_timers
-
     # Grab the transformation for the open tab
     if current_tab == "ls_tab":
+        timers = winfo.ls_rotxy_timers
         pref = "LS"
         old_transform = winfo.ls_past_transform
     elif current_tab == "bunwarpj_tab":
+        timers = winfo.buj_rotxy_timers
         pref = "BUJ"
         old_transform = winfo.buj_past_transform
     elif current_tab == 'reconstruct_tab':
+        timers = winfo.rec_rotxy_timers
         pref = "REC"
         old_transform = winfo.rec_past_transform
 
@@ -2002,7 +2003,8 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
                     enable_list.append("__LS_Stack_Slider__")
                 if (view_stack_button.metadata['State'] == 'Def' and
                         window['__LS_Set_Img_Dir__'].metadata['State'] == 'Set' and
-                        window['__LS_TFS_Combo__'].Get() != 'Single'):
+                        window['__LS_TFS_Combo__'].Get() != 'Single' and
+                        winfo.ls_rotxy_timers == (0, 0, 0)):
                     enable_list.extend(['__LS_Adjust__'])
                 if window['__LS_Adjust__'].metadata['State'] == 'Def':
                     if images is not {} and 'stack' in images:
@@ -2560,7 +2562,8 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
 
 
                 if view_stack_button.metadata['State'] == 'Def' and make_mask_button.metadata['State'] == 'Def':
-                    if window['__BUJ_Set_Img_Dir__'].metadata['State'] == 'Set':
+                    if (window['__BUJ_Set_Img_Dir__'].metadata['State'] == 'Set' and
+                            winfo.buj_rotxy_timers == (0, 0, 0)):
                         enable_list.extend(['__BUJ_Adjust__'])
                 if view_stack_button.metadata['State'] == 'Def' and adjust_button.metadata['State'] == 'Def':
                     enable_list.extend(['__BUJ_Load_Mask__', '__BUJ_Clear_Unflip_Mask__', '__BUJ_Clear_Flip_Mask__'])
@@ -3477,10 +3480,11 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                         winfo.ptie_init_thread is None):
                     enable_list.extend(['__REC_Set_FLS__'])
             elif window['__REC_Set_FLS__'].metadata['State'] == 'Set' and winfo.ptie_recon_thread is None:
-                enable_list.extend(['__REC_Mask__', '__REC_Erase_Mask__',
-                                    '__REC_Data_Prefix__', '__REC_Def_Combo__',
-                                    '__REC_QC_Input__', "__REC_Derivative__",
-                                    "__REC_Colorwheel__"])
+                enable_list.extend(['__REC_Erase_Mask__', '__REC_Data_Prefix__',
+                                    '__REC_Def_Combo__', "__REC_Colorwheel__",
+                                    '__REC_QC_Input__', "__REC_Derivative__"])
+                if winfo.rec_rotxy_timers == (0, 0, 0) and winfo.rec_mask_timer == (0,):
+                    enable_list.extend(['__REC_Mask__'])
                 if window['__REC_Mask__'].metadata['State'] == 'Def':
                     enable_list.extend(['__REC_Run_TIE__'])
                     enable_list.extend(["__REC_Arrow_Num__", '__REC_Arrow_Color__',
@@ -3495,11 +3499,9 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             if (window['__REC_Stack__'].metadata['State'] == 'Set' and
                     window['__REC_Mask__'].metadata['State'] == 'Def'):
                 enable_list.extend(["__REC_Image_List__"])
-
             if (window['__REC_Image_List__'].get()[0] in ['Stack', 'Default Stack'] or
                     window['__REC_Mask__'].metadata['State'] == 'Set'):
                 enable_list.extend(["__REC_Slider__"])
-
         elif window['__REC_Set_Img_Dir__'].metadata['State'] == 'Def':
             enable_list.extend(['__REC_Image_Dir_Path__', '__REC_Set_Img_Dir__',
                                 '__REC_Image_Dir_Browse__'])
@@ -3544,7 +3546,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             elif vector_color == 'Off':
                 vector_color = False
             vector_num = int(window['__REC_Arrow_Num__'].get())
-            vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
+            vector_len, vector_wid = float(window['__REC_Arrow_Len__'].get()), float(window['__REC_Arrow_Wid__'].get())
             graph_size = graph.get_size()
             byte_img = g_help.add_vectors(mag_x, mag_y, color_float_array,
                                           vector_color, hsv, vector_num, vector_len,
@@ -4099,6 +4101,23 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 save_results(winfo.rec_def_val, winfo.rec_tie_results, winfo.rec_ptie,
                              prefix, winfo.rec_sym, winfo.rec_qc, save=save_tie, v=2,
                              directory=im_dir, long_deriv=False)
+                if save_tie in [True, 'b']:
+                    arrow_filenames = filenames[-2:]
+                    hsv = window['__REC_Colorwheel__'].get() == "HSV"
+                    color_float_array = images['color_b'].float_array
+                    mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
+                    v_num, v_len, v_wid = winfo.rec_past_arrow_transform[:3]
+                    graph_size = graph.get_size()
+                    for i in range(len(arrow_filenames)):
+                        name = arrow_filenames[i]
+                        if i == 0:
+                            v_color = True
+                        else:
+                            v_color = False
+                        g_help.add_vectors(mag_x, mag_y, color_float_array,
+                                           v_color, hsv, v_num, v_len,
+                                           v_wid, graph_size, save=name)
+                    print(arrow_filenames)
         else:
             print(f"{prefix}Reconstruction results haven't been generated.")
 
@@ -4117,7 +4136,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                                float(arrow_transform[1]),
                                float(arrow_transform[2]),
                                arrow_transform[3])
-            winfo.rec_past_transform = arrow_transform
+            winfo.rec_past_arrow_transform = arrow_transform
             hsv = window['__REC_Colorwheel__'].get() == "HSV"
             color_float_array = images['color_b'].float_array
             mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
@@ -4295,7 +4314,8 @@ def check_overwrite(winfo: Struct, save_win: sg.Window, true_paths: List[str],
                 overwrite_signals[i] = True
 
         elif event == '__REC_Save_TIE__':
-            if tfs != 'Single' or (tfs == 'Single' and 'phase_e' not in true_paths[i] and 'dIdZ_e' not in true_paths[i]):
+            if tfs != 'Single' or (tfs == 'Single' and 'phase_e' not in true_paths[i] and
+                                   'dIdZ_e' not in true_paths[i]):
                 index = true_paths[i].rfind('/')
                 insertion = true_paths[i][index+1:]
                 if exists and not overwrite_box:
@@ -4362,6 +4382,9 @@ def save_window_values(save_win: sg.Window, num_paths: int, event: str,
             stop = 0
         for i in range(stop):
             true_paths.append(g_help.join([path, str(defocus), orientations[i]], '_'))
+        if save_choice in ['Mag. & Color', 'Full Save']:
+            true_paths.append(g_help.join([path, str(defocus), orientations[10]], '_'))
+            true_paths.append(g_help.join([path, str(defocus), orientations[11]], '_'))
     return true_paths
 
 

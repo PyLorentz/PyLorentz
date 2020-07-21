@@ -908,8 +908,6 @@ def window_ly(background_color: str, DEFAULTS: Dict) -> Window:
     invisible_graph = sg.Graph((0, 0), (0, 0), (0, 0), visible=True, key="__invisible_graph__")
 
     window_layout = [[menu], [invisible_graph, pages]]
-
-
     window = sg.Window('PyLorentz', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
                        resizable=True, size=(style.window_width, style.window_height), use_default_focus=False,
                        finalize=True)
@@ -922,9 +920,8 @@ def save_window_ly(event: str, image_dir: str,
     """Initializes save window.
 
     Args:
-        im_type: The image extension (.bmp, .tiff)
-        file_paths: List containing the file paths that will be
-            checked whether they will be overwritten
+        event: The event key that was passed to the save window.
+        image_dir: The image parent directory/current working directory.
         orientations: List of the strings of the unflip or flip or tfs orientations.
             Otherwise may be the prefix for REC or None.
         tfs: The string of the tfs selected value.
@@ -964,7 +961,8 @@ def save_window_ly(event: str, image_dir: str,
         prefix = orientations
         orientations = ['recon_params.txt', 'color_b.tiff', 'byt.tiff', 'bxt.tiff',
                         'bbt.tiff', 'dIdZ_e.tiff', 'dIdZ_m.tiff', 'inf_im.tiff',
-                        'phase_e.tiff', 'phase_b.tiff']
+                        'phase_e.tiff', 'phase_b.tiff', 'arrow_colormap.png',
+                        'bw_arrow_colormap.png']
         file_paths = ['images']
 
     # Define the layout for the save window

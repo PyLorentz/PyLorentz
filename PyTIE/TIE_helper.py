@@ -455,7 +455,6 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         else:
             aspect = 1
 
-    fig, ax = plt.subplots()
     if GUI_handle:
         fig, ax = plt.subplots(figsize=(10, 10))
         plt.ioff()
@@ -465,7 +464,7 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         ax.set_aspect(aspect)
 
     if color:
-        if not GUI_handle:
+        if not GUI_handle or save is not None:
             from colorwheel import color_im
             im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap='gray',
                             origin=origin)
@@ -498,7 +497,6 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
             if origin == 'upper':
                 ax.invert_yaxis()
 
-
     if title is not None:
         tr = False
         ax.set_title(title)
@@ -512,6 +510,8 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         plt.show()
 
     if save is not None: 
+        if not color:
+            tr = False
         fig.set_size_inches(8, 8/aspect)
         print(f'Saving: {save}')
         plt.axis('off')
