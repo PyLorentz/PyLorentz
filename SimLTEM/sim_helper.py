@@ -160,7 +160,7 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
     return (Tphi, im_un, im_in, im_ov)
 
 
-def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, del_px = 1, isl_shape=None, pscope=None,
+def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, isl_shape=None, pscope=None,
     b0=1e4, isl_thk=20, isl_V0=20, mem_thk=50, mem_V0=10):
     """Calculates the electron phase shift through a given 2D magnetization. 
     
@@ -183,7 +183,7 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, del_px = 1, isl_shape=None, 
             isl_thickness. If 3D, the isl_shape array will be summed along 
             the z-axis becoming and multiplied by isl_thickness.  
             (Default) None -> uniform flat material with thickness = isl_thk. 
-        del_px (float): Scale factor (nm/pixel) along beam direction. 
+        zscale (float): Scale factor (nm/pixel) along beam direction. 
         pscope (``Microscope`` object): Accelerating voltage is the only 
             relevant parameter here. 
         b0 (float): Saturation induction (gauss). Default 1e4.
@@ -202,9 +202,9 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, del_px = 1, isl_shape=None, 
     """
     if pscope is None: 
         pscope = Microscope(E=200e3)
-    thk2 = isl_thk/del_px #thickness in pixels 
+    thk2 = isl_thk/zscale #thickness in pixels 
     phi0 = 2.07e7 #Gauss*nm^2 flux quantum
-    cb = 2*np.pi*b0/phi0*del_px**2 #1/px^2
+    pre_B = 2*np.pi*b0*zscale/phi0
 
     if isl_shape is None:
         thk_map = np.ones(mag_x.shape)*isl_thk
@@ -222,7 +222,7 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, del_px = 1, isl_shape=None, 
             sys.exit(1)
 
     # calculate magnetic phase shift with mansuripur algorithm
-    mphi = mansPhi(mx=mag_x, my=mag_y, thick = thk2)*cb
+    mphi = mansPhi(mx=mag_x, my=mag_y, thick = thk2)*pre_B
 
     # and now electric phase shift
     ephi = pscope.sigma * (thk_map * isl_V0 + np.ones(mag_x.shape) * mem_thk * mem_V0)
