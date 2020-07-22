@@ -19,22 +19,23 @@ import subprocess
 import shlex
 from sys import path as sys_path, stdout as sys_stdout
 from threading import Thread
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Union
+import webbrowser
 import warnings
 
 # Third-party imports
 from numpy import setdiff1d
 import PySimpleGUI as sg
-import matplotlib
-matplotlib.use('TkAgg')
+# import matplotlib
+# matplotlib.use('TkAgg')
 from matplotlib import colors
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 # Local imports
 sys_path.append("../PyTIE/")
 from align import check_setup, run_bUnwarp_align, run_ls_align, run_single_ls_align
 from gui_layout import window_ly, save_window_ly, output_ly, element_keys
-from gui_styling import WindowStyle, window_scaling
+from gui_styling import WindowStyle, window_scaling, get_icon
 from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
 from microscopes import Microscope
 from TIE_helper import *
@@ -178,7 +179,7 @@ def init_rec(winfo: Struct, window: sg.Window) -> None:
                                    'MagX': 3, 'MagY': 4, 'Mag': 5,
                                    'Electr. Phase': 6, 'Mag. Phase': 7,
                                    'Electr. Deriv.': 8, 'Mag. Deriv.': 9,
-                                   'In Focus': 10, 'Default Stack': 11}
+                                   'In Focus': 10, 'Loaded Stack': 11}
 
     # Declare transformation timers and related variables
     winfo.rec_rotxy_timers = (0, 0, 0)
@@ -262,6 +263,16 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     # --- Set up event handling and bindings --- #
     winfo.true_element = None
     winfo.window.bind("<Button-1>", 'Window Click')
+
+    # Unbind all events for the scrollable columne
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Enter>')
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Leave>')
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all('<4>')
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all('<5>')
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<MouseWheel>")
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<Shift-MouseWheel>")
+
+
     winfo.output_window.bind("<Button-1>", 'Log Click')
     # Graph bindings
     winfo.window['__BUJ_Graph__'].bind('<Double-Button-1>', 'Double Click')
@@ -270,7 +281,6 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.window.bind("<Control-l>", 'Show Log')
     winfo.window.bind("<Control-h>", 'Hide Log')
     winfo.output_window.bind("<Control-h>", 'Output Hide Log')
-
 
     big_list = keys['input'] + keys['radio'] + keys['graph'] + keys['combo'] + \
                keys['checkbox'] + keys['slider'] + keys['button'] + keys['listbox']
@@ -1198,8 +1208,7 @@ def update_values(winfo: Struct, window: sg.Window,
     """ Take a list of element key, value tuple pairs
     and update value of the element.
 
-    Parameters
-    ----------
+    Args:
         winfo: The data structure holding all information about
                 windows and GUI.
         window: The element representing the main GUI window.
@@ -1294,6 +1303,9 @@ def metadata_change(winfo: Struct, window: sg.Window,
             window[elem].metadata['Set'] = val
             if window[elem].metadata['State'] == 'Set':
                 update_values(winfo, window, [(elem, val)])
+                if elem in winfo.keys['input'] + winfo.keys['read_only_inputs']:
+                    window[elem].update(move_cursor_to="end")
+                    window[elem].Widget.xview_moveto(1)
 
 
 def toggle(winfo: Struct, window: sg.Window,
@@ -2176,7 +2188,6 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
         winfo.kill_proc.append('LS')
 
         # --- Set up loading files --- #
-
         graph.Erase()
         metadata_change(winfo, window, ['__LS_FLS1__', '__LS_FLS2__',
                                         '__LS_Image1__', '__LS_Image2__',
@@ -2196,9 +2207,6 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
                                ('__LS_transform_rot__', "0"), ('__LS_horizontal_flip__', True)
                                ])
         window['__LS_unflip_reference__'].update(True)
-        winfo.ls_images = {}
-        winfo.ls_files1 = None
-        winfo.ls_files2 = None
 
         # Re-init reconstruct
         update_slider(winfo, window, [('__LS_Stack_Slider__', {'value': 0,
@@ -2206,11 +2214,11 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
         print(f'{prefix}FLS reset.')
 
     # Set the fls files and load in images
+    # Unflip always with files1, flip always with files2
     elif event == '__LS_Set_FLS__':
         tfs_value = window['__LS_TFS_Combo__'].Get()
         fls_value = window['__LS_FLS_Combo__'].Get()
         if tfs_value == 'Unflip/Flip':
-            orientation = 'unflip'
             fls_file_names = [winfo.ls_fls_files[0].path, winfo.ls_fls_files[1].path]
         else:
             fls_file_names = [winfo.ls_fls_files[0].path, None]
@@ -2221,41 +2229,52 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
             toggle(winfo, window, ['__LS_Set_Img_Dir__', '__LS_Set_FLS__'], state='Set')
 
             # Prepare reference data
-            ref1 = files1[len(files1)//2]
-            ref1_path = g_help.join([path1, ref1], '/')
-            uint8_1, flt_data_1, size_1 = g_help.load_image(ref1_path, graph.get_size(), event, prefix=' LS: ')
-            uint8_2 = None
-            if tfs_value == 'Single':
-                ref2_path = None
-            else:
-                ref2 = files2[len(files2)//2]
-                ref2_path = g_help.join([path2, ref2], '/')
+            if orientation in ['unflip', 'tfs']:
+                ref = files1[len(files1)//2]
+                ref_path = g_help.join([path1, ref], '/')
+                if orientation == 'tfs':
+                    uint8_2, ref2_path = None, None
+            elif orientation == 'flip':
+                ref = files2[len(files2)//2]
+                ref_path = g_help.join([path2, ref], '/')
+            uint8_1, flt_data_1, size_1 = g_help.load_image(ref_path, graph.get_size(), event, prefix=' LS: ')
+            if orientation != 'tfs':
+                if orientation == 'unflip':
+                    ref2 = files2[len(files2)//2]
+                    ref2_path = g_help.join([path2, ref2], '/')
+                elif orientation == 'flip':
+                    ref2 = files1[len(files1)//2]
+                    ref2_path = g_help.join([path1, ref2], '/')
                 uint8_2, flt_data_2, size_2 = g_help.load_image(ref2_path, graph.get_size(), event, prefix=' LS: ')
 
             # Load image data as numpy arrays for uint8, numerical val, and size
             if uint8_1:
                 # Create image instances and store byte data for TK Canvas
-                image1 = g_help.FileImage(uint8_1, flt_data_1, size_1, ref1_path)
-                image1.byte_data = g_help.vis_1_im(image1)
+                ref_im = g_help.FileImage(uint8_1, flt_data_1, size_1, ref_path)
+                ref_im.byte_data = g_help.vis_1_im(ref_im)
                 if uint8_2:
-                    image2 = g_help.FileImage(uint8_2, flt_data_2, size_2, ref2_path)
-                    image2.byte_data = g_help.vis_1_im(image2)
-                else:
-                    image2 = None
+                    ref_im2 = g_help.FileImage(uint8_2, flt_data_2, size_2, ref2_path)
+                    ref_im2.byte_data = g_help.vis_1_im(ref_im2)
 
                 # Display ref filename and load display data
-                if tfs_value == 'Unflip/Flip':
-                    window['__LS_unflip_reference__'].update(True)
+                if orientation == 'unflip':
+                    img1 = ref_im
+                    img2 = ref_im2
+                elif orientation == 'flip':
+                    img1 = ref_im2
+                    img2 = ref_im
+                elif orienation == 'tfs':
+                    img1 = ref_im
+                    img2 = None
 
                 # Update window only if view stack not set
-                if view_stack_button.metadata['State'] == 'Def':
-                    metadata_change(winfo, window, [('__LS_Image1__', g_help.join([orientation, image1.shortname], '/'))])
-                    toggle(winfo, window, ['__LS_Image1__'])
-                    display_img = image1.byte_data
+                metadata_change(winfo, window, [('__LS_Image1__', g_help.join([orientation, ref_im.shortname], '/'))])
+                toggle(winfo, window, ['__LS_Image1__'])
+                display_img = ref_im.byte_data
 
                 # Push data to winfo
-                winfo.ls_images['image1'] = image1
-                winfo.ls_images['image2'] = image2
+                winfo.ls_images['image1'] = img1
+                winfo.ls_images['image2'] = img2
                 winfo.ls_files1 = files1
                 winfo.ls_files2 = files2
                 print(f'{prefix}Directory properly set-up.')
@@ -2268,22 +2287,21 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
             # Quit flip adjustment
             if adjust_button.metadata['State'] == 'Set':
                 if orientation == 'unflip':
-                    image = 'image1'
+                    display_img = images['image1'].byte_data
                 elif orientation == 'flip':
-                    image = 'image2'
-                display_img = images[image].byte_data
+                    display_img = images['image2'].byte_data
                 toggle(winfo, window, ['__LS_Adjust__', '__LS_Image2__'], state='Def')
 
             # Begin flip adjustment
             elif adjust_button.metadata['State'] == 'Def':
                 if orientation == 'unflip':
+                    img2_orientation = 'flip'
                     img_1 = images['image2']
                     img_2 = images['image1']
-                    img2_orientation = 'flip'
                 elif orientation == 'flip':
+                    img2_orientation = 'unflip'
                     img_1 = images['image1']
                     img_2 = images['image2']
-                    img2_orientation = 'unflip'
                 display_img = g_help.overlay_images(img_1, img_2, transform, img_1.x_size, graph.get_size()[0])
                 metadata_change(winfo, window, [('__LS_Image2__', g_help.join([img2_orientation, img_1.shortname], '/'))])
                 toggle(winfo, window, ['__LS_Adjust__', '__LS_Image2__'], state='Set')
@@ -2325,8 +2343,10 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
                     if os_path.exists(filename):
                         os_remove(filename)
                     if tfs_value == 'Unflip/Flip':
-                        orientation = 'unflip'
-                        fls_file_names = [winfo.ls_fls_files[0].path, winfo.ls_fls_files[1].path]
+                        if orientation == 'unflip':
+                            fls_file_names = [winfo.ls_fls_files[0].path, winfo.ls_fls_files[1].path]
+                        elif orientation == 'flip':
+                            fls_file_names = [winfo.ls_fls_files[1].path, winfo.ls_fls_files[0].path]
                     else:
                         fls_file_names = [winfo.ls_fls_files[0].path, None]
                     ijm_macro_script = run_ls_align(image_dir, orientation, param_test,
@@ -2368,9 +2388,15 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
             else:
                 prefix = 'unflip'
             if 'Param' in name:
-                im_name = winfo.ls_files1[len(winfo.ls_files1)//2-1]
+                if orientation == 'unflip':
+                    im_name = winfo.ls_files1[len(winfo.ls_files1)//2-1]
+                elif orientation == 'flip':
+                    im_name = winfo.ls_files2[len(winfo.ls_files1) // 2 - 1]
             else:
-                im_name = winfo.ls_files1[slider_val]
+                if orientation == 'unflip':
+                    im_name = winfo.ls_files1[slider_val]
+                elif orientation == 'flip':
+                    im_name = winfo.ls_files2[slider_val]
             metadata_change(winfo, window, [('__LS_Image1__', f'{prefix}/{im_name}')])
             toggle(winfo, window, ['__LS_Adjust__'], state='Def')
             toggle(winfo, window, ['__LS_Image1__', '__LS_View_Stack__'], state='Set')
@@ -2404,28 +2430,38 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
             display_img = stack.byte_data[slider_val]
             if tfs_value == 'Single':
                 prefix = 'tfs'
-            else:
-                prefix = 'unflip'
             name = window['__LS_Stack__'].get()
             if 'Param' in name:
                 if slider_val < 3:
                     slider_val = slider_val % 3 - 1
-                    im_name = winfo.ls_files1[len(winfo.ls_files1) // 2 + slider_val]
+                    if orientation in ['unflip', 'tfs']:
+                        im_name = winfo.ls_files1[len(winfo.ls_files1) // 2 + slider_val]
+                    elif orientation == 'flip':
+                        im_name = winfo.ls_files2[len(winfo.ls_files2) // 2 + slider_val]
                     if prefix != 'tfs':
                         prefix = 'unflip'
                 elif slider_val >= 3:
                     slider_val = slider_val % 3 - 1
-                    im_name = winfo.ls_files2[len(winfo.ls_files2) // 2 + slider_val]
+                    if orientation in ['unflip', 'tfs']:
+                        im_name = winfo.ls_files2[len(winfo.ls_files2) // 2 + slider_val]
+                    elif orientation == 'flip':
+                        im_name = winfo.ls_files1[len(winfo.ls_files1) // 2 + slider_val]
                     if prefix != 'tfs':
                         prefix = 'flip'
             else:
                 if slider_val < len(winfo.ls_files1):
-                    im_name = winfo.ls_files1[slider_val]
+                    if orientation in ['unflip', 'tfs']:
+                        im_name = winfo.ls_files1[slider_val]
+                    elif orientation == 'flip':
+                        im_name = winfo.ls_files2[slider_val]
                     if prefix != 'tfs':
                         prefix = 'unflip'
                 elif slider_val >= len(winfo.ls_files1):
                     slider_val = slider_val % len(winfo.ls_files2)
-                    im_name = winfo.ls_files2[slider_val]
+                    if orientation in ['unflip', 'tfs']:
+                        im_name = winfo.ls_files2[slider_val]
+                    elif orientation == 'flip':
+                        im_name = winfo.ls_files1[slider_val]
                     if prefix != 'tfs':
                         prefix = 'flip'
             metadata_change(winfo, window, [('__LS_Image1__', f'{prefix}/{im_name}')])
@@ -2453,21 +2489,35 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
             if slider_val < 3:
                 slider_val = slider_val % 3 - 1
                 im_name = winfo.ls_files1[len(winfo.ls_files1) // 2 + slider_val]
+                if orientation in ['unflip', 'tfs']:
+                    im_name = winfo.ls_files1[len(winfo.ls_files1) // 2 + slider_val]
+                elif orientation == 'flip':
+                    im_name = winfo.ls_files2[len(winfo.ls_files2) // 2 + slider_val]
                 if prefix != 'tfs':
                     prefix = 'unflip'
             elif slider_val >= 3:
                 slider_val = slider_val % 3 - 1
-                im_name = winfo.ls_files2[len(winfo.ls_files2) // 2 + slider_val]
+                if orientation in ['unflip', 'tfs']:
+                    im_name = winfo.ls_files2[len(winfo.ls_files2) // 2 + slider_val]
+                elif orientation == 'flip':
+                    im_name = winfo.ls_files1[len(winfo.ls_files1) // 2 + slider_val]
                 if prefix != 'tfs':
                     prefix = 'flip'
         else:
             if slider_val < len(winfo.ls_files1):
                 im_name = winfo.ls_files1[slider_val]
+                if orientation in ['unflip', 'tfs']:
+                    im_name = winfo.ls_files1[slider_val]
+                elif orientation == 'flip':
+                    im_name = winfo.ls_files2[slider_val]
                 if prefix != 'tfs':
                     prefix = 'unflip'
             elif slider_val >= len(winfo.ls_files1):
                 slider_val = slider_val % len(winfo.ls_files2)
-                im_name = winfo.ls_files2[slider_val]
+                if orientation in ['unflip', 'tfs']:
+                    im_name = winfo.ls_files2[slider_val]
+                elif orientation == 'flip':
+                    im_name = winfo.ls_files1[slider_val]
                 if prefix != 'tfs':
                     prefix = 'flip'
         metadata_change(winfo, window, [('__LS_Image1__', f'{prefix}/{im_name}')])
@@ -2575,9 +2625,9 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                                 if c_key in items:
                                     items.remove(c_key)
                         for k in items:
-                            if (k == '__BUJ_Elastic_Align__' and
-                                    'BUJ_unflip_stack' in images and 'BUJ_flip_stack' in images):
-                                enable_list.append('__BUJ_Elastic_Align__')
+                            if k == '__BUJ_Elastic_Align__':
+                                if 'BUJ_unflip_stack' in images and 'BUJ_flip_stack' in images:
+                                    enable_list.append('__BUJ_Elastic_Align__')
                             else:
                                 enable_list.append(k)
 
@@ -2627,7 +2677,6 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
     adjust_button = window['__BUJ_Adjust__']
     view_stack_button = window['__BUJ_View__']
     make_mask_button = window['__BUJ_Make_Mask__']
-
 
     # Pull in image data from struct object
     image_dir = winfo.buj_image_dir
@@ -2716,7 +2765,6 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
     elif event == '__BUJ_Set_FLS__':
         fls_value = window['__LS_FLS_Combo__'].Get()
         tfs_value = 'Unflip/Flip'
-
         fls_file_names = [winfo.buj_fls_files[0].path, winfo.buj_fls_files[1].path]
         check = check_setup(image_dir, tfs_value, fls_value, fls_file_names, prefix='BUJ: ')
         if check:
@@ -2725,38 +2773,47 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
             toggle(winfo, window, ['__BUJ_Set_Img_Dir__', '__BUJ_Set_FLS__'], state='Set')
 
             # Prepare reference data
-            ref1 = files1[len(files1)//2]
-            ref1_path = g_help.join([path1, ref1], '/')
-            uint8_1, flt_data_1, size_1 = g_help.load_image(ref1_path, graph.get_size(), event, prefix=' BUJ: ')
-
-            ref2 = files2[len(files2)//2]
-            ref2_path = g_help.join([path2, ref2], '/')
+            if orientation == 'unflip':
+                ref = files1[len(files1) // 2]
+                ref_path = g_help.join([path1, ref], '/')
+                ref2 = files2[len(files2) // 2]
+                ref2_path = g_help.join([path2, ref2], '/')
+            elif orientation == 'flip':
+                ref = files2[len(files2) // 2]
+                ref_path = g_help.join([path2, ref], '/')
+                ref2 = files2[len(files1) // 2]
+                ref2_path = g_help.join([path1, ref2], '/')
+            uint8_1, flt_data_1, size_1 = g_help.load_image(ref_path, graph.get_size(), event, prefix=' BUJ: ')
             uint8_2, flt_data_2, size_2 = g_help.load_image(ref2_path, graph.get_size(), event, prefix=' BUJ: ')
 
             # Load image data as numpy arrays for uint8, numerical val, and size
             if uint8_1 and uint8_2:
                 # Create image instances and store byte data for TK Canvas
-                image1 = g_help.FileImage(uint8_1, flt_data_1, size_1, ref1_path)
-                image1.byte_data = g_help.vis_1_im(image1)
-                image2 = g_help.FileImage(uint8_2, flt_data_2, size_2, ref2_path)
-                image2.byte_data = g_help.vis_1_im(image2)
+                ref_im = g_help.FileImage(uint8_1, flt_data_1, size_1, ref_path)
+                ref_im.byte_data = g_help.vis_1_im(ref_im)
+                ref_im2 = g_help.FileImage(uint8_2, flt_data_2, size_2, ref2_path)
+                ref_im2.byte_data = g_help.vis_1_im(ref_im2)
 
                 # Display ref filename and load display data
                 # Update window only if view stack not set
-                if view_stack_button.metadata['State'] == 'Def':
-                    metadata_change(winfo, window, [('__BUJ_Image1__', g_help.join([orientation, image1.shortname], '/'))])
-                    toggle(winfo, window, ['__BUJ_Image1__'])
-                    display_img = image1.byte_data
+                metadata_change(winfo, window, [('__BUJ_Image1__', g_help.join([orientation, ref_im.shortname], '/'))])
+                toggle(winfo, window, ['__BUJ_Image1__'])
+                display_img = ref_im.byte_data
+
+                if orientation == 'unflip':
+                    img1 = ref_im
+                    img2 = ref_im2
+                elif orientation == 'flip':
+                    img1 = ref_im2
+                    img2 = ref_im
 
                 # Push data to winfo
-                winfo.buj_images['image1'] = image1
-                winfo.buj_images['image2'] = image2
+                winfo.buj_images['image1'] = img1
+                winfo.buj_images['image2'] = img2
                 winfo.buj_files1 = files1
                 winfo.buj_files2 = files2
-                # change_inp_readonly_bg_color(window, ['__BUJ_FLS1__', '__BUJ_FLS2__'], 'Readonly')
                 change_inp_readonly_bg_color(window, ['__BUJ_Unflip_Mask_Inp__',
                                                       '__BUJ_Flip_Mask_Inp__'], 'Default')
-
                 print(f'{prefix}Directory properly set-up.')
         else:
             print(f'{prefix}Look at Help Tab for correct file setup.')
@@ -2941,7 +2998,7 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
             image_key = 'BUJ_unflip_stack'
         elif event == '__BUJ_Flip_Stage_Load__':
             num_files = len(files2)
-            target_key = '__BUJ_Flip_Stack_Inp__'               # FIJI did not complete its task successfully
+            target_key = '__BUJ_Flip_Stack_Inp__'
             conflict_keys = ['__BUJ_Flip_Align__', '__BUJ_Load_Flip_Stack__',
                              '__BUJ_Elastic_Align__']
             image_key = 'BUJ_flip_stack'
@@ -2969,14 +3026,14 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                 display_img = stack.byte_data[slider_val]
 
                 if stack_choice in ['Unflip LS', 'bUnwarpJ']:
-                    prefix = 'unflip'
+                    pref = 'unflip'
                     im_name = winfo.buj_files1[slider_val]
                 elif stack_choice == 'Flip LS':
-                    prefix = 'flip'
+                    pref = 'flip'
                     im_name = winfo.buj_files2[slider_val]
 
                 # Update window
-                metadata_change(winfo, window, [('__BUJ_Image1__', f'{prefix}/{im_name}')])
+                metadata_change(winfo, window, [('__BUJ_Image1__', f'{pref}/{im_name}')])
                 toggle(winfo, window, ['__BUJ_Adjust__'], state='Def')
                 toggle(winfo, window, ['__BUJ_Image1__', '__BUJ_View__'], state='Set')
                 update_slider(winfo, window, [('__BUJ_Stack_Slider__', {"value": slider_val, "slider_range": slider_range})])
@@ -3012,21 +3069,21 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
             # Update window
             choice = values['__BUJ_Image_Choice__'][0]
             if choice == 'Unflip LS':
-                prefix = 'unflip'
+                pref = 'unflip'
                 im_name = winfo.buj_files1[slider_val]
             elif choice == 'Flip LS':
-                prefix = 'flip'
+                pref = 'flip'
                 im_name = winfo.buj_files2[slider_val]
             elif choice == 'bUnwarpJ':
                 if slider_val < len(winfo.buj_files1):
-                    prefix = 'unflip'
+                    pref = 'unflip'
                     im_name = winfo.buj_files1[slider_val]
                 elif slider_val >= len(winfo.buj_files1):
-                    prefix = 'flip'
-                    im_name = winfo.buj_files2[slider_val % len(winfo.buj_files1)]
+                    pref = 'flip'
+                    im_name = winfo.buj_files2[slider_val % len(winfo.buj_files2)]
 
             display_img = stack.byte_data[slider_val]
-            metadata_change(winfo, window, [('__BUJ_Image1__', f'{prefix}/{im_name}')])
+            metadata_change(winfo, window, [('__BUJ_Image1__', f'{pref}/{im_name}')])
 
     # Scroll through stacks in the graph area
     elif scroll:
@@ -3048,23 +3105,23 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
 
         choice = values['__BUJ_Image_Choice__'][0]
         if choice == 'Unflip LS':
-            prefix = 'unflip'
+            pref = 'unflip'
             im_name = winfo.buj_files1[slider_val]
         elif choice == 'Flip LS':
-            prefix = 'flip'
+            pref = 'flip'
             im_name = winfo.buj_files2[slider_val]
         elif choice == 'bUnwarpJ':
             if slider_val < len(winfo.buj_files1):
-                prefix = 'unflip'
+                pref = 'unflip'
                 im_name = winfo.buj_files1[slider_val]
             elif slider_val >= len(winfo.buj_files1):
-                prefix = 'flip'
+                pref = 'flip'
                 im_name = winfo.buj_files2[slider_val % len(winfo.buj_files1)]
 
         # Update the window
         display_img = stack.byte_data[slider_val]
         update_slider(winfo, window, [('__BUJ_Stack_Slider__', {"value": slider_val})])
-        metadata_change(winfo, window, [('__BUJ_Image1__', f'{prefix}/{im_name}')])
+        metadata_change(winfo, window, [('__BUJ_Image1__', f'{pref}/{im_name}')])
 
     # Changing view stack combo
     elif change_img:
@@ -3084,14 +3141,14 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                 slider_val = 0
                 slider_range = (0, stack.z_size - 1)
                 if stack_choice in ['Unflip LS', 'bUnwarpJ']:
-                    prefix = 'unflip'
+                    pref = 'unflip'
                     im_name = winfo.buj_files1[slider_val]
                 elif stack_choice == 'Flip LS':
-                    prefix = 'flip'
+                    pref = 'flip'
                     im_name = winfo.buj_files2[slider_val]
 
                 # Update window
-                metadata_change(winfo, window, [('__BUJ_Image1__', f'{prefix}/{im_name}')])
+                metadata_change(winfo, window, [('__BUJ_Image1__', f'{pref}/{im_name}')])
                 display_img = stack.byte_data[slider_val]
                 update_slider(winfo, window, [('__BUJ_Stack_Slider__', {"value": slider_val, "slider_range": slider_range})])
         else:
@@ -3115,8 +3172,13 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                         image_key = 'image1'
                     elif mask_choice == 'flip':
                         image_key = 'image2'
-                    display_img = images[image_key].byte_data
-                    shortname = images[image_key].shortname
+                    selected_im = images[image_key]
+                    if mask_choice != orientation:
+                        display_img, rgba = g_help.adjust_image(selected_im.flt_data[0], transform, selected_im.x_size,
+                                                                graph.get_size()[0])
+                    else:
+                        display_img = selected_im.byte_data
+                    shortname = mask_choice
                 elif mask_choice == 'Overlay':
                     if orientation == 'unflip':
                         img_1 = images['image2']
@@ -3140,9 +3202,9 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                 image = images[image_key]
                 display_img = image.byte_data
                 toggle(winfo, window, ['__BUJ_Make_Mask__'])
-                metadata_change(winfo, window, [('__BUJ_Image1__', image.shortname)])
+                metadata_change(winfo, window, [('__BUJ_Image1__', g_help.join([orientation, image.shortname], '/'))])
                 enable_elements(winfo, window, ['__BUJ_transform_x__', '__BUJ_transform_y__',
-                                         '__BUJ_transform_rot__', '__BUJ_horizontal_flip__'])
+                                                '__BUJ_transform_rot__', '__BUJ_horizontal_flip__'])
                 change_visibility(window, [('__BUJ_Reset_Mask__', False),
                                            ('__BUJ_Load_Mask_Col__', True)])
                 if winfo.buj_graph_double_click:
@@ -3254,15 +3316,24 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
         mask_choice = window['__BUJ_Mask_View__'].Get()
         if mask_choice == 'Unflip' or mask_choice == 'Flip':
             mask_choice = mask_choice.lower()
-            display_img = images[mask_choice].byte_data
-            shortname = images[mask_choice].shortname
+            if mask_choice == 'unflip':
+                image_key = 'image1'
+            elif mask_choice == 'flip':
+                image_key = 'image2'
+            selected_im = images[image_key]
+            if mask_choice != orientation:
+                display_img, rgba = g_help.adjust_image(selected_im.flt_data[0], transform, selected_im.x_size,
+                                                        graph.get_size()[0])
+            else:
+                display_img = selected_im.byte_data
+            shortname = mask_choice
         elif mask_choice == 'Overlay':
             if orientation == 'unflip':
-                img_1 = images['flip']
-                img_2 = images['unflip']
+                img_1 = images['image2']
+                img_2 = images['image1']
             elif orientation == 'flip':
-                img_1 = images['unflip']
-                img_2 = images['flip']
+                img_1 = images['image2']
+                img_2 = images['image1']
             display_img = g_help.overlay_images(img_1, img_2, transform, img_1.x_size, graph.get_size()[0])
             shortname = 'overlay'
         toggle(winfo, window, ['__BUJ_Image2__'], state='Def')
@@ -3523,7 +3594,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             if (window['__REC_Stack__'].metadata['State'] == 'Set' and
                     window['__REC_Mask__'].metadata['State'] == 'Def'):
                 enable_list.extend(["__REC_Image_List__"])
-            if (window['__REC_Image_List__'].get()[0] in ['Stack', 'Default Stack'] or
+            if (window['__REC_Image_List__'].get()[0] in ['Stack', 'Loaded Stack'] or
                     window['__REC_Mask__'].metadata['State'] == 'Set'):
                 enable_list.extend(["__REC_Slider__"])
         elif window['__REC_Set_Img_Dir__'].metadata['State'] == 'Def':
@@ -3595,7 +3666,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     change_img = winfo.rec_last_image_choice != values['__REC_Image_List__'][0]
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
-              and (values['__REC_Image_List__'][0] in ['Stack', 'Default Stack'] or
+              and (values['__REC_Image_List__'][0] in ['Stack', 'Loaded Stack'] or
                    window['__REC_Mask__'].metadata['State'] == 'Set')
               and winfo.rec_images
               and winfo.true_element == "__REC_Graph__")
@@ -3841,7 +3912,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         stack_choice = window['__REC_Image_List__'].get()[0]
         if stack_choice == 'Stack':
             stack_key = 'REC_Stack'
-        elif stack_choice == 'Default Stack':
+        elif stack_choice == 'Loaded Stack':
             stack_key = 'REC_Def_Stack'
         stack = images[stack_key]
         slider_val = int(values["__REC_Slider__"])
@@ -3877,7 +3948,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
 
         if stack_choice in ['Stack'] or window['__REC_Mask__'].metadata['State'] == 'Set':
             stack = images['REC_Stack']
-        elif stack_choice == 'Default Stack':
+        elif stack_choice == 'Loaded Stack':
             stack = images['REC_Def_Stack']
 
         slider_val = int(values["__REC_Slider__"])
@@ -3896,7 +3967,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             else:
                 display_img = g_help.convert_to_bytes(stack.rgba_data[slider_val])
 
-        elif stack_choice == 'Default Stack':
+        elif stack_choice == 'Loaded Stack':
             display_img = stack.byte_data[slider_val]
 
         update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val})])
@@ -3955,7 +4026,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         image_choice = values['__REC_Image_List__'][0]
         if image_choice == 'Stack':
             image_key = 'REC_Stack'
-        elif image_choice == 'Default Stack':
+        elif image_choice == 'Loaded Stack':
             image_key = 'REC_Def_Stack'
         elif image_choice == 'Color':
             image_key = 'color_b'
@@ -3991,7 +4062,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             window['__REC_Image_List__'].update(set_to_index=last_index)
             print(f'{prefix}Electric information not available for single TFS.')
         else:
-            if image_key in images and image_choice in ['Stack', 'Default Stack'] and images[image_key] is not None:
+            if image_key in images and image_choice in ['Stack', 'Loaded Stack'] and images[image_key] is not None:
                 stack = images[image_key]
                 slider_val = 0
                 slider_range = (0, stack.z_size - 1)
@@ -4105,6 +4176,20 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             winfo.rec_mask_markers = []
             draw_mask = False
             adjust = False
+            stack = winfo.rec_images['REC_Stack']
+            slider_val = int(values["__REC_Slider__"])
+            transform = (0, 0, 0, False)
+            resized_mask = g_help.array_resize(winfo.rec_ptie.mask, winfo.window['__REC_Graph__'].get_size())
+            for i in range(stack.z_size):
+                stack.uint8_data[i] = np.multiply(stack.uint8_data[i], resized_mask)
+                stack.flt_data[i] = np.multiply(stack.flt_data[i], resized_mask)
+                stack.byte_data[i], stack.rgba_data[i] = g_help.adjust_image(stack.flt_data[i], transform, stack.x_size,
+                                                                             winfo.window['__REC_Graph__'].get_size()[
+                                                                                 0])
+            image_choice = values['__REC_Image_List__'][0]
+            if image_choice == 'Stack':
+                display_img = g_help.convert_to_bytes(stack.rgba_data[slider_val])
+
         winfo.rec_mask_center = (graph_size[0] / 2, graph_size[1] / 2)
         winfo.rec_mask = (50,)
         mask_transform = (50,)
@@ -4459,8 +4544,14 @@ def run_save_window(winfo: Struct, event: str, image_dir: str,
     """
 
     # Create layout of save window
-    window_layout, im_type, file_paths, orientations = save_window_ly(event, image_dir, orientations, tfs=tfs)
-    save_win = sg.Window('Save Window', window_layout, finalize=True)
+    window_layout, im_type, file_paths, orientations, inputs = save_window_ly(event, image_dir,
+                                                                              orientations, tfs=tfs)
+    icon = get_icon()
+    save_win = sg.Window('Save Window', window_layout, finalize=True, icon=icon)
+    for key in inputs:
+        save_win[key].Update(move_cursor_to='end')
+        save_win[key].Widget.xview_moveto(1)
+
     winfo.save_win = save_win
     winfo.window.Hide()
     if winfo.output_window_active:
@@ -4535,12 +4626,15 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
     # Create output_window
     output_window = output_ly()
     output_window.Hide()
-
+    
     # Initialize window, bindings, and event variables
     init(winfo, window, output_window)
+    for key in winfo.keys['input']:
+        window[key].Update(move_cursor_to='end')
+        window[key].Widget.xview_moveto(1)
     set_pretty_focus(winfo, window, 'Window Click')
 
-    # fiji_log = '../GUI/fiji_log.txt'
+
     # window['home_graph'].DrawImage(filename='../GUI/PyLo_Icon-1.png', location=(0, 299))
 
     # Set up the output log window and redirecting std_out
@@ -4556,7 +4650,7 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                 event, values = window.Read(timeout=50)
 
                 # Break out of event loop
-                if event is None or close == 'close':  # always,  always give a way out!
+                if event is None or close == 'close' or event == 'Exit::Exit1':  # always,  always give a way out!
                     winfo.kill_proc = ['LS', 'BUJ']
                     load_file_queue(winfo, window, quit_load=True)
                     if winfo.ptie_init_thread is not None:
@@ -4581,6 +4675,14 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                     output_window.Hide()
                     output_window.Disappear()
                     set_pretty_focus(winfo, window, 'Window Click')
+
+                # About section was opened
+                if event == 'About::About':
+                    try:
+                        webbrowser.open('https://pylorentztem.readthedocs.io/en/latest/')
+                    except:
+                        print('*** ATTEMPT TO ACCESS ABOUT PAGE FAILED ***')
+                        print('*** CHECK INTERNET CONNECTION ***')
 
                 # if event != '__TIMEOUT__' and 'HOVER' not in event:
                 #     print('Event:', event)

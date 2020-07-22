@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import PySimpleGUI as sg
 from PySimpleGUI import Menu, Tab, Window
 from util import join
-from gui_styling import pad, window_scaling, WindowStyle
+from gui_styling import pad, window_scaling, WindowStyle, get_icon
 
 
 # ---------------------------------------------------- #
@@ -130,9 +130,9 @@ def element_keys() -> Dict[str, List[str]]:
 def menu_bar() -> Menu:
     """Return the menu bar layout."""
 
-    menu_def = [['PyLo', ['About', 'Exit']],
+    menu_def = [['PyLo', ['About::About', 'Exit::Exit1']],
                 ['Log', ['Show (Control-l)::Log', 'Hide (Control-h)::Log']],
-                ['Procedure Help', ['Go to README']]]
+                ['Procedure Help', ['Open Manual']]]
     return sg.Menu(menu_def, font='Times 15')
 
 
@@ -848,7 +848,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                              [sg.Text('Images:', pad=((64, 0), (0, 0))),
                               sg.Listbox(['Stack', 'Color', 'Vector Im.', 'MagX', 'MagY', 'Mag. Magnitude',
                                           'Electr. Phase', 'Mag. Phase', 'Electr. Deriv.', 'Mag. Deriv.',
-                                          'In Focus', 'Default Stack'],
+                                          'In Focus', 'Loaded Stack'],
                                           **style.styles('__REC_Image_List__')),
                               sg.Slider(**style.styles('__REC_Image_Slider__'))]]
 
@@ -871,7 +871,9 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                              [sg.Frame("Region Select", subregion_frame, relief=sg.RELIEF_SUNKEN,
                                        pad=((8, 0), (1, 1)), font=('Times New Roman', 18))],
                              [sg.Frame("TIE", TIE_menu, relief=sg.RELIEF_SUNKEN,
-                                       pad=((8, 0), (1, 1)), font=('Times New Roman', 18))]])
+                                       pad=((8, 0), (1, 1)), font=('Times New Roman', 18))]],
+                            key='__REC_Scrollable_Column__',
+                            scrollable=True, vertical_scroll_only=True, size=(390, style.window_height+20))
 
         return [[left_panel, right_panel]]
 
@@ -907,10 +909,11 @@ def window_ly(background_color: str, DEFAULTS: Dict) -> Window:
                         enable_events=True, key="pages_tabgroup")
     invisible_graph = sg.Graph((0, 0), (0, 0), (0, 0), visible=True, key="__invisible_graph__")
 
+    icon = get_icon()
     window_layout = [[menu], [invisible_graph, pages]]
     window = sg.Window('PyLorentz', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
                        resizable=True, size=(style.window_width, style.window_height), use_default_focus=False,
-                       finalize=True)
+                       finalize=True, icon=icon)
     return window
 
 
@@ -931,6 +934,7 @@ def save_window_ly(event: str, image_dir: str,
         im_type: The image filetype.
         file_paths: List of the filepaths.
         orientations: List of strings of the orientations or image names.
+        inputs: The keys of the inputs.
     """
 
     # Change parameters to suit what is being saved
@@ -1003,11 +1007,14 @@ def save_window_ly(event: str, image_dir: str,
             pad = ((5, 0), (10, 0))
 
         # Create on input fields based off of which files are being saved.
+        inputs = []
         if event != '__REC_Save_TIE__':
+            inp_key = f'__save_win_filename{i}__'
             col1 += [[sg.Text(f'{orient}:', pad=pad),
-                      sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', enable_events=True,
+                      sg.Input(f'{file_paths[i-1]}', key=inp_key, enable_events=True,
                                size=(70, 1), pad=((5, 10), (10, 0)))]]
             col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), enable_events=True)]]
+            inputs.append(inp_key)
         elif event == '__REC_Save_TIE__':
             col1 += [[sg.Text('Working Directory:', pad=pad1),
                       sg.Input(f'{image_dir}', key=f'__save_win_wd__', size=(65, 1),
@@ -1018,12 +1025,14 @@ def save_window_ly(event: str, image_dir: str,
                                enable_events=True,
                                pad=((0, 10), (10, 0)))]
                      ]
+            inputs.extend(['__save_win_wd__', '__save_win_filename1__'])
             col1 += [[sg.Text(f'prefix:', pad=((89, 0), (10, 0))),
                       sg.Input(f'{prefix}', key=f'__save_win_prefix__', size=(30, 1), enable_events=True,
                                pad=((0, 0), (10, 0))),
                       sg.Combo(['Color', 'Full Save', 'Mag. & Color', 'No Save'], key='__save_rec_combo__',
                                 enable_events=True, size=(12, 1), default_value='Color',
                                 readonly=True, pad=((20, 0), (10, 0)))]]
+            inputs.extend(['__save_win_prefix__'])
             col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), default=True,
                                   enable_events=True)]]
     # Create buttons to define whether to check if paths exists, exit, or save info
@@ -1032,7 +1041,7 @@ def save_window_ly(event: str, image_dir: str,
              [sg.Multiline('', visible=True, key='__save_win_log__', size=size,
                            pad=((x_pad, 0), (0, 15)))]]
     layout = [[sg.Col(col1), sg.Col(col2)]]
-    return layout, im_type, file_paths, orientations
+    return layout, im_type, file_paths, orientations, inputs
 
 
 def output_ly() -> Window:
@@ -1059,7 +1068,8 @@ def output_ly() -> Window:
                           theme=sg.THEME_CLASSIC,
                           enable_events=True, key="output_tabgroup")
     window_layout = [[invisible_graph], [pages]]
+    icon = get_icon()
     window = sg.Window('Log', window_layout, default_element_size=(12, 1), disable_close=True,
                        resizable=True, size=(600, 350), use_default_focus=False, alpha_channel=0,
-                       finalize=True)
+                       finalize=True, icon=icon)
     return window

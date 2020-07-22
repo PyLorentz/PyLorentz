@@ -97,8 +97,8 @@ class FileImage(FileObject):
         path: String of the path name to file.
         shortname: The shortened name of the file,
             only shows relative path not full path.
-        uint8_data: Ndarray of uint8 data of image.
-        flt_data: Ndarray of float data of image.
+        uint8_data: Dictionary of uint8 data of image.
+        flt_data: Dictionary of float data of image.
         x_size: The x-size of the image.
         y_size: The y-size of the image.
         z_size: The z-size of the image.
@@ -106,7 +106,7 @@ class FileImage(FileObject):
         byte_data: The byte data of the image.
     """
 
-    def __init__(self, uint8_data: 'np.ndarray', flt_data: 'np.ndarray',
+    def __init__(self, uint8_data: Dict, flt_data: Dict,
                  size: Tuple[int, int, int], path: str,
                  float_array: Optional['np.ndarray']=None) -> None:
         """Initialize the FileImage Object.
@@ -622,10 +622,6 @@ def apply_crop_to_stack(coords, graph_size, transform, stack, i):
     mask = flipud(mask)
 
     # Create transformed image (PIL)
-    # d_theta, d_x, d_y, h_flip = transform
-    # d_x = round(d_x / stack.x_size * graph_size[0])
-    # d_y = round(d_y / stack.y_size * graph_size[1])
-    # img = make_rgba(stack.flt_data[i], True, d_theta, d_x, d_y, h_flip, color='None')
     img = stack.rgba_data[i]
     img_array = np.asarray(img)
     img = np.dot(img_array[..., :3], [0.2989, 0.5870, 0.1140])
@@ -635,8 +631,6 @@ def apply_crop_to_stack(coords, graph_size, transform, stack, i):
     rgba_masked_image = make_rgba(masked_image)
     display_img = convert_to_bytes(rgba_masked_image)
     return display_img, rgba_masked_image
-    # except:
-    #     return
 
 
 # ============================================================= #
