@@ -572,7 +572,7 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
         mag_x2D = np.sum(mag_x, axis=0)
         mag_y2D = np.sum(mag_y, axis=0)
         mag_z2D = np.sum(mag_z, axis=0)
-        ephi, mphi = std_mansPhi(mag_x2D, mag_y2D, mag_z2D, del_px=zscale, isl_thk=zscale,
+        ephi, mphi = std_mansPhi(mag_x2D, mag_y2D, mag_z2D, zscale=zscale, isl_thk=zscale,
             isl_shape=thk_map_2D, pscope=pscope, b0=B0, isl_V0=sample_V0)
     else: 
         vprint('Calculating phase shift with the linear superposition method.')
