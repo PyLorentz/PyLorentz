@@ -348,7 +348,7 @@ class WindowStyle(object):
                 val.update(pad=pad(8, 0, 0, 0), target='__BUJ_Image_Dir_Path__')
             elif key == '__BUJ_Load_Flip_Stack__':
                 val.update(pad=pad(0, 0, 5, 0), target='__BUJ_Flip_Stage_Load__', disabled=True)
-            elif key == '__LS_Run_Align__':
+            elif key == '__BUJ_Load_Unflip_Stack__':
                 val.update(pad=pad(0, 0, 0, 0), target='__BUJ_Unflip_Stage_Load__', disabled=True)
             elif key == '__BUJ_Load_Mask__':
                 val.update(pad=pad(5, 0, 0, 0), target='__BUJ_Mask_Stage_Load__', disabled=True,

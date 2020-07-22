@@ -97,8 +97,8 @@ class FileImage(FileObject):
         path: String of the path name to file.
         shortname: The shortened name of the file,
             only shows relative path not full path.
-        uint8_data: Ndarray of uint8 data of image.
-        flt_data: Ndarray of float data of image.
+        uint8_data: Dictionary of uint8 data of image.
+        flt_data: Dictionary of float data of image.
         x_size: The x-size of the image.
         y_size: The y-size of the image.
         z_size: The z-size of the image.
@@ -106,7 +106,7 @@ class FileImage(FileObject):
         byte_data: The byte data of the image.
     """
 
-    def __init__(self, uint8_data: 'np.ndarray', flt_data: 'np.ndarray',
+    def __init__(self, uint8_data: Dict, flt_data: Dict,
                  size: Tuple[int, int, int], path: str,
                  float_array: Optional['np.ndarray']=None) -> None:
         """Initialize the FileImage Object.

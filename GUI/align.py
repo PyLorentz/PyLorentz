@@ -1188,7 +1188,7 @@ def run_ls_align(datafolder: str, reference: str = 'unflip', check_sift: bool = 
         stack_name: The filename for saving the aligned stack.
         tfs_value: Value for the type of tfs.
         fls_value: Value for the number of fls files.
-        fls_files: The list of fls files
+        fls_files: The list of fls files.
 
     Returns:
         The full run LS align macro.

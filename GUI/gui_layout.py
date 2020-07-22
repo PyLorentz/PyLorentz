@@ -130,9 +130,9 @@ def element_keys() -> Dict[str, List[str]]:
 def menu_bar() -> Menu:
     """Return the menu bar layout."""
 
-    menu_def = [['PyLo', ['About', 'Exit']],
+    menu_def = [['PyLo', ['About::About', 'Exit::Exit1']],
                 ['Log', ['Show (Control-l)::Log', 'Hide (Control-h)::Log']],
-                ['Procedure Help', ['Go to README']]]
+                ['Procedure Help', ['Open Manual']]]
     return sg.Menu(menu_def, font='Times 15')
 
 
@@ -931,6 +931,7 @@ def save_window_ly(event: str, image_dir: str,
         im_type: The image filetype.
         file_paths: List of the filepaths.
         orientations: List of strings of the orientations or image names.
+        inputs: The keys of the inputs.
     """
 
     # Change parameters to suit what is being saved
@@ -1003,11 +1004,14 @@ def save_window_ly(event: str, image_dir: str,
             pad = ((5, 0), (10, 0))
 
         # Create on input fields based off of which files are being saved.
+        inputs = []
         if event != '__REC_Save_TIE__':
+            inp_key = f'__save_win_filename{i}__'
             col1 += [[sg.Text(f'{orient}:', pad=pad),
-                      sg.Input(f'{file_paths[i-1]}', key=f'__save_win_filename{i}__', enable_events=True,
+                      sg.Input(f'{file_paths[i-1]}', key=inp_key, enable_events=True,
                                size=(70, 1), pad=((5, 10), (10, 0)))]]
             col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), enable_events=True)]]
+            inputs.append(inp_key)
         elif event == '__REC_Save_TIE__':
             col1 += [[sg.Text('Working Directory:', pad=pad1),
                       sg.Input(f'{image_dir}', key=f'__save_win_wd__', size=(65, 1),
@@ -1018,12 +1022,14 @@ def save_window_ly(event: str, image_dir: str,
                                enable_events=True,
                                pad=((0, 10), (10, 0)))]
                      ]
+            inputs.extend(['__save_win_wd__', '__save_win_filename1__'])
             col1 += [[sg.Text(f'prefix:', pad=((89, 0), (10, 0))),
                       sg.Input(f'{prefix}', key=f'__save_win_prefix__', size=(30, 1), enable_events=True,
                                pad=((0, 0), (10, 0))),
                       sg.Combo(['Color', 'Full Save', 'Mag. & Color', 'No Save'], key='__save_rec_combo__',
                                 enable_events=True, size=(12, 1), default_value='Color',
                                 readonly=True, pad=((20, 0), (10, 0)))]]
+            inputs.extend(['__save_win_prefix__'])
             col2 += [[sg.Checkbox('', key=f'__save_win_overwrite{i}__', pad=((28, 0), (10, 0)), default=True,
                                   enable_events=True)]]
     # Create buttons to define whether to check if paths exists, exit, or save info
@@ -1032,7 +1038,7 @@ def save_window_ly(event: str, image_dir: str,
              [sg.Multiline('', visible=True, key='__save_win_log__', size=size,
                            pad=((x_pad, 0), (0, 15)))]]
     layout = [[sg.Col(col1), sg.Col(col2)]]
-    return layout, im_type, file_paths, orientations
+    return layout, im_type, file_paths, orientations, inputs
 
 
 def output_ly() -> Window:
