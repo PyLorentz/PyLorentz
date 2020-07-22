@@ -179,7 +179,7 @@ def init_rec(winfo: Struct, window: sg.Window) -> None:
                                    'MagX': 3, 'MagY': 4, 'Mag': 5,
                                    'Electr. Phase': 6, 'Mag. Phase': 7,
                                    'Electr. Deriv.': 8, 'Mag. Deriv.': 9,
-                                   'In Focus': 10, 'Default Stack': 11}
+                                   'In Focus': 10, 'Loaded Stack': 11}
 
     # Declare transformation timers and related variables
     winfo.rec_rotxy_timers = (0, 0, 0)
@@ -3585,7 +3585,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             if (window['__REC_Stack__'].metadata['State'] == 'Set' and
                     window['__REC_Mask__'].metadata['State'] == 'Def'):
                 enable_list.extend(["__REC_Image_List__"])
-            if (window['__REC_Image_List__'].get()[0] in ['Stack', 'Default Stack'] or
+            if (window['__REC_Image_List__'].get()[0] in ['Stack', 'Loaded Stack'] or
                     window['__REC_Mask__'].metadata['State'] == 'Set'):
                 enable_list.extend(["__REC_Slider__"])
         elif window['__REC_Set_Img_Dir__'].metadata['State'] == 'Def':
@@ -3657,7 +3657,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     change_img = winfo.rec_last_image_choice != values['__REC_Image_List__'][0]
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
-              and (values['__REC_Image_List__'][0] in ['Stack', 'Default Stack'] or
+              and (values['__REC_Image_List__'][0] in ['Stack', 'Loaded Stack'] or
                    window['__REC_Mask__'].metadata['State'] == 'Set')
               and winfo.rec_images
               and winfo.true_element == "__REC_Graph__")
@@ -3903,7 +3903,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         stack_choice = window['__REC_Image_List__'].get()[0]
         if stack_choice == 'Stack':
             stack_key = 'REC_Stack'
-        elif stack_choice == 'Default Stack':
+        elif stack_choice == 'Loaded Stack':
             stack_key = 'REC_Def_Stack'
         stack = images[stack_key]
         slider_val = int(values["__REC_Slider__"])
@@ -3939,7 +3939,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
 
         if stack_choice in ['Stack'] or window['__REC_Mask__'].metadata['State'] == 'Set':
             stack = images['REC_Stack']
-        elif stack_choice == 'Default Stack':
+        elif stack_choice == 'Loaded Stack':
             stack = images['REC_Def_Stack']
 
         slider_val = int(values["__REC_Slider__"])
@@ -3958,7 +3958,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             else:
                 display_img = g_help.convert_to_bytes(stack.rgba_data[slider_val])
 
-        elif stack_choice == 'Default Stack':
+        elif stack_choice == 'Loaded Stack':
             display_img = stack.byte_data[slider_val]
 
         update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val})])
@@ -4017,7 +4017,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         image_choice = values['__REC_Image_List__'][0]
         if image_choice == 'Stack':
             image_key = 'REC_Stack'
-        elif image_choice == 'Default Stack':
+        elif image_choice == 'Loaded Stack':
             image_key = 'REC_Def_Stack'
         elif image_choice == 'Color':
             image_key = 'color_b'
@@ -4053,7 +4053,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             window['__REC_Image_List__'].update(set_to_index=last_index)
             print(f'{prefix}Electric information not available for single TFS.')
         else:
-            if image_key in images and image_choice in ['Stack', 'Default Stack'] and images[image_key] is not None:
+            if image_key in images and image_choice in ['Stack', 'Loaded Stack'] and images[image_key] is not None:
                 stack = images[image_key]
                 slider_val = 0
                 slider_range = (0, stack.z_size - 1)

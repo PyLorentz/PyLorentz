@@ -848,7 +848,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                              [sg.Text('Images:', pad=((64, 0), (0, 0))),
                               sg.Listbox(['Stack', 'Color', 'Vector Im.', 'MagX', 'MagY', 'Mag. Magnitude',
                                           'Electr. Phase', 'Mag. Phase', 'Electr. Deriv.', 'Mag. Deriv.',
-                                          'In Focus', 'Default Stack'],
+                                          'In Focus', 'Loaded Stack'],
                                           **style.styles('__REC_Image_List__')),
                               sg.Slider(**style.styles('__REC_Image_Slider__'))]]
 
