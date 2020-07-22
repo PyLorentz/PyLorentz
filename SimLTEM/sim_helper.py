@@ -176,8 +176,9 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, isl_shape=None, ps
     the materials parameters and geometry given. 
     
     Args:
-        mag_x (2D Array): X-component of the magnetization at each pixel. 
-        mag_y (2D Array): Y-component of the magnetization at each pixel. 
+        mag_x (2D/3D Array): X-component of the magnetization at each pixel. 
+        mag_y (2D/3D Array): Y-component of the magnetization at each pixel. 
+        mag_z (2D/3D Array): Z-component of the magnetization at each pixel. 
         isl_shape (2D/3D array): Array of size (z,y,x) or (y,x). If 2D the 
             thickness will be taken as the isl_shape values multiplied by 
             isl_thickness. If 3D, the isl_shape array will be summed along 
@@ -202,9 +203,21 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, isl_shape=None, ps
     """
     if pscope is None: 
         pscope = Microscope(E=200e3)
+
+    dim_z = 1
+    if type(mag_x) != np.ndarray:
+            mag_x = np.array(mag_x)
+            mag_y = np.array(mag_y)
+    if mag_x.ndim == 3:
+        dim_z = np.shape(mag_x)[0]
+        mag_x = np.sum(mag_x, axis=0)
+        mag_y = np.sum(mag_y, axis=0)
+    if mag_z is not None:
+        mag_z = np.sum(mag_z, axis=0)
+
     thk2 = isl_thk/zscale #thickness in pixels 
     phi0 = 2.07e7 #Gauss*nm^2 flux quantum
-    pre_B = 2*np.pi*b0*zscale/phi0
+    pre_B = 2*np.pi*b0*zscale/dim_z/phi0
 
     if isl_shape is None:
         thk_map = np.ones(mag_x.shape)*isl_thk
@@ -414,8 +427,12 @@ def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None):
     if file is not None: 
         mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=0)
     nonzero = (mag_x.astype('bool') | mag_y.astype('bool') | mag_z.astype('bool')).astype(int)
-    zdim = mag_x.shape[0]
-    thk_map = np.sum(nonzero, axis=0) / zdim
+    if len(mag_x.shape) == 3:
+        zdim = mag_x.shape[0]
+        thk_map = np.sum(nonzero, axis=0) / zdim
+    else:
+        assert len(mag_x.shape) == 2
+        thk_map = nonzero
     return thk_map
 
 
