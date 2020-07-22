@@ -17,6 +17,7 @@ import hyperspy # just for checking type in show_stack.
 from copy import deepcopy
 from TIE_params import TIE_params
 import textwrap
+import os
 
 
 # ============================================================= #
@@ -60,51 +61,67 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
     unflip_files = []
     flip_files = []
 
+    path = os.path.abspath(path)
     if not fls_file.endswith('.fls'):
         fls_file += '.fls'
 
+    if os.path.isfile(os.path.join(path, fls_file)):
+        fls_full = os.path.join(path, fls_file)
+    elif os.path.isfile(os.path.join(path, 'unflip', fls_file)):
+        fls_full = os.path.join(path, 'unflip', fls_file)
+    elif os.path.isfile(os.path.join(path, 'tfs', fls_file)) and not flip:
+        fls_full = os.path.join(path, 'tfs', fls_file)
+
     if flip_fls_file is None: # one fls file given
         fls = []
-        with open(path + fls_file) as file:
+        with open(fls_full) as file:
             for line in file:
                 fls.append(line.strip())
 
         num_files = int(fls[0])
         if flip: 
             for line in fls[1:num_files+1]:
-                unflip_files.append(path + 'unflip/' + line)
+                unflip_files.append(os.path.join(path, 'unflip', line))
             for line in fls[1:num_files+1]:
-                flip_files.append(path + 'flip/' + line)
+                flip_files.append(os.path.join(path, 'flip', line))
         else:
+            if os.path.isfile(os.path.join(path, 'tfs', fls[2])):
+                tfs_dir = 'tfs'
+            else:
+                tfs_dir = 'unflip'
             for line in fls[1:num_files+1]:
-                unflip_files.append(path + 'tfs/' + line)
+                unflip_files.append(os.path.join(path, tfs_dir, line))
     
     else: # there are 2 fls files given
         if not flip: 
             print(textwrap.dedent("""
                 You probably made a mistake.
-                You're defining a flip fls file but saying there is no full tfs for both unflip and flip.
-                If just one tfs use one fls file.\n"""))
-            sys.exit(1)
+                You're defining both unflip and flip fls files but have flip=False.
+                Proceeding anyways, will only load unflip stack (if it doesnt break).\n"""))
         if not flip_fls_file.endswith('.fls'):
             flip_fls_file += '.fls'
 
+        if os.path.isfile(os.path.join(path, flip_fls_file)):
+            flip_fls_full = os.path.join(path, flip_fls_file)
+        elif os.path.isfile(os.path.join(path, 'flip', flip_fls_file)):
+            flip_fls_full = os.path.join(path, 'flip', flip_fls_file)
+
         fls = []
         flip_fls = []
-        with open(path + fls_file) as file:
+        with open(fls_full) as file:
             for line in file:
                 fls.append(line.strip())
 
-        with open(path + flip_fls_file) as file:
+        with open(flip_fls_full) as file:
             for line in file:
                 flip_fls.append(line.strip())
 
         assert int(fls[0]) == int(flip_fls[0])
         num_files = int(fls[0])
         for line in fls[1:num_files+1]:
-            unflip_files.append(path + 'unflip/' + line)
+            unflip_files.append(os.path.join(path, "unflip", line))
         for line in flip_fls[1:num_files+1]:
-            flip_files.append(path + 'flip/' + line)
+            flip_files.append(os.path.join(path, "flip", line))
 
     # Actually load the data using hyperspy
     imstack = hs.load(unflip_files)

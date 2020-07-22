@@ -42,7 +42,7 @@ def exp_sum(mphi_k, ephi_k, inds, KY, KX, j_n, i_n, my_n, mx_n, Sy, Sx):
         mphi_k += sum_term * (my_n[z,y,x]*Sx - mx_n[z,y,x]*Sy) 
     return ephi_k, mphi_k
 
-def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B=1.0, pre_E=None, v=1, multiproc=True):
+def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B=1.0, pre_E=1, v=1, multiproc=True):
     """Applies linear superposition principle for 3D reconstruction of magnetic and electrostatic phase shifts.
 
     This function will take 3D arrays with Mx, My and Mz components of the 
@@ -76,9 +76,6 @@ def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B
         arrays of the electrostatic and magnetic phase shifts respectively. 
     """
     vprint = print if v>=1 else lambda *a, **k: None
-    if pre_E is None: # pre_E and pre_B should be set for material params
-        pre_E = 4.80233*pre_B # a generic value in case its not.  
-
     [dimz,dimy,dimx] = mx.shape
     dx2 = dimx//2
     dy2 = dimy//2
@@ -211,7 +208,6 @@ def mansPhi(mx = 1.0,my = 1.0,mz = None,beam = [0.0,0.0,1.0],thick = 1.0,embed =
 
     #Get dimensions
     [ysz,xsz] = mx.shape
-    print(xsz, ysz)
 
     #Embed
     if (embed == 1.0):
