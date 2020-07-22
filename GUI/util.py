@@ -622,10 +622,6 @@ def apply_crop_to_stack(coords, graph_size, transform, stack, i):
     mask = flipud(mask)
 
     # Create transformed image (PIL)
-    # d_theta, d_x, d_y, h_flip = transform
-    # d_x = round(d_x / stack.x_size * graph_size[0])
-    # d_y = round(d_y / stack.y_size * graph_size[1])
-    # img = make_rgba(stack.flt_data[i], True, d_theta, d_x, d_y, h_flip, color='None')
     img = stack.rgba_data[i]
     img_array = np.asarray(img)
     img = np.dot(img_array[..., :3], [0.2989, 0.5870, 0.1140])
@@ -635,8 +631,6 @@ def apply_crop_to_stack(coords, graph_size, transform, stack, i):
     rgba_masked_image = make_rgba(masked_image)
     display_img = convert_to_bytes(rgba_masked_image)
     return display_img, rgba_masked_image
-    # except:
-    #     return
 
 
 # ============================================================= #

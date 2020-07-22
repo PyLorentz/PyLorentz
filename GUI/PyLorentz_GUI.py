@@ -35,7 +35,7 @@ from matplotlib import colors
 sys_path.append("../PyTIE/")
 from align import check_setup, run_bUnwarp_align, run_ls_align, run_single_ls_align
 from gui_layout import window_ly, save_window_ly, output_ly, element_keys
-from gui_styling import WindowStyle, window_scaling
+from gui_styling import WindowStyle, window_scaling, get_icon
 from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
 from microscopes import Microscope
 from TIE_helper import *
@@ -263,6 +263,16 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     # --- Set up event handling and bindings --- #
     winfo.true_element = None
     winfo.window.bind("<Button-1>", 'Window Click')
+
+    # Unbind all events for the scrollable columne
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Enter>')
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Leave>')
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all('<4>')
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all('<5>')
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<MouseWheel>")
+    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<Shift-MouseWheel>")
+
+
     winfo.output_window.bind("<Button-1>", 'Log Click')
     # Graph bindings
     winfo.window['__BUJ_Graph__'].bind('<Double-Button-1>', 'Double Click')
@@ -271,7 +281,6 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.window.bind("<Control-l>", 'Show Log')
     winfo.window.bind("<Control-h>", 'Hide Log')
     winfo.output_window.bind("<Control-h>", 'Output Hide Log')
-
 
     big_list = keys['input'] + keys['radio'] + keys['graph'] + keys['combo'] + \
                keys['checkbox'] + keys['slider'] + keys['button'] + keys['listbox']
@@ -4537,7 +4546,8 @@ def run_save_window(winfo: Struct, event: str, image_dir: str,
     # Create layout of save window
     window_layout, im_type, file_paths, orientations, inputs = save_window_ly(event, image_dir,
                                                                               orientations, tfs=tfs)
-    save_win = sg.Window('Save Window', window_layout, finalize=True)
+    icon = get_icon()
+    save_win = sg.Window('Save Window', window_layout, finalize=True, icon=icon)
     for key in inputs:
         save_win[key].Update(move_cursor_to='end')
         save_win[key].Widget.xview_moveto(1)
@@ -4616,7 +4626,7 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
     # Create output_window
     output_window = output_ly()
     output_window.Hide()
-
+    
     # Initialize window, bindings, and event variables
     init(winfo, window, output_window)
     for key in winfo.keys['input']:
@@ -4624,7 +4634,7 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
         window[key].Widget.xview_moveto(1)
     set_pretty_focus(winfo, window, 'Window Click')
 
-    # fiji_log = '../GUI/fiji_log.txt'
+
     # window['home_graph'].DrawImage(filename='../GUI/PyLo_Icon-1.png', location=(0, 299))
 
     # Set up the output log window and redirecting std_out

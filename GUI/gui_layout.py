@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import PySimpleGUI as sg
 from PySimpleGUI import Menu, Tab, Window
 from util import join
-from gui_styling import pad, window_scaling, WindowStyle
+from gui_styling import pad, window_scaling, WindowStyle, get_icon
 
 
 # ---------------------------------------------------- #
@@ -871,7 +871,9 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                              [sg.Frame("Region Select", subregion_frame, relief=sg.RELIEF_SUNKEN,
                                        pad=((8, 0), (1, 1)), font=('Times New Roman', 18))],
                              [sg.Frame("TIE", TIE_menu, relief=sg.RELIEF_SUNKEN,
-                                       pad=((8, 0), (1, 1)), font=('Times New Roman', 18))]])
+                                       pad=((8, 0), (1, 1)), font=('Times New Roman', 18))]],
+                            key='__REC_Scrollable_Column__',
+                            scrollable=True, vertical_scroll_only=True, size=(390, style.window_height+20))
 
         return [[left_panel, right_panel]]
 
@@ -907,10 +909,11 @@ def window_ly(background_color: str, DEFAULTS: Dict) -> Window:
                         enable_events=True, key="pages_tabgroup")
     invisible_graph = sg.Graph((0, 0), (0, 0), (0, 0), visible=True, key="__invisible_graph__")
 
+    icon = get_icon()
     window_layout = [[menu], [invisible_graph, pages]]
     window = sg.Window('PyLorentz', window_layout, return_keyboard_events=True, default_element_size=(12, 1),
                        resizable=True, size=(style.window_width, style.window_height), use_default_focus=False,
-                       finalize=True)
+                       finalize=True, icon=icon)
     return window
 
 
@@ -1065,7 +1068,8 @@ def output_ly() -> Window:
                           theme=sg.THEME_CLASSIC,
                           enable_events=True, key="output_tabgroup")
     window_layout = [[invisible_graph], [pages]]
+    icon = get_icon()
     window = sg.Window('Log', window_layout, default_element_size=(12, 1), disable_close=True,
                        resizable=True, size=(600, 350), use_default_focus=False, alpha_channel=0,
-                       finalize=True)
+                       finalize=True, icon=icon)
     return window
