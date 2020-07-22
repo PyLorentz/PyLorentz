@@ -35,7 +35,7 @@ from matplotlib import colors
 sys_path.append("../PyTIE/")
 from align import check_setup, run_bUnwarp_align, run_ls_align, run_single_ls_align
 from gui_layout import window_ly, save_window_ly, output_ly, element_keys
-from gui_styling import WindowStyle, window_scaling, get_icon
+from gui_styling import WindowStyle, get_icon
 from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
 from microscopes import Microscope
 from TIE_helper import *
@@ -263,6 +263,7 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     # --- Set up event handling and bindings --- #
     winfo.true_element = None
     winfo.window.bind("<Button-1>", 'Window Click')
+    winfo.output_window.bind("<Button-1>", 'Log Click')
 
     # Unbind all events for the scrollable columne
     winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Enter>')
@@ -272,8 +273,6 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<MouseWheel>")
     winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<Shift-MouseWheel>")
 
-
-    winfo.output_window.bind("<Button-1>", 'Log Click')
     # Graph bindings
     winfo.window['__BUJ_Graph__'].bind('<Double-Button-1>', 'Double Click')
     winfo.window['__REC_Graph__'].bind('<Double-Button-1>', 'Double Click')
@@ -283,7 +282,8 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.output_window.bind("<Control-h>", 'Output Hide Log')
 
     big_list = keys['input'] + keys['radio'] + keys['graph'] + keys['combo'] + \
-               keys['checkbox'] + keys['slider'] + keys['button'] + keys['listbox']
+               keys['checkbox'] + keys['slider'] + keys['button'] + keys['listbox'] + \
+                ['__REC_Scrollable_Column__']
     for key in big_list:
         winfo.window[key].bind("<Enter>", '+HOVER+')
         winfo.window[key].bind("<Leave>", '+STOP_HOVER+')
@@ -4634,9 +4634,6 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
         window[key].Widget.xview_moveto(1)
     set_pretty_focus(winfo, window, 'Window Click')
 
-
-    # window['home_graph'].DrawImage(filename='../GUI/PyLo_Icon-1.png', location=(0, 299))
-
     # Set up the output log window and redirecting std_out
     log_line = 0
     with StringIO() as winfo.buf, StringIO() as winfo.fiji_buf:
@@ -4684,8 +4681,10 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                         print('*** ATTEMPT TO ACCESS ABOUT PAGE FAILED ***')
                         print('*** CHECK INTERNET CONNECTION ***')
 
-                # if event != '__TIMEOUT__' and 'HOVER' not in event:
-                #     print('Event:', event)
+                if event != '__TIMEOUT__':
+                    print('Event:', event)
+                    print('True Element:', winfo.true_element)
+
 
                 # Disable window clicks if creating mask or setting subregion
                 if ((winfo.true_element == '__BUJ_Graph__' and bound_click and

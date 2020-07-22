@@ -20,15 +20,15 @@ def get_icon():
     return icon_img
 
 
-def window_scaling() -> None:
-    """Properly set the scaling to look similar across OS."""
-
-    icon = get_icon()
-    sys_layout = [[sg.Text('')]]
-    scaling_window = sg.Window('Window Title', sys_layout, alpha_channel=0, no_titlebar=True, finalize=True,
-                               icon=icon)
-    scaling_window.TKroot.tk.call('tk', 'scaling', 1)
-    scaling_window.close()
+# def window_scaling() -> None:
+#     """Properly set the scaling to look similar across OS."""
+#
+#     icon = get_icon()
+#     sys_layout = [[sg.Text('')]]
+#     scaling_window = sg.Window('Window Title', sys_layout, alpha_channel=0, no_titlebar=True, finalize=True,
+#                                icon=icon)
+#     scaling_window.TKroot.tk.call('tk', 'scaling', 1)
+#     scaling_window.close()
 
 
 def pad(left: int, right: int, top: int, bottom: int) -> Tuple[Tuple[int, int], Tuple[int, int]]:

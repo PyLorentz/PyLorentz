@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import PySimpleGUI as sg
 from PySimpleGUI import Menu, Tab, Window
 from util import join
-from gui_styling import pad, window_scaling, WindowStyle, get_icon
+from gui_styling import pad, WindowStyle, get_icon
 
 
 # ---------------------------------------------------- #
@@ -873,7 +873,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                              [sg.Frame("TIE", TIE_menu, relief=sg.RELIEF_SUNKEN,
                                        pad=((8, 0), (1, 1)), font=('Times New Roman', 18))]],
                             key='__REC_Scrollable_Column__',
-                            scrollable=True, vertical_scroll_only=True, size=(390, style.window_height+20))
+                            scrollable=True, vertical_scroll_only=True, size=(390, style.window_height))
 
         return [[left_panel, right_panel]]
 
