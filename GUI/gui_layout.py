@@ -936,19 +936,16 @@ def save_window_ly(event: str, image_dir: str,
     if event == '__BUJ_Make_Mask__':
         im_type = 'mask'
         names = [orientation + '_mask.bmp' for orientation in orientations]
-        # file_paths = [join([image_dir, name], '/') for name in names]
         file_paths = names
     elif event == '__BUJ_Flip_Align__' or event == '__BUJ_Unflip_Align__':
         im_type = 'Linear Sift stack'
         names = [orientations[0] + '_aligned_ls_stack.tif']
-        # file_paths = [join([image_dir, name], '/') for name in names]
         file_paths = names
     elif event == '__BUJ_Elastic_Align__':
         im_type = 'bUnwarpJ transform and stack'
         orientations = ['bunwarp transform', 'bunwarp stack']
         names = ['buj_transform.txt', 'aligned_buj_stack.tif']
         file_paths = names
-        # file_paths = [join([image_dir, name], '/') for name in names]
     elif event == '__LS_Run_Align__':
         im_type = 'Linear Sift stack'
         if tfs == 'Unflip/Flip':
@@ -958,7 +955,6 @@ def save_window_ly(event: str, image_dir: str,
                 names = ['tfs_aligned_ls_stack.tif']
             elif os.path.exists(join([image_dir, 'unflip'], '/')):
                 names = ['unflip_aligned_ls_stack.tif']
-        # file_paths = [join([image_dir, name], '/') for name in names]
         file_paths = names
     elif event == '__REC_Save_TIE__':
         im_type = 'Reconstructed Images'
@@ -1019,10 +1015,12 @@ def save_window_ly(event: str, image_dir: str,
             col1 += [[sg.Text('Working Directory:', pad=pad1),
                       sg.Input(f'{image_dir}', key=f'__save_win_wd__', size=(65, 1),
                                use_readonly_for_disable=True, disabled=True,
+                               disabled_readonly_background_color='#A7A7A7',
                                pad=((0, 10), (10, 0)))],
                      [sg.Text('Image Directory:', pad=pad2),
-                      sg.Input(f'{file_paths[0]}', key=f'__save_win_filename1__', size=(65, 1),
-                               enable_events=True,
+                      sg.Input(f'images', key=f'__save_win_filename1__', size=(65, 1),
+                               enable_events=True, use_readonly_for_disable=True, disabled=True,
+                               disabled_readonly_background_color='#A7A7A7',
                                pad=((0, 10), (10, 0)))]
                      ]
             inputs.extend(['__save_win_wd__', '__save_win_filename1__'])

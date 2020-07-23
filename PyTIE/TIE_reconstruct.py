@@ -633,9 +633,9 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
         else: 
             im = value.astype('float32')
         
-        save_name = f"{dataname}{defval:g}_{key}.tiff"
+        save_name = f"{dataname}{defval}_{key}.tiff"
         if v >= 2: 
-            print(f'Saving {os.path.join(Path(save_path).absolute(), save_name)}.tiff')
+            print(f'Saving {os.path.join(Path(save_path).absolute(), save_name)}')
         tifffile.imsave(os.path.join(save_path, save_name), im, 
             imagej = True,
             resolution = (res, res),
