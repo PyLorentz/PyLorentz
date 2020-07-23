@@ -13,6 +13,8 @@ Author: Arthur McCray, ANL, Summer 2019.
 
 import numpy as np
 from TIE_helper import dist, scale_stack, show_im, select_tifs
+from TIE_params import TIE_params
+from microscopes import Microscope
 import skimage.external.tifffile as tifffile
 from colorwheel import color_im
 import os
@@ -260,7 +262,9 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     return results
 
 
-def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=-1, flipstack=False, v=1):
+def SITIE(image=None, defval=None, scale=1, E=200e3, 
+            ptie=None, i=-1, flipstack=False, pscope=None, 
+            data_loc='', dataname='', sym=False, qc=None, save=False, v=1):
     """Uses a modified derivative to get the magnetic phase shift with TIE from a single image.
 
     This technique is only applicable to uniformly thin samples from which the 
@@ -268,10 +272,29 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
     contrast including sample contamination, thickness variation, and diffraction 
     contrast will give false magnetic inductions. For more information please 
     refer to: Chess, J. J. et al. Ultramicroscopy 177, 78–83 (2018).
+
+    This function has two ways of picking which image to use. First, if an image
+    is given directly along with a defocus value, it will use that. You should 
+    also be sure to specify the scale of the image and accelerating voltage of 
+    the microscope (default 200kV). 
+
+    You can also choose to pass it an image from a ``TIE_params`` object, in which
+    case you need specify only whether to choose from the imstack or flipstack 
+    and the index of the image to use. It's possible that in the future this 
+    method of selecting an image will be removed or moved to a separate function. 
     
     Args: 
+        image (2D array): Input image to reconstruct. 
+        defval (float): Defocus value corresponding to ``image``. 
+        scale (float): Scale (nm/pixel) corresponding to ``image``. 
+        E (float): Accelerating voltage of microscope that produced ``image``. 
         ptie (``TIE_params`` object): Object containing the image. From 
             TIE_params.py
+        i (int): Index of `the ptie.imstack` or `ptie.flipstack` to 
+            reconstruct. This is not the defocus index like in TIE. Default 
+            value is -1 which corresponds to the most overfocused image. 
+        flipstack (bool): (`optional`) Whether to pull the image from ptie.imstack[i] or
+            ptie.flipstack[i]. Default is False, calls image from imstack.
         pscope (``Microscope`` object): Should have same accelerating voltage
             as the microscope that took the images.
         dataname (str): The output filename to be used for saving the images. 
@@ -294,11 +317,6 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
             Files will be saved as 
             ptie.data_loc/images/dataname_<defval>_<key>.tiff, where <key> is 
             the key for the returned dictionary that corresponds to the image. 
-        i (int): Index of `the ptie.imstack` or `ptie.flipstack` to 
-            reconstruct. This is not the defocus index like in TIE. Default 
-            value is -1 which corresponds to the most overfocused image. 
-        flipstack (bool): (`optional`) Whether to pull the image from ptie.imstack[i] or
-            ptie.flipstack[i]. Default is False, calls image from imstack.
         v (int): (`optional`) Verbosity. 
 
             ===  ========
@@ -332,29 +350,38 @@ def SITIE(ptie=None, pscope=None, dataname='', sym=False, qc=None, save=True, i=
     # turning off the print function if v=0
     vprint = print if v>=1 else lambda *a, **k: None
 
-    # selecting the right defocus value for the image
-    if i >= ptie.num_files:
-        print("i given outside range.")
-        sys.exit(1)
+    if image is not None and defval is not None:
+        vprint(f"Running with given image, defval = {defval:g}nm, and scale = {scale:g}nm/pixel")
+        ptie = TIE_params(imstack=[image], defvals=[defval], data_loc=data_loc,v=0)
+        ptie.set_scale(scale)
+        dim_y, dim_x = image.shape
+        pscope = Microscope(E=E)
     else:
-        if ptie.num_files > 1: 
-            unders = list(reversed([-1*i for i in ptie.defvals]))
-            defvals = unders + [0] + ptie.defvals
-            defval = defvals[i]
+        # selecting the right defocus value for the image
+        if i >= ptie.num_files:
+            print("i given outside range.")
+            sys.exit(1)
         else:
-            defval = ptie.defvals[0]
-        vprint(f'SITIE defocus: {defval:g} nm')
+            if ptie.num_files > 1: 
+                unders = list(reversed([-1*i for i in ptie.defvals]))
+                defvals = unders + [0] + ptie.defvals
+                defval = defvals[i]
+            else:
+                defval = ptie.defvals[0]
+            vprint(f'SITIE defocus: {defval:g} nm')
 
-    right, left = ptie.crop['right']  , ptie.crop['left']
-    bottom, top = ptie.crop['bottom'] , ptie.crop['top']
-    dim_y = bottom - top 
-    dim_x = right - left
+        right, left = ptie.crop['right']  , ptie.crop['left']
+        bottom, top = ptie.crop['bottom'] , ptie.crop['top']
+        dim_y = bottom - top 
+        dim_x = right - left
+        vprint(f"Reconstructing with ptie image {i} and defval {defval}")
 
-    if flipstack:
-        print("Reconstructing with single flipped image.")
-        image = ptie.flipstack[i].data[top:bottom, left:right]
-    else:
-        image = ptie.imstack[i].data[top:bottom, left:right]
+
+        if flipstack:
+            print("Reconstructing with single flipped image.")
+            image = ptie.flipstack[i].data[top:bottom, left:right]
+        else:
+            image = ptie.imstack[i].data[top:bottom, left:right]
 
     if sym:
         print("Reconstructing with symmetrized image.")

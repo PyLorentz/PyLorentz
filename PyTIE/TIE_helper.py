@@ -61,10 +61,10 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
     unflip_files = []
     flip_files = []
 
+    # Finding the unflip fls file
     path = os.path.abspath(path)
     if not fls_file.endswith('.fls'):
         fls_file += '.fls'
-
     if os.path.isfile(os.path.join(path, fls_file)):
         fls_full = os.path.join(path, fls_file)
     elif os.path.isfile(os.path.join(path, 'unflip', fls_file)):
@@ -98,9 +98,9 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
                 You probably made a mistake.
                 You're defining both unflip and flip fls files but have flip=False.
                 Proceeding anyways, will only load unflip stack (if it doesnt break).\n"""))
+        # find the flip fls file
         if not flip_fls_file.endswith('.fls'):
             flip_fls_file += '.fls'
-
         if os.path.isfile(os.path.join(path, flip_fls_file)):
             flip_fls_full = os.path.join(path, flip_fls_file)
         elif os.path.isfile(os.path.join(path, 'flip', flip_fls_file)):
