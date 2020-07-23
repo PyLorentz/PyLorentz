@@ -239,6 +239,9 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.ptie_init_thread = None
     winfo.ptie_recon_thread = None
     winfo.rec_tie_prefix = 'Example'
+    winfo.last_browser_color = None
+    winfo.last_fiji_color = None
+
 
     winfo.ptie_init_spinner_active = False
     winfo.ptie_recon_spinner_active = False
@@ -1948,6 +1951,41 @@ def run_home_tab(winfo: Struct, window: sg.Window,
 
     prefix = 'HOM: '
     # Get directories for Fiji and images
+    python_dir = os_path.dirname(__file__)
+    default_txt = f'{python_dir}/defaults.txt'
+    with open(default_txt, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            if line.startswith('FIJI Directory'):
+                items = line.split(',')
+                key, value = items[0], items[1]
+                value = value.strip()
+                if value:
+                    color_def = window['__Fiji_Def_Set__'].metadata['Def']
+                    color_res = window['__Fiji_Def_Reset__'].metadata['Set']
+                else:
+                    color_def = window['__Fiji_Def_Set__'].metadata['Set']
+                    color_res = window['__Fiji_Def_Reset__'].metadata['Def']
+                if winfo.last_fiji_color != color_def:
+                    window['__Fiji_Def_Set__'].update(button_color=color_def)
+                    window['__Fiji_Def_Reset__'].update(button_color=color_res)
+                    winfo.last_fiji_color = color_def
+
+            elif line.startswith('Browser Directory'):
+                items = line.split(',')
+                key, value = items[0], items[1]
+                value = value.strip()
+                if value:
+                    color_def = window['__Browser_Set__'].metadata['Def']
+                    color_res = window['__Browser_Reset__'].metadata['Set']
+                else:
+                    color_def = window['__Browser_Set__'].metadata['Set']
+                    color_res = window['__Browser_Reset__'].metadata['Def']
+                if winfo.last_browser_color != color_def:
+                    window['__Browser_Set__'].update(button_color=color_def)
+                    window['__Browser_Reset__'].update(button_color=color_res)
+                    winfo.last_browser_color = color_def
+
     if event == '__Fiji_Set__':
         winfo.fiji_path = values['__Fiji_Path__']
         if not os_path.exists(winfo.fiji_path) or 'Fiji' not in winfo.fiji_path:
@@ -2002,11 +2040,16 @@ def run_home_tab(winfo: Struct, window: sg.Window,
             lines = f.readlines()
         with open(default_txt, 'w') as fnew:
             for line in lines:
-                # if not line.startswith('//'):
                 if line.startswith('FIJI Directory') and event == '__Fiji_Def_Reset__':
                     fnew.write('FIJI Directory, \n')
+                    update_values(winfo, window, [('__Fiji_Path__', '')])
+                    winfo.fiji_path = values['__Fiji_Path__']
+                    enable_elements(winfo, window, ['__Fiji_Path__', '__Fiji_Set__', '__Fiji_Browse__'])
+                    disable_elements(window, ['align_tab'])
+                    change_inp_readonly_bg_color(window, ['__Fiji_Path__'], 'Default')
                     print(f'{prefix}Fiji default was reset.')
                 elif line.startswith('Browser Directory') and event == '__Browser_Reset__':
+                    update_values(winfo, window, [('__Browser_Path__', '')])
                     fnew.write('Browser Directory, \n')
                     print(f'{prefix}Browser working directory default was reset.')
                 else:
@@ -4283,8 +4326,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 try:
                     if save_tie in [True, 'b']:
                         arrow_filenames = filenames[-2:]
-                        print('Arrow filenames:', arrow_filenames)
-
                         hsv = window['__REC_Colorwheel__'].get() == "HSV"
                         color_float_array = images['color_b'].float_array
                         mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
@@ -4712,7 +4753,7 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
 
             # Run event loop
             bound_click = True
-            bound_scroll = False
+            # bound_scroll = False
             close = None
             while True:
                 # Capture events

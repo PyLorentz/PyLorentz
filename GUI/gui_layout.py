@@ -178,14 +178,38 @@ This GUI should be used as an alternative to the Jupyter Notebook for some impro
     fiji_input = sg.Input(DEFAULTS['fiji_dir'], **style.styles('__Fiji_Path__'))
     fiji_set = sg.Button('Set Fiji', **style.styles('__Fiji_Set__'))
     fiji_reset = sg.Button('Reset Fiji', **style.styles('__Fiji_Reset__'))
-    fiji_def_set = sg.Button('Set as Default', key='__Fiji_Def_Set__', pad=pad(10, 0, 10, 0))
-    fiji_def_reset = sg.Button('Reset Default',  key='__Fiji_Def_Reset__', pad=pad(10, 0, 10, 0))
+
+    run_color_bg = '#0b7a29'
+    no_run_color_bg = '#b00707'
+    fg_color = '#f5f5f5'
+    if DEFAULTS['fiji_dir']:
+        fiji_set_color = (fg_color, no_run_color_bg)
+        fiji_reset_color = (fg_color, run_color_bg)
+    else:
+        fiji_set_color = (fg_color, run_color_bg)
+        fiji_reset_color = (fg_color, no_run_color_bg)
+    fiji_def_set = sg.Button('Set as Default', key='__Fiji_Def_Set__', pad=pad(10, 0, 10, 0),
+                             button_color=fiji_set_color,
+                             metadata={'Set': (fg_color, run_color_bg), 'Def': (fg_color, no_run_color_bg)})
+    fiji_def_reset = sg.Button('Reset Default',  key='__Fiji_Def_Reset__', pad=pad(10, 0, 10, 0),
+                               button_color=fiji_reset_color,
+                               metadata={'Set': (fg_color, run_color_bg), 'Def': (fg_color, no_run_color_bg)})
     browser_button = sg.FolderBrowse("Browse", key="__Browser_Browse__", pad=pad(164, 0, 10, 0),
                                      target='__Browser_Path__')
     browser_def_text = sg.Text('You can set the default browser working directory below.', pad=pad(230, 0, 10, 0))
     browser_wd_input = sg.Input(DEFAULTS['browser_dir'], key='__Browser_Path__', pad=pad(16, 0, 10, 0), size=(30, 1))
-    browser_def_set = sg.Button('Set as Default', key='__Browser_Set__', pad=pad(10, 0, 10, 0))
-    browser_def_reset = sg.Button('Reset Default',  key='__Browser_Reset__', pad=pad(10, 0, 10, 0))
+    if DEFAULTS['browser_dir']:
+        browser_set_color = (fg_color, no_run_color_bg)
+        browser_reset_color = (fg_color, run_color_bg)
+    else:
+        browser_set_color = (fg_color, run_color_bg)
+        browser_reset_color = (fg_color, no_run_color_bg)
+    browser_def_set = sg.Button('Set as Default', key='__Browser_Set__', pad=pad(10, 0, 10, 0),
+                                button_color=browser_set_color,
+                                metadata={'Set': (fg_color, run_color_bg), 'Def': (fg_color, no_run_color_bg)})
+    browser_def_reset = sg.Button('Reset Default',  key='__Browser_Reset__', pad=pad(10, 0, 10, 0),
+                                  button_color=browser_reset_color,
+                                  metadata={'Set': (fg_color, run_color_bg), 'Def': (fg_color, no_run_color_bg)})
 
     layout = [[sg.Col([[sg.T(title, **style.styles('home_title'))],
                        [sg.T(version, **style.styles('home_version'))],
