@@ -160,8 +160,8 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
     return (Tphi, im_un, im_in, im_ov)
 
 
-def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, isl_shape=None, pscope=None,
-    b0=1e4, isl_thk=20, isl_V0=20, mem_thk=50, mem_V0=10):
+def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, del_px=1, isl_shape=None,
+    pscope=None, b0=1e4, isl_thk=20, isl_V0=20, mem_thk=50, mem_V0=10):
     """Calculates the electron phase shift through a given 2D magnetization. 
     
     This function was originally created for simulating LTEM images of magnetic
@@ -185,6 +185,7 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, isl_shape=None, ps
             the z-axis becoming and multiplied by isl_thickness.  
             (Default) None -> uniform flat material with thickness = isl_thk. 
         zscale (float): Scale factor (nm/pixel) along beam direction. 
+        del_px (float): Scale factor (nm/pixel) along x/y directions. 
         pscope (``Microscope`` object): Accelerating voltage is the only 
             relevant parameter here. 
         b0 (float): Saturation induction (gauss). Default 1e4.
@@ -217,7 +218,7 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, isl_shape=None, ps
 
     thk2 = isl_thk/zscale #thickness in pixels 
     phi0 = 2.07e7 #Gauss*nm^2 flux quantum
-    pre_B = 2*np.pi*b0*zscale/dim_z/phi0
+    pre_B = 2*np.pi*b0*zscale*del_px/(dim_z*phi0)
 
     if isl_shape is None:
         thk_map = np.ones(mag_x.shape)*isl_thk
