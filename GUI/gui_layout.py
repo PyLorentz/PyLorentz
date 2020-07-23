@@ -89,8 +89,6 @@ def element_keys() -> Dict[str, List[str]]:
                   ]
     listbox_keys = ["__BUJ_Image_Choice__",
                     "__REC_Image_List__", "__REC_Def_List__"]
-    # multiline_keys = ["__REC_Def_Multi__"] #"__LS_Log__", "__BUJ_Log__"
-    # output_keys = ["__LS_Log__", "__BUJ_Log__"]
     radio_keys = ["__LS_full_align__", "__LS_param_test__", '__LS_unflip_reference__', '__LS_flip_reference__',
                   "__BUJ_unflip_reference__", "__BUJ_flip_reference__"]
     slider_keys = ["__LS_Stack_Slider__",
@@ -114,8 +112,6 @@ def element_keys() -> Dict[str, List[str]]:
         'input': input_keys,
         'read_only_inputs': read_only_inputs_keys,
         'listbox': listbox_keys,
-        # 'multiline': multiline_keys,
-        # 'output': output_keys,
         'radio': radio_keys,
         'slider': slider_keys,
         'tab': tab_keys,
@@ -133,7 +129,7 @@ def menu_bar() -> Menu:
 
     menu_def = [['PyLo', ['About::About', 'Exit::Exit1']],
                 ['Log', ['Show (Control-l)::Log', 'Hide (Control-h)::Log']],
-                ['Procedure Help', ['Open Manual']]]
+                ['Procedure Help', ['Open Manual::Manual']]]
     return sg.Menu(menu_def, font='Times 15')
 
 
@@ -166,7 +162,7 @@ def home_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
 * GUI/Align – Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE.
                 
                 
-This GUI should be used as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PYTIE along with a means faster alignment of LTEM images utilizing Fiji alignment protocols.
+This GUI should be used as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PYTIE along with a means of faster alignment of LTEM images utilizing Fiji alignment protocols.
 
 '''
     contact = 'Contact: tcote@anl.gov, amccray@anl.gov'
@@ -870,7 +866,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                              [sg.Frame("TIE", TIE_menu, relief=sg.RELIEF_SUNKEN,
                                        pad=((8, 0), (1, 1)), font=('Times New Roman', 18))]],
                             key='__REC_Scrollable_Column__',
-                            scrollable=True, vertical_scroll_only=True, size=(390, style.window_height))
+                            scrollable=False)
 
         return [[left_panel, right_panel]]
 

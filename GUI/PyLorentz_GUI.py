@@ -58,8 +58,8 @@ def defaults() -> Dict[str, str]:
     Returns:
         DEFAULTS: Dictionary of the FIJI and working directory paths.
     """
-    python_dir = os_path.dirname(__file__)
-    default_txt = f'{python_dir}/defaults.txt'
+    GUI_dir = os_path.dirname(__file__)
+    default_txt = f'{GUI_dir}/defaults.txt'
     DEFAULTS = {'fiji_dir': '',
                 'browser_dir': ''}
     if not os_path.exists(default_txt):
@@ -269,12 +269,12 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
 
     # change this whenever scrollable columns only scrolls the parent widget or child widget seperately
     # Unbind all events for the scrollable columne
-    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Enter>')
-    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Leave>')
-    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all('<4>')
-    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all('<5>')
-    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<MouseWheel>")
-    winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<Shift-MouseWheel>")
+    # winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Enter>')
+    # winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind('<Leave>')
+    # winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all('<4>')
+    # winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all('<5>')
+    # winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<MouseWheel>")
+    # winfo.window['__REC_Scrollable_Column__'].TKColFrame.TKFrame.unbind_all("<Shift-MouseWheel>")
 
     # Graph bindings
     winfo.window['__BUJ_Graph__'].bind('<Double-Button-1>', 'Double Click')
@@ -285,8 +285,8 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.output_window.bind("<Control-h>", 'Output Hide Log')
 
     big_list = keys['input'] + keys['radio'] + keys['graph'] + keys['combo'] + \
-               keys['checkbox'] + keys['slider'] + keys['button'] + keys['listbox'] + \
-                ['__REC_Scrollable_Column__']
+               keys['checkbox'] + keys['slider'] + keys['button'] + keys['listbox']
+                # ['__REC_Scrollable_Column__']
     for key in big_list:
         winfo.window[key].bind("<Enter>", '+HOVER+')
         winfo.window[key].bind("<Leave>", '+STOP_HOVER+')
@@ -2432,14 +2432,14 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
             # Update window
             name = window['__LS_Stack__'].get()
             if tfs_value == 'Single':
-                prefix = orientation
-            # else:
-            #     prefix = 'unflip'
+                pref = orientation
+            else:
+                pref = 'unflip'
             if 'Param' in name:
                 if orientation == 'unflip':
                     im_name = winfo.ls_files1[len(winfo.ls_files1)//2-1]
                 elif orientation == 'flip':
-                    im_name = winfo.ls_files2[len(winfo.ls_files1) // 2 - 1]
+                    im_name = winfo.ls_files2[len(winfo.ls_files1)//2-1]
             else:
                 if tfs_value != 'Single':
                     if orientation == 'unflip':
@@ -2448,7 +2448,7 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
                         im_name = winfo.ls_files2[slider_val]
                 else:
                     im_name = winfo.ls_files1[slider_val]
-            metadata_change(winfo, window, [('__LS_Image1__', f'{prefix}/{im_name}')])
+            metadata_change(winfo, window, [('__LS_Image1__', f'{pref}/{im_name}')])
             toggle(winfo, window, ['__LS_Adjust__'], state='Def')
             toggle(winfo, window, ['__LS_Image1__', '__LS_View_Stack__'], state='Set')
             update_slider(winfo, window, [('__LS_Stack_Slider__', {"value": slider_val, "slider_range": slider_range})])
@@ -4741,6 +4741,10 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                     except:
                         print('*** ATTEMPT TO ACCESS ABOUT PAGE FAILED ***')
                         print('*** CHECK INTERNET CONNECTION ***')
+                elif event == 'Open Manual::Manual':
+                    GUI_dir = os_path.dirname(__file__)
+                    manual_path = f'{GUI_dir}/PyLorentz_GUI_Manual.pdf'
+                    subprocess.run(['open', manual_path], check=True)
 
                 # if event != '__TIMEOUT__':
                 #     print('Event:', event)
@@ -4902,7 +4906,7 @@ def run_GUI() -> None:
                   border_width=0, font=('Times New Roman', '16'))
     sys_layout = [[sg.Text('')]]
     scaling_window = sg.Window('Window Title', sys_layout, alpha_channel=0, no_titlebar=True,
-                                finalize=True)
+                                finalize=True, icon=get_icon())
     scaling_window.TKroot.tk.call('tk', 'scaling', 1)
     scaling_window.close()
     window = window_ly(background_color, DEFAULTS)
