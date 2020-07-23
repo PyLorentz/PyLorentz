@@ -132,7 +132,7 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
 
     # convert scale dimensions to nm
     for sig in imstack + flipstack: 
-        sig.axes_manager.convert_units(units = ['nm', 'nm'])
+        sig.axes_manager.convert_units(units=['nm', 'nm'])
 
     if unflip_files[0][-4:] != '.dm3' and unflip_files[0][-4:] != '.dm4': 
         # if not dm3's then they generally don't have the title metadata. 
@@ -182,6 +182,154 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
 
     # Create a TIE_params object
     ptie = TIE_params(imstack, flipstack, defvals, flip, path)
+    print('Data loaded successfully.')
+    return (imstack, flipstack, ptie)
+
+
+def load_data_GUI(path, fls_file1, fls_file2, al_file='', single=False, filtersize=3):
+    """Load files in a directory (from a .fls file) using hyperspy.
+
+    For more information on how to organize the directory and load the data, as
+    well as how to setup the .fls file please refer to the README or the
+    TIE_template.ipynb notebook.
+
+    Args:
+        path (str): Location of data directory.
+        fls_file1 (str): Name of the .fls file which contains the image names and
+            defocus values.
+        fls_file2 (str): Name of the .fls file for the flip images if they
+            are not named the same as the unflip files. Will only be applied to
+            the /flip/ directory.
+        al_file (str): Name of the aligned stack image file.
+        single (Bool): True if using a single stack, False otherwise. Uniformly
+            thick films can be reconstructed with a single stack. The
+            electrostatic phase shift will not be reconstructed.
+        filtersize (int): (`optional`) The images are processed with a median
+            filter to remove hot pixels which occur in experimental data. This
+            should be set to 0 for simulated data, though generally one would
+            only use this function for experimental data.
+
+    Returns:
+        list: List of length 3, containing the following items:
+
+        - imstack: array of hyperspy signal2D objects (one per image)
+        - flipstack: array of hyperspy signal2D objects, empty array if
+          flip == False
+        - ptie: TIE_params object holding a reference to the imstack and many
+          other parameters.
+
+    """
+
+    unflip_files = []
+    flip_files = []
+
+    if fls_file2 is None:  # one fls file given
+        u_files = []
+        with open(fls_file1) as file:
+            for line in file:
+                u_files.append(line.strip())
+
+        num_files = int(u_files[0])
+        if not single:
+            for line in u_files[1:num_files + 1]:
+                unflip_files.append(os.path.join(path, 'unflip', line))
+            for line in u_files[1:num_files + 1]:
+                flip_files.append(os.path.join(path, 'flip', line))
+        else:
+            if os.path.exists(os.path.join(path, 'tfs')):
+                sub_dir = 'tfs'
+            else:
+                sub_dir = 'unflip'
+            for line in u_files[1:num_files + 1]:
+                unflip_files.append(os.path.join(path, sub_dir, line))
+
+    else:  # there are 2 fls files given
+        if single:
+            print(textwrap.dedent("""
+                You probably made a mistake.
+                You're defining both unflip and flip fls files but have flip=False.
+                Proceeding anyways, will only load unflip stack (if it doesnt break).\n"""))
+
+        u_files = []
+        f_files = []
+        with open(fls_file1) as file:
+            for line in file:
+                u_files.append(line.strip())
+
+        with open(fls_file2) as file:
+            for line in file:
+                f_files.append(line.strip())
+
+        assert int(u_files[0]) == int(f_files[0])
+        num_files = int(u_files[0])
+        for line in u_files[1:num_files + 1]:
+            unflip_files.append(os.path.join(path, "unflip", line))
+        for line in f_files[1:num_files + 1]:
+            flip_files.append(os.path.join(path, "flip", line))
+
+    # Actually load the data using hyperspy
+    imstack = hs.load(unflip_files)
+    if not single:
+        flipstack = hs.load(flip_files)
+    else:
+        flipstack = []
+
+    # convert scale dimensions to nm
+    for sig in imstack + flipstack:
+        sig.axes_manager.convert_units(units=['nm', 'nm'])
+
+    if unflip_files[0][-4:] != '.dm3' and unflip_files[0][-4:] != '.dm4':
+        # if not dm3's then they generally don't have the title metadata.
+        for sig in imstack + flipstack:
+            sig.metadata.General.title = sig.metadata.General.original_filename
+
+    # load the aligned tifs and update the dm3 data to match
+    # The data from the dm3's will be replaced with the aligned image data.
+    try:
+        al_tifs = io.imread(al_file)
+    except FileNotFoundError as e:
+        print('Incorrect aligned stack filename given.')
+        raise e
+
+    if not single:
+        tot_files = 2 * num_files
+    else:
+        tot_files = num_files
+
+    for i in range(tot_files):
+        # pull slices from correct axis, assumes fewer slices than images are tall
+        if al_tifs.shape[0] < al_tifs.shape[2]:
+            im = al_tifs[i]
+        elif al_tifs.shape[0] > al_tifs.shape[2]:
+            im = al_tifs[:, :, i]
+        else:
+            print("Bad stack\n Or maybe the second axis is slice axis?")
+            print('Loading failed.\n')
+            sys.exit(1)
+
+        # then median filter to remove "hot pixels"
+        im = median_filter(im, size=filtersize)
+
+        # and assign to appropriate stack
+        if i < num_files:
+            print('loading unflip:', unflip_files[i])
+            imstack[i].data = im
+        else:
+            j = i - num_files
+            print('loading flip:', flip_files[j])
+            flipstack[j].data = im
+
+    # read the defocus values
+    defvals = u_files[-(num_files // 2):]
+    assert num_files == 2 * len(defvals) + 1
+    defvals = [float(i) for i in defvals]  # defocus values +/-
+
+    # Create a TIE_params object
+    if single:
+        single = None
+    else:
+        single = True
+    ptie = TIE_params(imstack, flipstack, defvals, single, path)
     print('Data loaded successfully.')
     return (imstack, flipstack, ptie)
 

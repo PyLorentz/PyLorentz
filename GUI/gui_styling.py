@@ -646,7 +646,7 @@ class WindowStyle(object):
             elif key == '__REC_Erase_Mask__':
                 val.update(disabled=True, pad=((10, 0), (4, 4)))
             elif key == '__REC_Run_TIE__':
-                val.update(enable_events=True, disabled=True, pad=((15, 0), (28, 0)))
+                val.update(enable_events=True, disabled=True, pad=((15, 0), (10, 0)))
             elif key == '__REC_Save_TIE__':
                 val.update(enable_events=True, disabled=True, pad=((13, 0), (8, 0)))
             elif key == '__REC_Set_Img_Dir__':
@@ -671,10 +671,10 @@ class WindowStyle(object):
                            default_value='Central Diff.', pad=((8, 0), (5, 0)))
             elif key == '__REC_Colorwheel__':
                 val.update(size=(6, 1), disabled=True,
-                           default_value='HSV', pad=((8, 0), (3, 0)))
+                           default_value='HSV', pad=((8, 0), (7, 0)))
             elif key == '__REC_Arrow_Color__':
                 val.update(size=(3, 1), disabled=True,
-                           default_value='On', pad=((0, 0), (4, 0))),
+                           default_value='On', pad=((0, 0), (7, 0))),
             # Checkbox Element
             elif key == '__REC_Symmetrize__':
                 val.update(default=False, pad=((0, 0), (7, 0)))
@@ -694,7 +694,7 @@ class WindowStyle(object):
                            metadata={'Set': spinner_gif, 'Def': background_img,
                                      'State': 'Def'})
             elif key == '__REC_PYTIE_Spinner__':
-                val.update(filename=background_img, background_color=theme_background, pad=((5, 5), (28, 0)),
+                val.update(filename=background_img, background_color=theme_background, pad=((5, 5), (10, 0)),
                            metadata={'Set': spinner_gif, 'Def': background_img,
                                      'State': 'Def'})
             # Input field element
@@ -746,17 +746,17 @@ class WindowStyle(object):
                 val.update(justification='right', disabled=True,
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7',
-                           size=(3, 1), pad=((0, 0), (4, 0)))
+                           size=(3, 1), pad=((0, 0), (7, 0)))
             elif key == '__REC_Arrow_Len__':
                 val.update(justification='right', disabled=True,
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7',
-                           size=(3, 1), pad=((0, 0), (4, 0)))
+                           size=(3, 1), pad=((0, 0), (7, 0)))
             elif key == '__REC_Arrow_Wid__':
                 val.update(justification='right', disabled=True,
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7',
-                           size=(3, 1), pad=((0, 0), (4, 0)))
+                           size=(3, 1), pad=((0, 0), (7, 0)))
             elif key == '__REC_Image_Dir_Path__':
                 val.update(size=(35, 1), pad=((2, 0), (7, 0)),
                            use_readonly_for_disable=True,

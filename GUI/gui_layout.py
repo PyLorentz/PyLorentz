@@ -8,6 +8,7 @@ AUTHOR:
 Timothy Cote, ANL, Fall 2019.
 """
 
+import os
 from sys import platform
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 import PySimpleGUI as sg
@@ -84,7 +85,7 @@ def element_keys() -> Dict[str, List[str]]:
                   "__REC_transform_rot__", "__REC_Mask_Size__", "__REC_Arrow_Num__",
                   "__REC_Arrow_Len__", "__REC_Arrow_Wid__",
                   "__REC_FLS1__", "__REC_FLS2__", "__REC_Stack__", "__REC_Stack_Stage__",
-                  "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__", "__REC_Data_Prefix__"
+                  "__REC_FLS1_Staging__", "__REC_FLS2_Staging__", "__REC_M_Volt__"
                   ]
     listbox_keys = ["__BUJ_Image_Choice__",
                     "__REC_Image_List__", "__REC_Def_List__"]
@@ -816,11 +817,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                                     ])
                             ]]
 
-        TIE_menu = [[sg.Col([[sg.Text('Data Prefix:', pad=((10, 0), (4, 0))),
-                              sg.Input('Example', key='__REC_Data_Prefix__', pad=((8, 0), (4, 0)), size=(20, 1),
-                                        use_readonly_for_disable=True,
-                                        disabled_readonly_background_color='#A7A7A7')],
-                             [sg.Text('Defocus:', pad=((30, 0), (4, 0))),
+        TIE_menu = [[sg.Col([[sg.Text('Defocus:', pad=((30, 0), (4, 0))),
                               sg.Combo(['None'], **style.styles('__REC_Def_Combo__'))],
                              [sg.Text("QC value:", pad=((22, 0), (5, 0))),
                               sg.Input('0.00', **style.styles('__REC_QC_Input__')),
@@ -832,17 +829,17 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                      sg.Col([[sg.Button('Run', **style.styles('__REC_Run_TIE__')),
                               sg.Image(**style.styles('__REC_PYTIE_Spinner__'))],
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]])],
-                             [sg.Text('Colorwheel:', pad=((8, 0), (4, 0))),
+                             [sg.Text('Colorwheel:', pad=((8, 0), (7, 0))),
                               sg.Combo(['HSV', '4-Fold'], **style.styles('__REC_Colorwheel__')),
-                              sg.Button('Set Vector Im.', key='__REC_Arrow_Set__', pad=((60, 0), (4, 0)))],
-                             [sg.Text('Vector Im. |', pad=((2, 0), (4, 0))),
-                              sg.Text('Arrows:', pad=((0, 0), (4, 0))),
+                              sg.Button('Set Vector Im.', key='__REC_Arrow_Set__', pad=((60, 0), (7, 0)))],
+                             [sg.Text('Vector Im. |', pad=((2, 0), (7, 0))),
+                              sg.Text('Arrows:', pad=((0, 0), (7, 0))),
                               sg.Input('15', **style.styles('__REC_Arrow_Num__')),
-                              sg.Text('Color:', pad=((4, 0), (4, 0))),
+                              sg.Text('Color:', pad=((4, 0), (7, 0))),
                               sg.Combo(['On', 'Off'], **style.styles('__REC_Arrow_Color__')),
-                              sg.Text('L:', pad=((2, 0), (4, 0))),
+                              sg.Text('L:', pad=((2, 0), (7, 0))),
                               sg.Input('1', **style.styles('__REC_Arrow_Len__')),
-                              sg.Text('W:', pad=((2, 0), (4, 0))),
+                              sg.Text('W:', pad=((2, 0), (7, 0))),
                               sg.Input('1', **style.styles('__REC_Arrow_Wid__'))],
                              [sg.HorizontalSeparator(color='black', pad=(5, 5))],
                              [sg.Text('Images:', pad=((64, 0), (0, 0))),
@@ -919,7 +916,7 @@ def window_ly(background_color: str, DEFAULTS: Dict) -> Window:
 
 def save_window_ly(event: str, image_dir: str,
                    orientations: Optional[Union[List[str], str]],
-                   tfs: Optional[str] = None) -> List[List[Any]]:
+                   tfs: Optional[str] = None, tie_prefix: str = 'Example') -> List[List[Any]]:
     """Initializes save window.
 
     Args:
@@ -943,23 +940,30 @@ def save_window_ly(event: str, image_dir: str,
     if event == '__BUJ_Make_Mask__':
         im_type = 'mask'
         names = [orientation + '_mask.bmp' for orientation in orientations]
-        file_paths = [join([image_dir, name], '/') for name in names]
+        # file_paths = [join([image_dir, name], '/') for name in names]
+        file_paths = names
     elif event == '__BUJ_Flip_Align__' or event == '__BUJ_Unflip_Align__':
         im_type = 'Linear Sift stack'
         names = [orientations[0] + '_aligned_ls_stack.tif']
-        file_paths = [join([image_dir, name], '/') for name in names]
+        # file_paths = [join([image_dir, name], '/') for name in names]
+        file_paths = names
     elif event == '__BUJ_Elastic_Align__':
         im_type = 'bUnwarpJ transform and stack'
         orientations = ['bunwarp transform', 'bunwarp stack']
-        names = ['buj_transforms/buj_transform.txt', 'aligned_buj_stack.tif']
-        file_paths = [join([image_dir, name], '/') for name in names]
+        names = ['buj_transform.txt', 'aligned_buj_stack.tif']
+        file_paths = names
+        # file_paths = [join([image_dir, name], '/') for name in names]
     elif event == '__LS_Run_Align__':
         im_type = 'Linear Sift stack'
         if tfs == 'Unflip/Flip':
-            names = ['uf_aligned_ls_stack.tif']
+            names = ['aligned_ls_stack.tif']
         elif tfs == 'Single':
-            names = ['tfs_aligned_ls_stack.tif']
-        file_paths = [join([image_dir, name], '/') for name in names]
+            if os.path.exists(join([image_dir, 'tfs'], '/')):
+                names = ['tfs_aligned_ls_stack.tif']
+            elif os.path.exists(join([image_dir, 'unflip'], '/')):
+                names = ['unflip_aligned_ls_stack.tif']
+        # file_paths = [join([image_dir, name], '/') for name in names]
+        file_paths = names
     elif event == '__REC_Save_TIE__':
         im_type = 'Reconstructed Images'
         prefix = orientations
@@ -1027,7 +1031,7 @@ def save_window_ly(event: str, image_dir: str,
                      ]
             inputs.extend(['__save_win_wd__', '__save_win_filename1__'])
             col1 += [[sg.Text(f'prefix:', pad=((89, 0), (10, 0))),
-                      sg.Input(f'{prefix}', key=f'__save_win_prefix__', size=(30, 1), enable_events=True,
+                      sg.Input(f'{tie_prefix}', key=f'__save_win_prefix__', size=(30, 1), enable_events=True,
                                pad=((0, 0), (10, 0))),
                       sg.Combo(['Color', 'Full Save', 'Mag. & Color', 'No Save'], key='__save_rec_combo__',
                                 enable_events=True, size=(12, 1), default_value='Color',

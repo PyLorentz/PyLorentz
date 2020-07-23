@@ -8,6 +8,7 @@ Author:
 Tim Cote, ANL, Fall 2019.
 """
 
+import os
 from os import path
 from util import join, flatten_order_list
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -164,7 +165,7 @@ def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
     return files1, files2
 
 
-def read_fls(path1: str, path2: str, fls_files: List[str],
+def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
              tfs_value: str, fls_value: str,
              check_sift: bool = False) -> Tuple[List[str], List[str]]:
     """Read image files from .fls files and returns their paths.
@@ -176,8 +177,8 @@ def read_fls(path1: str, path2: str, fls_files: List[str],
     full path names are returned in files1 and files2.
 
     Args:
-        path1: The first unflip/flip/single path/directory.
-        path2: The first unflip/flip/single path/directory.
+        path1: The first unflip/flip/single path/directory. Optional
+        path2: The first unflip/flip/single path/directory. Optional
         fls_files: A list of the FLS filenames.
         tfs_value: The through-focal series option.
                 Options: Unflip/FLip, Single
@@ -203,6 +204,8 @@ def read_fls(path1: str, path2: str, fls_files: List[str],
         if len(flatten_order_list(files2)) != len(flatten_order_list(files1)):
             return
     # Check if image path exists and break if any path is nonexistent
+    if path1 is None and path2 is None:
+        return
     for file in flatten_order_list(files1):
         full_path = join([path1, file], '/')
         if not path.exists(full_path):
@@ -245,6 +248,10 @@ def check_setup(datafolder: str, tfs_value: str,
         path2 = join([datafolder, 'flip'], '/')
     elif tfs_value == 'Single':
         path1 = join([datafolder, 'tfs'], '/')
+        if not os.path.exists(path1):
+            path1 = join([datafolder, 'unflip'], '/')
+            if not os.path.exists(path1):
+                path1 = None
         path2 = None
 
     # Grab the files that exist in the flip and unflip dirs.
@@ -1198,7 +1205,7 @@ def run_ls_align(datafolder: str, reference: str = 'unflip', check_sift: bool = 
         path1 = join([datafolder, 'unflip'], '/')
         path2 = join([datafolder, 'flip'], '/')
     elif tfs_value == 'Single':
-        path1 = join([datafolder, 'tfs'], '/')
+        path1 = join([datafolder, reference], '/')
         path2 = None
 
     # Open files, rotate, and apply transformations before alignment (pre-alignment)
