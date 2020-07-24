@@ -213,13 +213,17 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, del_px=1, isl_shap
         dim_z = np.shape(mag_x)[0]
         mag_x = np.sum(mag_x, axis=0)
         mag_y = np.sum(mag_y, axis=0)
-    if mag_z is not None:
-        mag_z = np.sum(mag_z, axis=0)
+        if mag_z is not None:
+            mag_z = np.sum(mag_z, axis=0)
 
     thk2 = isl_thk/zscale #thickness in pixels 
     phi0 = 2.07e7 #Gauss*nm^2 flux quantum
     pre_B = 2*np.pi*b0*zscale*del_px/(dim_z*phi0)
 
+    # calculate magnetic phase shift with mansuripur algorithm
+    mphi = mansPhi(mx=mag_x, my=mag_y, thick=dim_z)*pre_B
+
+    # and now electric phase shift
     if isl_shape is None:
         thk_map = np.ones(mag_x.shape)*isl_thk
     else:
@@ -235,10 +239,6 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, del_px=1, isl_shap
                 It was given as a {isl_shape.ndim} dimension array."""))
             sys.exit(1)
 
-    # calculate magnetic phase shift with mansuripur algorithm
-    mphi = mansPhi(mx=mag_x, my=mag_y, thick = thk2)*pre_B
-
-    # and now electric phase shift
     ephi = pscope.sigma * (thk_map * isl_V0 + np.ones(mag_x.shape) * mem_thk * mem_V0)
     ephi -= np.sum(ephi)/np.size(ephi)
     return (ephi, mphi)
@@ -404,7 +404,7 @@ def load_ovf(file=None, sim='norm', B0=1e4, v=1):
     return(mag_x, mag_y, mag_z, del_px, zscale)
 
 
-def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None):
+def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None, D3=False):
     """ Define a 2D thickness map where magnetization is 0. 
 
     Island structures or empty regions are often defined in micromagnetic 
@@ -420,6 +420,7 @@ def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None):
         mag_y (3D array): Numpy array of y component of the magnetization. 
         mag_z (3D array): Numpy array of z component of the magnetization. 
         file (str): Path to .ovf or .omf file. 
+        D3 (bool): Whether or not to return the 3D map. 
 
     Returns:
         ``ndarray``: 2D array of thickness values scaled to total thickness. 
@@ -429,8 +430,10 @@ def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None):
         mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=0)
     nonzero = (mag_x.astype('bool') | mag_y.astype('bool') | mag_z.astype('bool')).astype(int)
     if len(mag_x.shape) == 3:
+        if D3: 
+            return nonzero
         zdim = mag_x.shape[0]
-        thk_map = np.sum(nonzero, axis=0) / zdim
+        thk_map = np.sum(nonzero, axis=0)
     else:
         assert len(mag_x.shape) == 2
         thk_map = nonzero
