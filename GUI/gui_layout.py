@@ -49,7 +49,7 @@ def element_keys() -> Dict[str, List[str]]:
     checkbox_keys = ["__LS_horizontal_flip__", "__LS_interp__",
                      "__BUJ_horizontal_flip__", "__BUJ_LS_interp__", "__BUJ_filter__",
                      "__REC_Symmetrize__"]
-    combo_keys = ["__LS_exp_transf__","__LS_FLS_Combo__", "__LS_TFS_Combo__",
+    combo_keys = ["__LS_exp_transf__", "__LS_FLS_Combo__", "__LS_TFS_Combo__",
                   "__BUJ_reg_mode__", "__BUJ_init_def__", "__BUJ_final_def__",
                   "__BUJ_FLS_Combo__", "__BUJ_TFS_Combo__",
                   "__BUJ_LS_exp_transf__", "__BUJ_exp_transf__", "__BUJ_Mask_View__",
@@ -105,18 +105,18 @@ def element_keys() -> Dict[str, List[str]]:
                              "__REC_Image__"
                              ]
     keys = {'button': button_keys,
-        'checkbox': checkbox_keys,
-        'combo': combo_keys,
-        'colum': column_keys,
-        'graph': graph_keys,
-        'input': input_keys,
-        'read_only_inputs': read_only_inputs_keys,
-        'listbox': listbox_keys,
-        'radio': radio_keys,
-        'slider': slider_keys,
-        'tab': tab_keys,
-        'tabgroup': tabgroup_keys,
-        'text': text_keys}
+            'checkbox': checkbox_keys,
+            'combo': combo_keys,
+            'colum': column_keys,
+            'graph': graph_keys,
+            'input': input_keys,
+            'read_only_inputs': read_only_inputs_keys,
+            'listbox': listbox_keys,
+            'radio': radio_keys,
+            'slider': slider_keys,
+            'tab': tab_keys,
+            'tabgroup': tabgroup_keys,
+            'text': text_keys}
 
     return keys
 
@@ -145,9 +145,8 @@ def home_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
         DEFAULTS: The default values for certain style elements
             such as font
 
-    Returns
-    -------
-    tab: The layout for the hometab.
+    Returns:
+        tab: The layout for the hometab.
     """
 
     title = '''PyLorentz Phase Reconstruction'''
@@ -220,9 +219,7 @@ This GUI should be used as an alternative to the Jupyter Notebook for some impro
                        [fiji_button,  fiji_input, sg.Col([[fiji_set, fiji_reset],
                                                           [fiji_def_set, fiji_def_reset]])],
                        [browser_def_text],
-                       [browser_button, browser_wd_input, browser_def_set, browser_def_reset]]),
-               ]] #sg.Graph((300, 300), (0, 0), (299, 299), background_color='grey', key='home_graph',
-                        # pad=pad(80, 0, 110, 0))
+                       [browser_button, browser_wd_input, browser_def_set, browser_def_reset]])]]
     metadata = {"parent_tabgroup": "pages_tabgroup",
                 "child_tabgroup": None}
 
@@ -244,8 +241,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
         DEFAULTS: The default values for certain style elements
             such as font
 
-    Returns
-    -------
+    Returns:
         tab: The layout for the align tab.
     """
 
@@ -294,6 +290,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             Returns:
                 ls_parameters : The layout for the linear sift parameter frame.
             """
+
             # Scale Invariant Interest Point Detector parameters
             scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
             init_gauss_blur = [sg.Text('initial gaussian blur:', pad=((95, 0), (0, 10))),
@@ -355,6 +352,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             Returns:
                 align_frame: The layout for the linear alignment frame.
             """
+
             sift_test = [
                          [sg.Text('Image Transformation', font=style.fonts['heading'], pad=((0, 0), (70, 0)))],
                          [sg.Text('Rotation:'),
@@ -401,6 +399,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             Returns:
                 lin_sift_layout: The layout for the linear sift tab.
             """
+
             fls_frame = sg.Frame(layout=ls_fls_frame(), title='FLS Files',
                                  relief=sg.RELIEF_SUNKEN, pad=((55, 0), (12, 0)), font=('Times New Roman', 19))
             sift_p_frame = sg.Frame(layout=ls_sift_p_frame(), title='Linear SIFT Parameters',  # title_color='purple'
@@ -430,6 +429,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             Returns:
                 layout: The layout for the bunwarpj tab.
             """
+
             layout = [[sg.Text("FLS Files:", pad=((10, 0), (10, 0))),
                        sg.Combo(['Two', 'One'], **style.styles('__BUJ_FLS_Combo__')),
                        sg.Text("TFS:", pad=((30, 0), (10, 0))),
@@ -459,6 +459,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             Returns:
                 ls_parameters: The layout for the bunwarpj ls_parameters.
             """
+
             # Scale Invariant Interest Point Detector parameters
             scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
             init_gauss_blur = [sg.Text('initial gaussian blur:', pad=((95, 0), (0, 10))),
@@ -521,6 +522,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             Returns:
                 feat_extr_parameters: The layout for the bunwarpj feat_extr_parameters.
             """
+
             # Scale Invariant Interest Point Detector parameters
             scale_inv_ipd = [sg.Text('Scale Invariant Interest Point Detector:', pad=((20, 10), (2, 2)))]
             init_gauss_blur = [sg.Text('initial gaussian blur:', pad=((95, 0), (0, 10))),
@@ -582,6 +584,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             Returns:
                 bunwarp_parameters: The layout for the bunwarpj parameter frame.
             """
+
             # bUnwarpJ parameters
             reg_mode = [sg.Text('Registration mode:', pad=((41, 10), (15, 0))),
                         sg.Combo(('Accurate', 'Fast', 'Mono'), **style.styles('__BUJ_reg_mode__'))]
@@ -629,6 +632,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             Returns:
                 align_frame: The layout for the bunwarpj alignment frame.
             """
+
             bunwarp_graph = [[sg.Text("1. Image Directory:", pad=((5, 0), (0, 0))),
                               sg.Input(DEFAULTS['browser_dir'], **style.styles('__BUJ_Image_Dir_Path__')),
                               sg.FolderBrowse("Browse", **style.styles('__BUJ_Image_Dir_Browse__')),
@@ -714,8 +718,9 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             """The bunwarpJ tab layout.
 
             Returns:
-            bunwarp_layout: The layout for the bunwarpj tab.
+                bunwarp_layout: The layout for the bunwarpj tab.
             """
+
             fls_frame = sg.Frame(layout=bunwarp_fls_frame(), title='FLS Files',
                                  relief=sg.RELIEF_SUNKEN, pad=((4, 0), (0, 0)), font=('Times New Roman', 19))
             sift_par_tab = sg.Tab("2a. Linear SIFT", layout=bunwarp_ls_sift_p_frame(), font=style.fonts['tab'])
@@ -742,8 +747,9 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
         """The overall alignment tab layout.
 
         Returns:
-        align_layout: The layout for the overall alignment tab.
+            align_layout: The layout for the overall alignment tab.
         """
+
         # Align sub-tabs
         ls_metadata = {"parent_tabgroup": "align_tabgroup",
                        "child_tabgroup": None}
@@ -793,10 +799,10 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                             sg.Input('None', **style.styles('__REC_Stack__')),
                             sg.FileBrowse("Load", **style.styles('__REC_Load_Stack__'))],
                             [sg.Text("FLS Files:", pad=((21, 0), (10, 0))),
-                            sg.Combo(['Two', 'One'], **style.styles('__REC_FLS_Combo__')),
-                            sg.Text("TFS:", pad=((35, 0), (10, 0))),
-                            sg.Combo(['Unflip/Flip', 'Single'], **style.styles('__REC_TFS_Combo__'))
-                            ],
+                             sg.Combo(['Two', 'One'], **style.styles('__REC_FLS_Combo__')),
+                             sg.Text("TFS:", pad=((35, 0), (10, 0))),
+                             sg.Combo(['Unflip/Flip', 'Single'], **style.styles('__REC_TFS_Combo__'))
+                             ],
                            [sg.FileBrowse("Load", **style.styles('__REC_Load_FLS1__')),
                             sg.Input('None', **style.styles('__REC_FLS1_Staging__')),
                             sg.Input("None", **style.styles('__REC_FLS1__')),
@@ -818,7 +824,8 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                             sg.Image(**style.styles('__REC_FLS_Spinner__'))
                             ]]
 
-        subregion_frame = [[sg.Text('Unset', key='__REC_Mask_Text__', font='Times 19', pad=((10, 0), (4, 4))),
+        subregion_frame = [[sg.Text('Unset', key='__REC_Mask_Text__', background_color='#F1FDFC',
+                                    justification='center', font='Times 19', pad=((10, 0), (4, 4))),
                             sg.Button('Select Region', **style.styles('__REC_Mask__')),
                             sg.Button('Reset', **style.styles('__REC_Erase_Mask__')),
                             ],
@@ -844,7 +851,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                               sg.Text('Symmetrize:', pad=((12, 0), (5, 0))),
                               sg.Checkbox('', **style.styles('__REC_Symmetrize__'))],
                              [sg.Text('Derivative:', pad=((16, 0), (5, 0))),
-                              sg.Combo(['Central Diff.'], #, 'Longitudinal Deriv.'
+                              sg.Combo(['Central Diff.'],
                                         **style.styles('__REC_Derivative__'))]]),
                      sg.Col([[sg.Button('Run', **style.styles('__REC_Run_TIE__')),
                               sg.Image(**style.styles('__REC_PYTIE_Spinner__'))],
@@ -877,7 +884,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                              [sg.Slider((0, 0), **style.styles('__REC_Slider__')),
                               sg.Graph((672, 672), (0, 0), (671, 671), **style.styles('__REC_Graph__')),
                               sg.Graph((70, 70), (0, 0), (69, 69), **style.styles('__REC_Colorwheel_Graph__'))
-                             ]]
+                              ]]
 
         files_column = [[sg.Input('None', **style.styles('__REC_Image__'))]]
 
@@ -916,6 +923,7 @@ def window_ly(background_color: str, DEFAULTS: Dict) -> Window:
     Returns:
         window: The window element of the window.
     """
+
     style = WindowStyle(background_color)
 
     menu = menu_bar()
@@ -945,11 +953,13 @@ def save_window_ly(event: str, image_dir: str,
         orientations: List of the strings of the unflip or flip or tfs orientations.
             Otherwise may be the prefix for REC or None.
         tfs: The string of the tfs selected value.
+        tie_prefix: The prefix label for the name of the images to
+            be saved from the reconstruction.
 
     Returns:
         layout: The layout for the save window.
-        im_type: The image filetype.
-        file_paths: List of the filepaths.
+        im_type: The image file type.
+        file_paths: List of the file paths.
         orientations: List of strings of the orientations or image names.
         inputs: The keys of the inputs.
     """
@@ -959,17 +969,14 @@ def save_window_ly(event: str, image_dir: str,
         orientations = ['']
     if event == '__BUJ_Make_Mask__':
         im_type = 'mask'
-        names = [orientation + '_mask.bmp' for orientation in orientations]
-        file_paths = names
+        file_paths = [orientation + '_mask.bmp' for orientation in orientations]
     elif event == '__BUJ_Flip_Align__' or event == '__BUJ_Unflip_Align__':
         im_type = 'Linear Sift stack'
-        names = [orientations[0] + '_aligned_ls_stack.tif']
-        file_paths = names
+        file_paths = [orientations[0] + '_aligned_ls_stack.tif']
     elif event == '__BUJ_Elastic_Align__':
         im_type = 'bUnwarpJ transform and stack'
         orientations = ['bunwarp transform', 'bunwarp stack']
-        names = ['buj_transform.txt', 'aligned_buj_stack.tif']
-        file_paths = names
+        file_paths = ['buj_transform.txt', 'aligned_buj_stack.tif']
     elif event == '__LS_Run_Align__':
         im_type = 'Linear Sift stack'
         if tfs == 'Unflip/Flip':
@@ -982,7 +989,6 @@ def save_window_ly(event: str, image_dir: str,
         file_paths = names
     elif event == '__REC_Save_TIE__':
         im_type = 'Reconstructed Images'
-        prefix = orientations
         orientations = ['recon_params.txt', 'color_b.tiff', 'byt.tiff', 'bxt.tiff',
                         'bbt.tiff', 'dIdZ_e.tiff', 'dIdZ_m.tiff', 'inf_im.tiff',
                         'phase_e.tiff', 'phase_b.tiff', 'arrow_colormap.png',

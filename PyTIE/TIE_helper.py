@@ -596,6 +596,8 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         save (str): (`optional`) Path to save the figure.
         GUI_handle (bool): ('optional') Handle for indicating if using GUI.
             Default is False.
+        GUI_color_array (2D array): ('optional') The colored image array passed from the GUI,
+            it is for creating the overlaying the arrows without using color_im().
 
     Returns: 
         fig: Returns the figure handle.
@@ -621,7 +623,7 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
             aspect = 1
 
     if GUI_handle:
-        fig, ax = plt.subplots(figsize=(10, 10))
+        fig, ax = plt.subplots(figsize=(10, 10)) #, constrained_layout=True, frameon=False
         plt.ioff()
         ax.set_aspect('equal', adjustable='box')
     else:
