@@ -131,7 +131,7 @@ class TIE_params(object):
                 data_loc += '/'
             self.data_loc = data_loc
         else:
-            self.data_loc = None 
+            self.data_loc = './'
 
         if flip: 
             assert len(self.imstack) == len(self.flipstack)
