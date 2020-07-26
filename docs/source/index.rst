@@ -12,6 +12,7 @@ PyLorentz
    :caption: Contents:
 
    PyLorentz
+   ipynb/PyLorentz_GUI_Manual
    Background
    License
 
