@@ -355,7 +355,8 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
         ptie = TIE_params(imstack=[image], defvals=[defval], data_loc=data_loc,v=0)
         ptie.set_scale(scale)
         dim_y, dim_x = image.shape
-        pscope = Microscope(E=E)
+        if pscope is None:
+            pscope = Microscope(E=E)
     else:
         # selecting the right defocus value for the image
         if i >= ptie.num_files:
