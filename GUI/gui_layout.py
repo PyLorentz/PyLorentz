@@ -1066,7 +1066,7 @@ def save_window_ly(event: str, image_dir: str,
     # Create buttons to define whether to check if paths exists, exit, or save info
     col1 += [[sg.Button('Exit', pad=((x_pad, 0), (10, 5))),
               sg.Button('Save', key='__save_win_save__', pad=((5, 0), (10, 5)), disabled=True)],
-             [sg.Multiline('', visible=True, key='__save_win_log__', size=size,
+             [sg.Multiline('', visible=True, key='__save_win_log__', size=size, disabled=True,
                            pad=((x_pad, 0), (0, 15)))]]
     layout = [[sg.Col(col1), sg.Col(col2)]]
     return layout, im_type, file_paths, orientations, inputs
