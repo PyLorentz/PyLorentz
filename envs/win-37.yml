@@ -4,42 +4,21 @@ channels:
   - anaconda-fusion
   - defaults
 dependencies:
-  - h5py
-  - hdf5 
   - hyperspy
-  - hyperspy-base
-  - hyperspy-gui-ipywidgets
-  - hyperspy-gui-traitsui
-  - ipykernel
-  - ipyparallel
+  - ipykernel 
+  - ipyparallel 
   - ipython
-  - ipython_genutils
+  - ipython_genutils 
   - ipywidgets
-  - jpeg
-  - json5
-  - jsonschema
   - jupyter
   - jupyterlab
-  - matplotlib=3.2.1
+  - matplotlib=3.2.1 
   - mdf_forge
-  - nbconvert
-  - nodejs 
-  - notebook
   - numpy
   - numba
-  - opencv
-  - pandas
-  - pillow
-  - pip
-  - pyimagej
-  - pyqt
-  - pysimplegui
+  - opencv=4.4.0
   - python=3.7.1
+  - pysimplegui=4.26.0
   - scikit-image=0.15.0
-  - scikit-learn
   - scipy
-  - setuptools
-  - widgetsnbextension
-  - yaml
-  - pip:
     
