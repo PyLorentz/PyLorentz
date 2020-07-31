@@ -1,6 +1,6 @@
 """A class for microscope objects. 
 
-AUTHOR: CD Phatak, ANL, 20.Feb.2015.
+Author: CD Phatak, ANL, 20.Feb.2015.
 """
 
 import numpy as np
@@ -10,20 +10,46 @@ import scipy.ndimage as ndimage
 
 class Microscope(object):
     '''Class for Microscope objects.
-    Unlike in TIE_reconstruct, here the qq frequency spectrum is expected to be 
-    shifted, i.e. rather than four dark corners it's a dark circle if you view it.
+
+    A class that describes a microscope for image simulation and reconstruction 
+    purposes. Along with accelerating voltage, aberrations, and other parameters,
+    this also contains methods for propagating the electron wave and simulating
+    images. 
+
+    Notes: 
+    
+    - When initializing a Microscope you can set verbose=True to get a printout
+      of the parameters. 
+    - Unlike in TIE_reconstruct, here the qq frequency spectrum is expected to be 
+      shifted, i.e. rather than four dark corners it's a dark circle.
+
+    Attributes: 
+        E (float): Accelerating voltage (V). Default 200kV. 
+        Cs (float): Spherical aberration (nm). Default 1mm. 
+        Cc (float): Chromatic aberration (nm). Default 5mm. 
+        theta_c (float): Beam coherence (rad). Default 0.6mrad.
+        Ca (float): 2-fold astigmatism (nm). Default 0. 
+        phi_a (float): 2-fold astigmatism angle (rad). Default 0. 
+        def_spr (float): Defocus spread (nm). Default 120nm. 
+        defocus (float): Defocus of the microscope (nm). Default 0nm. 
+        lam (float): Electron wavelength (nm) calculated from E. Default 2.51pm. 
+        gamma (float): Relativistic factor (unitless) from E. Default 1.39. 
+        sigma (float): Interaction constant (1/(V*nm)) from E. Default 0.00729. 
     '''
 
     def __init__(self, E=200.0e3, Cs=1.0e6, Cc=5.0e6, theta_c=6.0e-4, Ca=0.0e6, phi_a=0, def_spr=120.0,verbose=False):
-        
-        #initialize with either default values or user supplied values - properties that can be changed
-        self.E = E#200.0e3
-        self.Cs = Cs#1.0e6
-        self.Cc = Cc#5.0e6
-        self.theta_c = theta_c#6.0e-4
-        self.Ca = Ca#0.0e6
-        self.phi_a = phi_a#0
-        self.def_spr = def_spr#120.0
+        """ Constructs the Microscope object. 
+
+        All arguments are optional. Set verbose=True to print microscope values. 
+        """
+        # properties that can be changed
+        self.E = E
+        self.Cs = Cs
+        self.Cc = Cc
+        self.theta_c = theta_c
+        self.Ca = Ca
+        self.phi_a = phi_a
+        self.def_spr = def_spr
         self.defocus = 0.0 #nm
         self.aperture = 1.0
         
@@ -37,32 +63,48 @@ class Microscope(object):
             print( "Creating a new microscope object with the following properties:")
             print( "Quantities preceded by a star (*) can be changed using optional arguments at call.")
             print( "-------------------------------------------------------------------------")
-            print( "*Accelerating voltage         E: [V]      ",self.E)
-            print( "*Spherical Aberration        Cs: [nm]     ",self.Cs)
-            print( "*Chromatic Aberration        Cc: [nm]     ",self.Cc)
-            print( "*Beam Coherence         theta_c: [rad]    ",self.theta_c)
-            print( "*2-fold astigmatism          Ca: [nm]     ",self.Ca)
-            print( "*2-fold astigmatism angle phi_a: [rad]    ",self.phi_a)
-            print( "*defocus spread         def_spr: [nm]     ",self.def_spr)
-            print( "Electron wavelength      lambda: [nm]     ",self.lam)
-            print( "Relativistic factor       gamma: [-]      ",self.gamma)
-            print( "Interaction constant      sigma: [1/V/nm] ",self.sigma)
+            print( f"*Accelerating voltage              E: [V]        {self.E:.4g}")
+            print( f"*Spherical Aberration             Cs: [nm]       {self.Cs:.4g}")
+            print( f"*Chromatic Aberration             Cc: [nm]       {self.Cc:.4g}")
+            print( f"*Beam Coherence              theta_c: [rad]      {self.theta_c:.4g}")
+            print( f"*2-fold astigmatism               Ca: [nm]       {self.Ca:.4g}")
+            print( f"*2-fold astigmatism angle      phi_a: [rad]      {self.phi_a:.4g}")
+            print( f"*defocus spread              def_spr: [nm]       {self.def_spr:.4g}")
+            print( f"Electron wavelength           lambda: [nm]       {self.lam:.4g}")
+            print( f"Relativistic factor            gamma: [-]        {self.gamma:.4g}")
+            print( f"Interaction constant           sigma: [1/V/nm]   {self.sigma:.4g}")
             print( "-------------------------------------------------------------------------")
 
     def getSchDef(self):
-        #Calculate the Scherzer defocus
+        """Calculate the Scherzer defocus"""
         return np.sqrt(1.5 * self.Cs * self.lam)
 
     def getOptDef(self,qq,del_px):
-        #Calculate the Optimum or Lichte defocus (in case for holography)
+        """Calculate the Optimum or Lichte defocus (for holography). 
+
+        Args: 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+
+        Returns:
+            float: Optimum defocus (nm)
+        """
         qmax = np.amax(qq)
         lam = self.lam / del_px
         optdef = 3.0/4.0 * self.Cs * lam**2 * qmax**2
         return optdef
 
     def setAperture(self,qq,del_px, sz):
-        #This function will set the objective aperture
-        #the input size of aperture sz is given in nm.
+        """ Set the objective aperture
+
+        Args: 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+            sz (float): Aperture size (nm). 
+
+        Returns:
+            None: Sets self.aperture. 
+        """
         ap = np.zeros(qq.shape)
         sz_q = qq.shape
         #Convert the size of aperture from nm to nm^-1 and then to px^-1
@@ -75,7 +117,15 @@ class Microscope(object):
         return 1
 
     def getChiQ(self,qq,del_px):
-        #this function will calculate the phase transfer function.
+        """Calculate the phase transfer function.
+        
+        Args: 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+
+        Returns: 
+            ``ndarray``: 2D array same size as qq. 
+        """
         
         #convert all the properties to pixel values
         lam = self.lam / del_px
@@ -96,7 +146,15 @@ class Microscope(object):
         return chiq
 
     def getDampEnv(self,qq,del_px):
-        #this function will calculate the complete damping envelope: spatial + temporal
+        """ Calculate the complete damping envelope: spatial + temporal
+
+        Args: 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+
+        Returns: 
+            ``ndarray``: Damping envelope. 2D array same size as qq. 
+        """
         
         #convert all the properties to pixel values
         lam = self.lam / del_px
@@ -118,18 +176,36 @@ class Microscope(object):
         return dampenv
 
     def getTransferFunction(self,qq,del_px):
-        #This function will generate the full transfer function in reciprocal space- 
-        # tf = exp(-i*Chiq)*DampEnv
+        """ Generate the full transfer function in reciprocal space
+
+        Args: 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+
+        Returns:
+            ``ndarray``: Transfer function. 2D array same size as qq. 
+        """
         chiq = self.getChiQ(qq,del_px)
         dampenv = self.getDampEnv(qq,del_px)
         tf = (np.cos(chiq) - 1j * np.sin(chiq)) * dampenv * self.aperture
         return tf
 
     def PropagateWave(self, ObjWave, qq, del_px):
-        #This function will propagate the object wave function to the image plane
-        #by convolving with the transfer function of microscope and returns the 
-        #complex real-space ImgWave
+        """ Propagate object wave function to image plane. 
 
+        This function will propagate the object wave function to the image plane
+        by convolving with the transfer function of microscope, and returns the 
+        complex real-space ImgWave
+
+        Args: 
+            ObjWave (2D array): Object wave function. 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+
+        Returns: 
+            ``ndarray``: Realspace image wave function. Complex 2D array same 
+            size as ObjWave.
+        """ 
         #get the transfer function
         tf = self.getTransferFunction(qq, del_px)
         
@@ -141,9 +217,21 @@ class Microscope(object):
         return ImgWave
 
     def BackPropagateWave(self, ImgWave, qq, del_px):
-        #This function will back-propagate the image wave function to the 
-        #object wave plane by convolving with exp(+i*Chiq). The damping 
-        #envelope is not used for back propagation. Returns ObjWave in real space.
+        """ Back-propagate an image wave to get the object wave.
+
+        This function will back-propagate the image wave function to the 
+        object wave plane by convolving with exp(+i*Chiq). The damping 
+        envelope is not used for back propagation. Returns ObjWave in real space.
+
+        Args: 
+            ObjWave (2D array): Object wave function. 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+
+        Returns: 
+            ``ndarray``: Realspace object wave function. Complex 2D array same 
+            size as ObjWave.
+        """ 
 
         #Get Chiq and then compute BackPropTF
         chiq = getChiQ(qq,del_px)
@@ -157,8 +245,17 @@ class Microscope(object):
         return ObjWave
 
     def getImage(self, ObjWave, qq, del_px):
-        #This function will produce the image at the set defocus using the 
-        #methods in this class.
+        """ Produce the image at the set defocus using the methods in this class.
+        
+        Args: 
+            ObjWave (2D array): Object wave function. 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+
+        Returns: 
+            ``ndarray``: Realspace image wave function. Real-valued 2D array 
+            same size as ObjWave.
+        """
 
         #Get the Propagated wave function
         ImgWave = self.PropagateWave(ObjWave, qq, del_px)
@@ -167,9 +264,17 @@ class Microscope(object):
         return Image
 
     def getBFPImage(self, ObjWave, qq, del_px):
-        #This function will produce the image in the backfocal plane (diffraction)
-        #using the transfer function and the object wave
+        """ Produce the image in the backfocal plane (diffraction)
         
+        Args: 
+            ObjWave (2D array): Object wave function. 
+            qq (2D array): Frequency array
+            del_px (float): Scale (nm/pixel)
+
+        Returns: 
+            ``ndarray``: Realspace image wave function. Real-valued 2D array 
+            same size as ObjWave.
+        """
         #get the transfer function
         tf = self.getTransferFunction(qq, del_px)
         

@@ -1,0 +1,7 @@
+In order to download the example data you will need to create a Globus account and Endpoint on your computer. https://www.globus.org/ 
+Once that is done, make sure the Globus app has started on your computer and try running the download cell in the TIE_template.ipynb. 
+Possible errors and their solutions include: 
+	- "Permission Denied": Make sure you are running the code in a place where you have write privileges. 
+
+If it still isn't working you can download the data with globus from the data page here: https://petreldata.net/mdf/detail/cphatak_pytie_example_v1.1/. 
+Click "Globus" under "Get the Data" and download using their online app. 

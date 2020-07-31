@@ -1,40 +1,39 @@
 """Creates RGB images from vector fields. 
 
-This file contains several routines for plotting colormaps from input 
+This module contains several routines for plotting colormaps from input 
 data consisting of 2D images of the vector field. The output image
 will be stored as a tiff color image. There are options to save it
-using custom RGB colorwheel, or standard HSV colorwheel.
+using a custom RGB or standard HSV color-wheel.
 
-AUTHOR:
-Arthur McCray, C. Phatak, ANL, Summer 2019.
---------------------------------------------------------------------------------
+Author: Arthur McCray, C. Phatak, ANL, Summer 2019.
 """
 
 import numpy as np 
 from matplotlib import colors
 import textwrap
 import sys
-from TIE_helper import dist as dist
+from TIE_helper import dist
 
 
-def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
+def color_im(Bx, By, rad=None, hsvwheel=True, background='black'):
     """Make the RGB image from x and y component vector maps. 
 
     Args: 
-        Bx: 2D Array (M x N) consisting of the x-component of the vector field
-        By: 2D Array (M x N) consisting of the y-component of the vector field
-    Optional Args: 
-        rad: Int. Radius of colorwheel in pixels. (default None -> height/16)
-            Set rad = 0 to remove colorhweel. 
-        hsvwheel: Bool. (default False)
-            True  -- use a standard HSV colorhweel (3-fold)
-            False -- use a four-foldcolor image using the standard HSV scheme
-        background: String. (default 'black')
-            'white' -- magnetization magnitude corresponds to saturation. 
-            'black' -- magnetization magnitude corresponds to value.
+        Bx (2D array): (M x N) array consisting of the x-component of the vector
+            field
+        By (2D array): (M x N) array consisting of the y-component of the vector
+            field 
+        rad (int): (`optional`) Radius of color-wheel in pixels. (default None -> height/16)
+            Set rad = 0 to remove color-wheel. 
+        hsvwheel (bool): 
+            - True  -- (default) use a standard HSV color-wheel (3-fold)
+            - False -- use a four-fold color-wheel
+        background (str): 
+            - 'black' -- (default) magnetization magnitude corresponds to value.
+            - 'white' -- magnetization magnitude corresponds to saturation. 
     
     Returns: 
-        Numpy array (M x N x 3)c  containing the color-image.
+        ``ndarray``: Numpy array (M x N x 3) containing the color-image.
     """
 
     if rad is None:
@@ -47,7 +46,7 @@ def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
     bmag = np.sqrt(Bx**2 + By**2) 
 
     if rad > 0: 
-        pad = 10 # padding between edge of image and colorhweel
+        pad = 10 # padding between edge of image and color-wheel
     else:
         pad = 0
         rad = 0
@@ -56,7 +55,7 @@ def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
     cimage = np.zeros((dimy, dimx, 3))
 
     if hsvwheel:
-        # Here we will proceed with using the standard HSV colorwheel routine.
+        # Here we will proceed with using the standard HSV color-wheel routine.
         # Get the Hue (angle) as By/Bx and scale between [0,1]
         hue = (np.arctan2(By,Bx) + np.pi)/(2*np.pi)
 
@@ -73,9 +72,9 @@ def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
                 'black' -> magnetization magnitude corresponds to value."""))
             sys.exit(1)
 
-        if rad > 0: # add the colorhweel
+        if rad > 0: # add the color-wheel
             cimage[:,:-2*rad-pad,:] = cb
-            # make the colorwheel and add to image
+            # make the color-wheel and add to image
             wheel = colorwheel_HSV(rad, background = background)
             cimage[dimy//2-rad:dimy//2+rad, dimx-2*rad - pad//2:-pad//2,:] = wheel
         else: 
@@ -118,7 +117,7 @@ def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
         cimage[:, :dimx - 2*rad - pad, 2] = blue
         cimage = cimage/np.max(cimage)
 
-        # add colorwheel
+        # add color-wheel
         if rad > 0:
             mid_y = dimy // 2 
             cimage[mid_y-rad : mid_y+rad, dimx-2*rad:, :] = colorwheel_RGB(rad)
@@ -127,8 +126,19 @@ def color_im(Bx, By, rad = None, hsvwheel = False, background = 'black'):
 
 
 def colorwheel_HSV(rad, background):
-    """Creates the HSV colorwheel as a np array to be inserted into the cimage."""
-    line = np.arange(2*rad) - float(rad)
+    """Creates an HSV color-wheel as a np array to be inserted into the color-image.
+    
+    Args:
+        rad (int): (`optional`) Radius of color-wheel in pixels. (default None -> height/16)
+            Set rad = 0 to remove color-wheel. 
+        background (str): 
+            - 'black' -- (default) magnetization magnitude corresponds to value.
+            - 'white' -- magnetization magnitude corresponds to saturation. 
+
+    Returns:
+        ``ndarray``: Numpy array of shape (2*rad, 2*rad). 
+    """
+    line = np.arange(2*rad) - rad
     [X,Y] = np.meshgrid(line,line,indexing = 'xy')
     th = np.arctan2(Y,X)
     # shift angles to [0,2pi]
@@ -145,18 +155,25 @@ def colorwheel_HSV(rad, background):
     val_col = np.ones(rr.shape) * msk
     if background == 'white':
         return np.dstack((h_col, rr, val_col))
-    elif background == 'black':
-        return np.dstack((h_col, val_col, rr))
     else:
-        sys.exit(1)
+        return np.dstack((h_col, val_col, rr))
+
 
 
 def colorwheel_RGB(rad):
-    """Makes a 4-quadrant RGB colorwheel as a np array to be inserted into the cimage"""
+    """Makes a 4-quadrant RGB color-wheel as a np array to be inserted into the color-image
+    
+    Args:
+        rad (int): (`optional`) Radius of color-wheel in pixels. (default None -> height/16)
+            Set rad = 0 to remove color-wheel. 
+
+    Returns:
+        ``ndarray``: Numpy array of shape (2*rad, 2*rad). 
+    """
 
     # make black -> white gradients
     dim = rad * 2 
-    grad_x = np.array([np.arange(dim) - rad for _ in range(dim)]) / rad
+    grad_x = np.array([np.arange(dim)-rad for _ in range(dim)]) / rad
     grad_y = grad_x.T
     
     # make the binary mask
@@ -198,51 +215,3 @@ def colorwheel_RGB(rad):
     cwheel[rad,rad] = [0,0,0]
     cwheel = np.array(cwheel/np.max(cwheel))
     return cwheel
-
-
-def UniformBicone(Bx, By, ldim = None, style = 'four', w_cen = False):
-    """
-    Makes an RGB image using the (more) perceptually uniform  colorwheels made
-    by Will Lenthe: https://github.com/wlenthe/UniformBicone and based on 
-    the paper by Peter Kovesi: https://peterkovesi.com/projects/colourmaps/
-
-    Args: 
-        Bx: 2D Array (M x N) consisting of the x-component of the vector field
-        By: 2D Array (M x N) consisting of the y-component of the vector field
-    Optional Args: 
-        ldim: Int. Diameter of colorwheel in pixels. (default None -> height/8)
-            Set ldim = 0 to remove colorhweel. 
-        style: String. (default 'four')
-            'four' -- Four-fold colorwheel
-            'six' -- sixfold colorwheel
-        w_cen: Bool. (default False)
-            False -- zero magnetization corresponds to black 
-            True -- zero magnetization corresponds to white
-    
-    Returns: 
-        Numpy array (M x N x 3)c  containing the color-image.
-    """
-    import colormap as cm
-
-    if ldim is None:
-        ldim = Bx.shape[0]//8
-
-    mag = np.sqrt(Bx**2 + By**2)
-    angle = np.arctan2(-By, -Bx)
-    color = cm.disk(mag, angle, scale = True, map = style,  w_cen = w_cen, float = True)
-    legend  = cm.disk_legend(map = style, w_cen = w_cen, width = ldim, float = True)
-
-    # assemble the colormap with colorhweel
-    dy, dx, dz = np.shape(color)
-    cmap = np.zeros((dy, dx+ldim, dz))
-    cmap[:dy, :dx,:] = color
-    cmap[(dy-ldim)//2 : (dy + ldim)//2, dx:,:] = legend
-    cmap[np.isnan(cmap)] = 0
-
-    if w_cen: # make sidebar where legend is white
-        cmap[:,:,0] += np.where(cmap[:,:,0] > 0, 0, 1)    
-        cmap[:,:,1] += np.where(cmap[:,:,1] > 0, 0, 1)    
-        cmap[:,:,2] += np.where(cmap[:,:,2] > 0, 0, 1)    
-    return cmap
-
-

@@ -1,0 +1,65 @@
+#@ ImagePlus(label="Source Image") src
+#@ ImagePlus(label="Target Image") tgt
+#@ ImagePlus(label="Source Mask Image", required=false) srcMask
+#@ ImagePlus(label="Target Mask Image", required=false) tgtMask
+#@ String( label="Registration Mode", choices={"Accurate", "Fast", "Mono"}, style="listBox" ) modeChoice
+#@ int( label= "Image Subsample Factor", min="0", max="7", style="slider") subsampleFactor
+#@ String( label="Initial Deformation", choices={"Very Coarse", "Coarse", "Fine", "Very Fine"}, style="listBox" ) minScaleChoice
+#@ String( label="Final Deformation", choices={"Very Coarse", "Coarse", "Fine", "Very Fine", "Super Fine"}, value="Fine", style="listBox" ) maxScaleChoice
+#@ Double( label="Divergence Weight", value=0.0 ) divWeight
+#@ Double( label="Curl Weight", value=0.0 ) curlWeight
+#@ Double( label="Landmark Weight", value=0.0 ) landmarkWeight
+#@ Double( label="Image Weight", value=1.0 ) imageWeight
+#@ Double( label="Consistency Weight", value=10.0 ) consistencyWeight
+#@ Double( label="Stop Threshold", value=0.01 ) stopThreshold
+#@ Boolean( label="Save Transformation" ) saveTransf
+#@ String( label="Filename", description="Name field", required=false) filename
+#@Output ImagePlus newImage
+
+import ij.ImagePlus;
+import ij.IJ;
+import ij.WindowManager;
+import bunwarpj.bUnwarpJ_;
+import bunwarpj.MiscTools;
+import bunwarpj.Transformation;
+import bunwarpj.Param;
+
+// No masks
+maskIpTgt = null != tgtMask ? tgtMask.getProcessor() : null;
+maskIpSrc = null != srcMask ? srcMask.getProcessor() : null;
+
+// Registration parameters
+mode = 0;
+choices=new Object[]{"Accurate", "Fast", "Mono"};
+for( i=1; i<=2; i++ )
+ if( modeChoice.equals( choices[ i ] ) )
+ 	mode = i; 
+// SubsampleFactor = 0; // 0 - 7
+minScale = 0;
+choices=new Object[]{"Very Coarse", "Coarse", "Fine", "Very Fine", "Super Fine"};
+for( i=1; i<=3; i++ )
+ if( minScaleChoice.equals( choices[ i ] ) )
+ 	minScale = i; 
+maxScale = 0;
+for( i=1; i<=4; i++ )
+ if( maxScaleChoice.equals( choices[ i ] ) )
+ 	maxScale = i; 
+//divWeight = 0.0;
+//curlWeight = 0.0;
+//landmarkWeight = 0.0;
+//imageWeight = 1.0;
+//consistencyWeight = 10.0;
+//stopThreshold = 0.01;
+
+IJ.log( "minScale=" + minScale + ", maxScale = " + maxScale );
+
+
+Param param = new Param(mode, subsampleFactor, minScale, maxScale, 
+	      divWeight, curlWeight, landmarkWeight, 
+	      imageWeight, consistencyWeight, stopThreshold);
+
+// Compute and save transformation without GUI
+out = bUnwarpJ_.computeTransformationBatch(tgt, src, maskIpTgt, maskIpSrc, param);
+out.saveDirectTransformation(filename);
+
+	

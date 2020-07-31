@@ -1,30 +1,44 @@
 # PyLorentz
-Python code for managing Lorentz Transmission Electron Microscopy (LTEM) data. 
-There are three primary components: 
-- PyTIE  -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
+A codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions: 
+
+- PyTIE -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
 - SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
 - GUI/Align -- Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE
 
-PyLorentz a DOI through Zenodo:  
+For full documentation please check out our [wiki](https://pylorentztem.readthedocs.io/en/latest/). 
+
+If you usePyLorentz, please cite us. We have a DOI through Zenodo:  
 [![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
 
 ## Features
 ### PyTIE 
-* Uses inverse Laplacian method for solving the TIE
-* Can reconstruct the magnetization from samples of variable thickness by using a through focal series (tfs) taken with the sample in an original orientation and another tfs with the sample flipped upside down. [1]
+* Uses inverse Laplacian method to solve the Transport of Intensity Equation (TIE)
+* Can reconstruct the magnetization from samples of variable thickness by using two through focal series (tfs) taken with opposite electron beam directions [1]. 
 * Samples of uniform thicknss can be reconstructed from a single tfs.
-* Thin samples of uniform thickness from which the only source of contrast is magnetic Fresnel contrast can be reconstructed with a single defocused image using Single-Image-TIE (SITIE). This does method does not apply to all samples; for more information please refer to Chess et al. [2]. 
-* The TIE and SITIE solvers can implement Tikhonov regularization to remove low-frequency noise [1]. Results reconstructed with a Tikhonov filter are no longer quantitative, but can 
+* Thin samples of uniform thickness, from which the only source of contrast is magnetic Fresnel contrast, can be reconstructed with a single defocused image using Single-Image-TIE (SITIE). 
+
+	* This  method does not apply to all samples; for more information please refer to Chess et al. [2]. 
+
+* The TIE and SITIE solvers can implement Tikhonov regularization to remove low-frequency noise [1]. 
+
+	* Results reconstructed with a Tikhonov filter are no longer quantitative, but a Tikhonov filter can greatly increase the range of experimental data that can be reconstructed. 
+
 * Symmetric extensions of the image can be created to reduce Fourier processing edge-effects [3]. 
-* Subregions of the images can be selected interactively to improve processing time or remove unwanted regions of large contrast (such as the edge of a TEM window) that would otherwise interfere with reconstruction. At large aspect ratios, Fourier sampling effects become more pronounced and directionally affect the reconstructed magnetization. Therefore _non square images are not quantitative_, though symmetrizing the image can greatly reduce this effect.
+* Subregions of the images can be selected interactively to improve processing time or remove unwanted regions of large contrast (such as the edge of a TEM window) that would otherwise interfere with reconstruction. 
+
+	* At large aspect ratios, Fourier sampling effects become more pronounced and directionally affect the reconstructed magnetization. Therefore non square images are not quantitative, though symmetrizing the image can greatly reduce this effect.
 
 ### SimLTEM
-* _coming soon_ Easily import .omf file outputs from OOMMF and mumax. 
+* Easily import .omf and .ovf file outputs from OOMMF and mumax. 
 * Calculate electron phase shift through samples of a given magnetization with either the Mansuripur algorithm or linear superposition method. 
 * Simulate LTEM images from these phase shifts and reconstruct the magnetic induction for comparison with experimental results. 
+* Automate full tilt series for tomographic reconstruction of 3D magnetic samples. 
+* PyLorentz code is easily integrated into existing python workflows. 
 
 ### GUI/Align
-
+* TIE reconstruction through a graphical user interface (gui) 
+* Additional features include improved region selection and easily images before saving. 
+* Image registration routines incorporated (via `FIJI <https://fiji.sc/>`) for aligning experimental data. 
 
 ## Getting started
 With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo directly, fork the project, or download the files directly in a .zip. 
@@ -42,13 +56,13 @@ or
 ```
 conda activate Pylorentz
 ```
-depending on operating system before opening a notebook:
-```
-Jupyter notebook
-```
+depending on operating system before opening a notebook. 
 
-### Running with example data
-You can download an example dataset from: https://doi.org/10.18126/z9tc-i8bf, which contains a full through focus series (tfs) in both flipped and unflipped orientations as well as an aligned image stack. 
+**Example Data**
+
+We recommend running the template files provided in the ``/Examples/`` directory with the provided example data. You can download an experimental dataset from the [Materials Data Facility](https://doi.org/10.18126/z9tc-i8bf), which contains a through focus series (tfs) in both flipped and unflipped orientations as well as an aligned image stack. These files are ready to be used in the ``TIE_template.ipynb``. 
+
+For ``SIM_template.ipynb``, there is an ``example_mumax.ovf`` file which can be used directly. 
 
 ## Data organization
 If you have both a flip and unflip stack your data should be set up as follows:  
@@ -72,7 +86,7 @@ If you have both a flip and unflip stack your data should be set up as follows:
                    flsfile.fls 
                    full_align.tif  
   
-If your flip and unflip filenames aren't the same you can also have two fls files, just change the optional argument:  flip_fls_file = "your flip fls path"  
+If your flip and unflip filenames aren't the same you can also have two fls files, just change the optional argument:  ``flip_fls_file = "your flip fls path"``  
   
 However if you have just one stack (no flip stack) then your data should be in a folder labeled 'tfs' 
 
