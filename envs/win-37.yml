@@ -20,13 +20,14 @@ dependencies:
   - jsonschema
   - jupyter
   - jupyterlab
-  - matplotlib
+  - matplotlib=3.2.1
   - mdf_forge
   - nbconvert
   - nodejs 
   - notebook
   - numpy
   - numba
+  - opencv
   - pandas
   - pillow
   - pip

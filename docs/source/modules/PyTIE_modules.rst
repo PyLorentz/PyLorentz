@@ -11,6 +11,8 @@ The following modules contain the base code for the TIE reconstruction, as well 
 - ``colorwheel`` is for visualizing 2D vector images. 
 - ``longitudinal_deriv`` still has bugs, but calculates the intensity derivative through a full stack rather than through the central difference method. 
 
+The TIE reconstruction for the magnetic component of the electron phase shift has been shown to be quantitative when verified against simulated images. This is not the case for the electrostatic component, however. While the returned ``phase_e`` image will be qualitatively correct it is likely to be scaled incorrectly. 
+
 
 .. toctree::
    :maxdepth: 4
