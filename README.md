@@ -5,10 +5,9 @@ A codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM
 - SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
 - GUI/Align -- Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE
 
-For full documentation please check out our [wiki](https://pylorentztem.readthedocs.io/en/latest/). 
+For full documentation please check out our documentation pages: [![Documentation Status](https://readthedocs.org/projects/pylorentztem/badge/?version=latest)](https://pylorentztem.readthedocs.io/en/latest/?badge=latest) 
 
-If you usePyLorentz, please cite us. We have a DOI through Zenodo:  
-[![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
+If you usePyLorentz, please cite us. We have a DOI through Zenodo: [![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
 
 ## Features
 ### PyTIE 
