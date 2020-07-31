@@ -127,9 +127,8 @@ def element_keys() -> Dict[str, List[str]]:
 def menu_bar() -> Menu:
     """Return the menu bar layout."""
 
-    menu_def = [['PyLo', ['About::About', 'Exit::Exit1']],
-                ['Log', ['Show (Control-l)::Log', 'Hide (Control-h)::Log']],
-                ['Procedure Help', ['Open Manual::Manual']]]
+    menu_def = [['PyLo', ['Documentation::Documentation', 'Exit::Exit1']],
+                ['Log', ['Show (Control-l)::Log', 'Hide (Control-h)::Log']]]
     return sg.Menu(menu_def, font='Times 15')
 
 

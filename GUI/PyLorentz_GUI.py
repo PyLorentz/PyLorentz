@@ -4787,16 +4787,12 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                     set_pretty_focus(winfo, window, 'Window Click')
 
                 # About section was opened
-                if event == 'About::About':
+                if event == 'Documentation::Documentation':
                     try:
                         webbrowser.open('https://pylorentztem.readthedocs.io/en/latest/')
                     except:
                         print('*** ATTEMPT TO ACCESS ABOUT PAGE FAILED ***')
                         print('*** CHECK INTERNET CONNECTION ***')
-                elif event == 'Open Manual::Manual':
-                    GUI_dir = os_path.dirname(__file__)
-                    manual_path = f'{GUI_dir}/PyLorentz_GUI_Manual.pdf'
-                    subprocess.run(['open', manual_path], check=True)
 
                 # if event != '__TIMEOUT__':
                 #     print('Event:', event)
