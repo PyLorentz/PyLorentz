@@ -1854,8 +1854,7 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
         graph: The reconstruction graph canvas.
         colorwheel_graph: The graph in the window where to place the colorwheel.
         images: The dictionary of images and their values.
-        current_tab: str
-            The key representing the current main tab of the
+        current_tab: The key representing the current main tab of the
             window.'
 
     Returns:
@@ -1954,6 +1953,60 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
 
     winfo.ptie_recon_thread = None
     print('--- Exited Reconstruction ---')
+
+
+def ptie_save(winfo: Struct, window: sg.Window, cwd: str, images: Dict,
+              filenames: List[str], pref: str, im_dir: str,
+              save_tie: Union[str, bool],
+              ) -> None:
+    """ Save the current images of PYTIE.
+
+    Function saves the images of PYTIE, see TIE_reconstruct.py for more info.
+
+    Args:
+        winfo: The data structure holding all information about
+            windows and GUI.
+        window: The element representing the main GUI window.
+        cwd: The current working directory that stores images and stacks.
+        images: The dictionary of images and their values.
+        filenames: List of filenames that will be saved.
+        pref: The string denoting the prefix name for labeling the images.
+        im_dir: The 'image directory for saving.
+        save_tie: The value for which save to apply to the current PYTIE images.
+            Can be a full save, color image save, or saving of x/y magnetizations
+            along with color.
+
+    Returns:
+        None
+    """
+
+    if not os_path.exists(f'{cwd}/images'):
+        os.mkdir(f'{cwd}/images')
+    winfo.rec_tie_prefix = pref
+    save_results(winfo.rec_def_val, winfo.rec_tie_results, winfo.rec_ptie,
+                 pref, winfo.rec_sym, winfo.rec_qc, save=save_tie, v=2,
+                 directory=im_dir, long_deriv=False)
+    try:
+        if save_tie in [True, 'b']:
+            arrow_filenames = filenames[-2:]
+            hsv = window['__REC_Colorwheel__'].get() == "HSV"
+            color_float_array = images['color_b'].float_array
+            mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
+            v_num, v_len, v_wid = winfo.rec_past_arrow_transform[:3]
+            graph_size = window['__REC_Graph__'].get_size()
+            for i in range(len(arrow_filenames)):
+                name = arrow_filenames[i]
+                if i == 0:
+                    v_color = True
+                else:
+                    v_color = False
+                util.add_vectors(mag_x, mag_y, color_float_array, v_color, hsv, v_num, v_len,
+                                 v_wid, graph_size, save=name)
+    except:
+        print('Did not save images correctly')
+
+    winfo.ptie_recon_thread = None
+    print('--- Exited Saving ---')
 
 
 # -------------- Home Tab Event Handler -------------- #
@@ -4321,30 +4374,12 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             if filenames == 'close' or not filenames or not save or not save_tie:
                 print(f'{prefix}Exited without saving files!\n')
             elif save:
-                if not os_path.exists(f'{image_dir}/images'):
-                    os.mkdir(f'{image_dir}/images')
-                winfo.rec_tie_prefix = pref
-                save_results(winfo.rec_def_val, winfo.rec_tie_results, winfo.rec_ptie,
-                             pref, winfo.rec_sym, winfo.rec_qc, save=save_tie, v=2,
-                             directory=im_dir, long_deriv=False)
-                try:
-                    if save_tie in [True, 'b']:
-                        arrow_filenames = filenames[-2:]
-                        hsv = window['__REC_Colorwheel__'].get() == "HSV"
-                        color_float_array = images['color_b'].float_array
-                        mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
-                        v_num, v_len, v_wid = winfo.rec_past_arrow_transform[:3]
-                        graph_size = graph.get_size()
-                        for i in range(len(arrow_filenames)):
-                            name = arrow_filenames[i]
-                            if i == 0:
-                                v_color = True
-                            else:
-                                v_color = False
-                            util.add_vectors(mag_x, mag_y, color_float_array, v_color, hsv, v_num, v_len,
-                                               v_wid, graph_size, save=name)
-                except:
-                    pass
+                winfo.ptie_recon_thread = Thread(target=ptie_save,
+                                                 args=(winfo, window, image_dir, images, filenames,
+                                                       pref, im_dir, save_tie),
+                                                 daemon=True)
+                print('--- Starting Saving ---')
+                winfo.ptie_recon_thread.start()
         else:
             print(f"{prefix}Reconstruction results haven't been generated.")
 
