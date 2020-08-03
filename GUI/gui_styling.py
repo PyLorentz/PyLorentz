@@ -9,8 +9,6 @@ Timothy Cote, ANL, Fall 2019.
 
 import os
 from typing import Any, Dict, Tuple
-import PySimpleGUI as sg
-
 
 # ============================================================= #
 #                          Window Scaling                       #
@@ -100,7 +98,7 @@ class WindowStyle(object):
         python_dir = os.path.dirname(__file__)
         spinner_gif = f'{python_dir}/spinner.gif'
         background_img =  f'{python_dir}/background.png'
-        theme_background = sg.theme_background_color()
+        theme_background = self.DEF_BACKGROUND
         B_f = self.fonts['body']
 
         def home_style(key: str, val: Dict) -> Dict:
