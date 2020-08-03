@@ -9,8 +9,6 @@ Timothy Cote, ANL, Fall 2019.
 
 import os
 from typing import Any, Dict, Tuple
-import PySimpleGUI as sg
-
 
 # ============================================================= #
 #                          Window Scaling                       #
@@ -100,7 +98,7 @@ class WindowStyle(object):
         python_dir = os.path.dirname(__file__)
         spinner_gif = f'{python_dir}/spinner.gif'
         background_img =  f'{python_dir}/background.png'
-        theme_background = sg.theme_background_color()
+        theme_background = self.DEF_BACKGROUND
         B_f = self.fonts['body']
 
         def home_style(key: str, val: Dict) -> Dict:
@@ -632,9 +630,9 @@ class WindowStyle(object):
             elif key == '__REC_Erase_Mask__':
                 val.update(disabled=True, pad=((10, 0), (4, 4)))
             elif key == '__REC_Run_TIE__':
-                val.update(enable_events=True, disabled=True, pad=((15, 0), (10, 0)))
+                val.update(enable_events=True, disabled=True, pad=((12, 0), (10, 0)))
             elif key == '__REC_Save_TIE__':
-                val.update(enable_events=True, disabled=True, pad=((13, 0), (8, 0)))
+                val.update(enable_events=True, disabled=True, pad=((10, 0), (8, 0)))
             elif key == '__REC_Set_Img_Dir__':
                 val.update(pad=((3, 0), (7, 0)), metadata={'State': 'Def'})
             elif key == '__REC_Reset_Img_Dir__':
@@ -680,7 +678,7 @@ class WindowStyle(object):
                            metadata={'Set': spinner_gif, 'Def': background_img,
                                      'State': 'Def'})
             elif key == '__REC_PYTIE_Spinner__':
-                val.update(filename=background_img, background_color=theme_background, pad=((5, 5), (10, 0)),
+                val.update(filename=background_img, background_color=theme_background, pad=((5, 5), (27, 0)),
                            metadata={'Set': spinner_gif, 'Def': background_img,
                                      'State': 'Def'})
             # Input field element
