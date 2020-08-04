@@ -2072,7 +2072,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
         else:
             print(f'{prefix}Fiji path is set, you may now proceed to registration.')
             disable_elements(window, ['__Fiji_Path__', '__Fiji_Set__', '__Fiji_Browse__'])
-            enable_elements(winfo, window, ['align_tab'])
+            # enable_elements(winfo, window, ['align_tab'])
             change_inp_readonly_bg_color(window, ['__Fiji_Path__'], 'Readonly')
     elif event == '__Fiji_Reset__':
         update_values(winfo, window, [('__Fiji_Path__', '')])
@@ -2514,7 +2514,7 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
                                                               sift_params, transform_params, filename,
                                                               tfs_value=tfs_value, fls_value=fls_value,
                                                               fls_files=fls_file_names)
-                        cmd = util.run_macro(ijm_macro_script, event, image_dir, winfo.fiji_path)
+                        # cmd = util.run_macro(ijm_macro_script, event, image_dir, winfo.fiji_path)
 
                         # Remove any current loaded files for this stack
                         metadata_change(winfo, window, ['__LS_Stack__'], reset=True)
@@ -3076,7 +3076,7 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                         # Execute fiji macro
                         fls_file_names = [winfo.buj_fls_files[0].path, winfo.buj_fls_files[1].path]
                         ijm_macro_script = run_single_ls_align(image_dir, orient, sift_params, filename, fls_file_names)
-                        cmd = util.run_macro(ijm_macro_script, event, image_dir, winfo.fiji_path)
+                        # cmd = util.run_macro(ijm_macro_script, event, image_dir, winfo.fiji_path)
 
                         # Load file
                         if event == '__BUJ_Unflip_Align__':
@@ -3577,7 +3577,7 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                                                         stackpaths, sift_FE_params=sift_params,
                                                         buj_params=buj_params, savenames=(src1, src2),
                                                         fls_files=fls_file_names)
-                        cmd = util.run_macro(macro, event, image_dir, winfo.fiji_path)
+                        # cmd = util.run_macro(macro, event, image_dir, winfo.fiji_path)
 
                         # Load the stack when ready
                         target_key = '__BUJ_Stack__'
@@ -4960,7 +4960,7 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                         set_pretty_focus(winfo, window, 'Window Click')
                     elif '__TIMEOUT__' not in output_event:
                         set_pretty_focus(winfo, output_window, output_event)
-                        
+
                 sys_stdout.flush()
                 output_txt = winfo.buf.getvalue().split('\n')
                 i = 0
