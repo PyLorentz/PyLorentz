@@ -448,7 +448,7 @@ def scale_stack(imstack):
 to have handy when working in Jupyter notebooks."""
 
 
-def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_title=''):
+def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_title='', **kwargs):
     """Display an image on a new axis.
     
     Takes a 2D array and displays the image in grayscale with optional title on 
@@ -484,7 +484,7 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_tit
         vmax = np.max(image) + 1e-12
         im = ax.matshow(image, cmap = 'gray', origin=origin, vmin=vmin, vmax=vmax)
     else:
-        im = ax.matshow(image, cmap = 'gray', origin=origin)
+        im = ax.matshow(image, cmap = 'gray', origin=origin, **kwargs)
 
     if title is not None: 
         ax.set_title(str(title), pad=0)

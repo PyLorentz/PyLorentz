@@ -28,6 +28,7 @@ from TIE_reconstruct import TIE
 import skimage.external.tifffile as tifffile
 from TIE_params import TIE_params
 from TIE_helper import dist
+from scipy.ndimage import rotate
 
 
 # ================================================================= #
@@ -218,10 +219,10 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, del_px=1, isl_shap
 
     thk2 = isl_thk/zscale #thickness in pixels 
     phi0 = 2.07e7 #Gauss*nm^2 flux quantum
-    pre_B = 2*np.pi*b0*zscale*del_px/(dim_z*phi0)
+    pre_B = 2*np.pi*b0*zscale*del_px/(thk2*phi0)
 
     # calculate magnetic phase shift with mansuripur algorithm
-    mphi = mansPhi(mx=mag_x, my=mag_y, thick=dim_z)*pre_B
+    mphi = mansPhi(mx=mag_x, my=mag_y, thick=thk2)*pre_B
 
     # and now electric phase shift
     if isl_shape is None:
@@ -230,7 +231,7 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, del_px=1, isl_shap
         if type(isl_shape) != np.ndarray:
             isl_shape = np.array(isl_shape)
         if isl_shape.ndim == 3:
-            thk_map = np.sum(isl_shape, axis=0)*isl_thk
+            thk_map = np.sum(isl_shape, axis=0)*zscale
         elif isl_shape.ndim == 2:
             thk_map = isl_shape*isl_thk
         else:
@@ -428,7 +429,7 @@ def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None, D3=False):
     """
     if file is not None: 
         mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=0)
-    nonzero = (mag_x.astype('bool') | mag_y.astype('bool') | mag_z.astype('bool')).astype(int)
+    nonzero = (mag_x.astype('bool') | mag_y.astype('bool') | mag_z.astype('bool')).astype(float)
     if len(mag_x.shape) == 3:
         if D3: 
             return nonzero
@@ -497,7 +498,8 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
             as accelerating voltage, aberrations, etc., along with the methods to
             propagate the electron wave function. 
         def_val (float): The defocus values at which to calculate the images.
-        theta_x (float): Rotation around x-axis (degrees). Default 0. 
+        theta_x (float): Rotation around x-axis (degrees). Default 0. Rotates 
+            around x axis then y axis if both are nonzero. 
         theta_y (float): Rotation around y-axis (degrees). Default 0. 
         B0 (float): Saturation induction (gauss). 
         sample_V0 (float): Mean inner potential of sample (V).
@@ -550,36 +552,33 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=v, B0=B0)
     (zsize, ysize, xsize) = mag_x.shape
 
-    # define numerical prefactors for phase shift calculation
-    phi0 = 2.07e7 #Gauss*nm^2 
-    pre_B = 2*np.pi*B0/phi0*zscale**2 #1/px^2
-    pre_E = pscope.sigma*sample_V0*zscale #1/px
-
     if thk_map is not None:
         if type(thk_map) != np.ndarray:
             thk_map = np.array(thk_map)
         if thk_map.ndim == 3:
             thk_map_3D = thk_map
             thk_map_2D = np.sum(thk_map, axis=0)
-            thk = zscale
+            thickness_nm = np.max(thk_map_2D) * zscale
+            # thk_map_2D /= np.max(thk_map_2D)
         elif thk_map.ndim == 2:
             thk_map_3D = np.tile(thk_map,(zsize,1,1))
             thk_map_2D = thk_map
-            thk = zsize * zscale
+            thickness_nm = zscale*zsize
+
     else:
         thk_map_2D = None
         thk_map_3D = None
-        thk = zscale*zsize
 
     if theta_x == 0 and theta_y == 0 and method.lower() == 'mans': 
         vprint('Calculating phase shift with Mansuripur algorithm. ')
-        mag_x2D = np.sum(mag_x, axis=0)
-        mag_y2D = np.sum(mag_y, axis=0)
-        mag_z2D = np.sum(mag_z, axis=0)
-        ephi, mphi = std_mansPhi(mag_x2D, mag_y2D, mag_z2D, zscale=zscale, isl_thk=zscale,
-            isl_shape=thk_map_2D, pscope=pscope, b0=B0, isl_V0=sample_V0)
+        ephi, mphi = std_mansPhi(mag_x, mag_y, mag_z, zscale=zscale, isl_thk=thickness_nm,
+            del_px=del_px, isl_shape=thk_map_3D, pscope=pscope, b0=B0, isl_V0=sample_V0)
     else: 
         vprint('Calculating phase shift with the linear superposition method.')
+        # define numerical prefactors for phase shift calculation
+        phi0 = 2.07e7 #Gauss*nm^2 
+        pre_B = 2*np.pi*B0/phi0*zscale*del_px #1/px^2
+        pre_E = pscope.sigma*sample_V0*zscale #1/px
         # calculate phase shifts with linear superposition method
         ephi, mphi = linsupPhi(mx=mag_x, my=mag_y, mz=mag_z, Dshp=thk_map_3D, v=v,
                            theta_x=theta_x, theta_y=theta_y, pre_B=pre_B, pre_E=pre_E)
@@ -595,17 +594,25 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
             TIE_save = True
 
     sim_name = savename
+    # adjust thickness to account for rotation for sample, not taken care of 
+    # natively when simming the images
+    if thk_map_3D is not None:
+        thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, theta_x, -1*theta_y, del_px, zscale)
+    else:
+        thk_map_tilt = None
+        isl_thk_tilt = thickness_nm
+
     if flip: 
         sim_name = savename+'_flip'
         Tphi_flip, im_un_flip, im_in_flip, im_ov_flip = sim_images(mphi= -1*mphi, 
-            ephi=ephi, isl_shape=thk_map_2D, pscope=pscope, del_px = del_px, def_val=defval, 
-            add_random=add_random,isl_thk=thk, isl_xip0=sample_xip0, mem_thk=mem_thk, 
+            ephi=ephi, isl_shape=thk_map_tilt, pscope=pscope, del_px = del_px, def_val=defval, 
+            add_random=add_random,isl_thk=isl_thk_tilt, isl_xip0=sample_xip0, mem_thk=mem_thk, 
             mem_xip0=mem_xip0,v=v, save_path=save_path_tfs, save_name=sim_name)
         sim_name = savename+'_unflip'
 
-    Tphi, im_un, im_in, im_ov = sim_images(mphi=mphi, ephi=ephi, isl_shape=thk_map_2D, 
+    Tphi, im_un, im_in, im_ov = sim_images(mphi=mphi, ephi=ephi, isl_shape=thk_map_tilt, 
         pscope=pscope, del_px = del_px, def_val=defval, add_random=add_random,
-        isl_thk=thk, isl_xip0=sample_xip0, mem_thk=mem_thk, mem_xip0=mem_xip0,
+        isl_thk=isl_thk_tilt, isl_xip0=sample_xip0, mem_thk=mem_thk, mem_xip0=mem_xip0,
         v=0, save_path=save_path_tfs, save_name=sim_name)
 
     if v >= 2:
@@ -631,6 +638,82 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     results['phase_e_sim'] = ephi
     return results 
 
+
+def rot_thickness_map(thk_map_3D=None, theta_x=None, theta_y=None, del_px=None, zscale=None):
+    """Tilt a thickness map around the x and y axis.
+
+    While the phase calculation takes care of tilting the sample in the algorithm,
+    image simualtions require a thickness map to calculate the wave function 
+    amplitude, and this must be rotated according to theta_x and theta_y.
+
+    This function returns a rotated thickness map of the same shape inputted as
+    well as the thickness scaling factor. 
+
+    Args: 
+        thk_map_3D (3D array): Numpy array of shape (z,y,x) shape to be rotated.
+        theta_x (float): Rotation around x-axis (degrees). Rotates around x axis
+            then y axis if both are nonzero. 
+        theta_y (float): Rotation around y-axis (degrees). 
+        del_px (float): Scaling (nm/pixel) in x/y directions. 
+        zscale (float): Scaling (nm/pixel) in z direction. 
+
+    Returns: 
+        tuple: (thk_map_tilt, isl_thickness_tilt)
+
+        - thk_map_tilt (``ndarray``) -- 2D Numpy array, tilted thickness map 
+          normalized to values [0,1]
+        - isl_thickness_tilt (float) -- scale factor (nm) for thk_map_tilt. 
+          Multiplying thk_map_tilt * isl_thickness_tilt gives the thickness map
+          in nanometers.
+
+    """
+    dim_z, dim_y, dim_x = thk_map_3D.shape 
+    # rotate the thickness map around x then y
+    tilt1 = rotate(thk_map_3D, theta_x, axes=(0,1))
+    tilt2 = rotate(tilt1, theta_y, axes=(0,2)).sum(axis=0)
+    # tilted region might be larger (in one dimension) than original region. crop.
+    t2y, t2x = tilt2.shape
+    if t2y > dim_y:
+        tilt2 = tilt2[(t2y-dim_y)//2:t2y//2+dim_y//2]
+    if t2x > dim_x:
+        tilt2 = tilt2[:,t2x//2-dim_x//2:t2x//2+dim_x//2]
+
+    # and it might be smaller, in that case pad. 
+    pad_y = (dim_y-tilt2.shape[0])/2
+    p1 = int(np.floor(pad_y))
+    p2 = int(np.ceil(pad_y))
+    pad_x = (dim_x-tilt2.shape[1])/2
+    p3 = int(np.floor(pad_x))
+    p4 = int(np.ceil(pad_x))
+    thk_map_tilt = np.pad(tilt2, ((p1,p2),(p3,p4)))
+
+    # now getting the appropriatge thickness factor
+    # done by getting height of rotated voxel. 
+    # has off-by-one errors for some rotations, thickness is too small by del_px amount
+    tx = np.deg2rad(theta_x)
+    ty = np.deg2rad(theta_y)
+    Rx = [[1,0,0],
+          [0, np.cos(tx), -np.sin(tx)],
+          [0, np.sin(tx), np.cos(tx)]]
+
+    Ry = [[np.cos(ty), 0, np.sin(ty)],
+          [0, 1, 0],
+          [-np.sin(ty), 0, np.cos(ty)]]
+    # defining the voxel vertices
+    points = [[del_px, del_px, zscale], [del_px, del_px, 0], [del_px, 0, zscale],
+              [del_px, 0, 0], [0, del_px, zscale], [0, del_px, 0],
+              [0, 0, zscale], [0, 0, 0]]
+    rot_points = []
+    for point in points:
+        rot_points.append(np.matmul(Ry, np.matmul(Rx, point)))
+
+    rot_heights = np.array(rot_points)[:,2]
+    thickness_scale = np.max(rot_heights) - np.min(rot_heights)
+
+    isl_thickness_tilt = np.max(thk_map_tilt * thickness_scale)
+    thk_map_tilt = thk_map_tilt/np.max(thk_map_tilt)
+
+    return thk_map_tilt, isl_thickness_tilt
 
 # ================================================================= #
 #           Various functions for displaying vector fields          #
