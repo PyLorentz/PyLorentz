@@ -57,7 +57,8 @@ def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B
         mz (3D array): z component of magnetization at each voxel (z,y,x)
         Dshp (3D array): Binary shape function of the object. Where value is 0,
             phase is not computed.  
-        theta_x (float): Rotation around x-axis (degrees) 
+        theta_x (float): Rotation around x-axis (degrees). Rotates around x axis
+            then y axis if both are nonzero. 
         theta_y (float): Rotation around y-axis (degrees) 
         pre_B (float): Numerical prefactor for unit conversion in calculating 
             the magnetic phase shift. Units 1/pixels^2. Generally 
@@ -142,6 +143,7 @@ def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B
         vprint('0.00%', end=' .. ')
         cc = -1
         for ind in inds:
+            ind = tuple(ind)
             cc += 1
             if time.time() - otime >= 15:
                 vprint(f'{cc/nelems*100:.2f}%', end=' .. ')
