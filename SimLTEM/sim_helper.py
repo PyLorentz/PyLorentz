@@ -405,7 +405,7 @@ def load_ovf(file=None, sim='norm', B0=1e4, v=1):
     return(mag_x, mag_y, mag_z, del_px, zscale)
 
 
-def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None, D3=False):
+def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None, D3=True):
     """ Define a 2D thickness map where magnetization is 0. 
 
     Island structures or empty regions are often defined in micromagnetic 
@@ -483,11 +483,11 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
             or two (True), one for sample in normal orientation and one with it 
             flipped in the microscope. Samples that are not uniformly thin 
             require flip=True.
-        thk_map (2D array): Numpy array of same (y,x) shape as magnetization 
-            arrays. Thickness values as factor of total thickness (zscale*zsize). 
-            If a 3D array is given, it will be summed along z-axis and divided 
-            by zsize. Pixels with thickness=0 will not have the phase calculated
-            as a method to speed of computation time. 
+        thk_map (2D/3D array): Numpy array of same (y,x) shape as magnetization 
+            arrays. Binary shape function of the sample, 1 where the sample is 
+            and 0 where there is no sample. If a 2D array is given it will be 
+            tiled along the z-direction to make it the same size as the 
+            magnetization arrays. 
 
             The make_thickness_map() function can be useful for island 
             structures or as a guide of how to define a thickness map. 
@@ -559,14 +559,11 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
             thk_map_3D = thk_map
             thk_map_2D = np.sum(thk_map, axis=0)
             thickness_nm = np.max(thk_map_2D) * zscale
-            # thk_map_2D /= np.max(thk_map_2D)
         elif thk_map.ndim == 2:
             thk_map_3D = np.tile(thk_map,(zsize,1,1))
-            thk_map_2D = thk_map
             thickness_nm = zscale*zsize
 
     else:
-        thk_map_2D = None
         thk_map_3D = None
 
     if theta_x == 0 and theta_y == 0 and method.lower() == 'mans': 
@@ -595,9 +592,10 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
 
     sim_name = savename
     # adjust thickness to account for rotation for sample, not taken care of 
-    # natively when simming the images
+    # natively when simming the images like it is for phase computation. 
     if thk_map_3D is not None:
-        thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, theta_x, -1*theta_y, del_px, zscale)
+        thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, theta_x,
+                                                -1*theta_y, del_px, zscale)
     else:
         thk_map_tilt = None
         isl_thk_tilt = thickness_nm
