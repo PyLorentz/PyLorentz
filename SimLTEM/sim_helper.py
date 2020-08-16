@@ -595,7 +595,7 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     # natively when simming the images like it is for phase computation. 
     if thk_map_3D is not None:
         thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, -1*theta_x,
-                                                theta_y, del_px, zscale)
+                                                theta_y, zscale)
     else:
         thk_map_tilt = None
         isl_thk_tilt = thickness_nm
