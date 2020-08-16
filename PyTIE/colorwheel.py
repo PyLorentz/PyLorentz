@@ -52,7 +52,7 @@ def color_im(Bx, By, rad=None, hsvwheel=True, background='black'):
         rad = 0
 
     dimy = np.shape(By)[0] 
-    if dimy > rad: 
+    if dimy < 2*rad: 
         rad = dimy//2
     dimx = np.shape(By)[1] + 2*rad + pad
     cimage = np.zeros((dimy, dimx, 3))
