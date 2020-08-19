@@ -429,6 +429,13 @@ def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None, D3=True):
     """
     if file is not None: 
         mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=0)
+    elif mag_z is None:
+        mag_z = np.zeros(mag_x.shape)
+    if D3 and len(mag_x.shape) == 2: 
+        mag_x = np.expand_dims(mag_x,axis=0)
+        mag_y = np.expand_dims(mag_y,axis=0)
+        mag_z = np.expand_dims(mag_z,axis=0)
+
     nonzero = (mag_x.astype('bool') | mag_y.astype('bool') | mag_z.astype('bool')).astype(float)
     if len(mag_x.shape) == 3:
         if D3: 
