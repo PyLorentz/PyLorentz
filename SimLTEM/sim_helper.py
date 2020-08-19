@@ -429,6 +429,13 @@ def make_thickness_map(mag_x=None, mag_y=None, mag_z=None, file=None, D3=True):
     """
     if file is not None: 
         mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=0)
+    elif mag_z is None:
+        mag_z = np.zeros(mag_x.shape)
+    if D3 and len(mag_x.shape) == 2: 
+        mag_x = np.expand_dims(mag_x,axis=0)
+        mag_y = np.expand_dims(mag_y,axis=0)
+        mag_z = np.expand_dims(mag_z,axis=0)
+
     nonzero = (mag_x.astype('bool') | mag_y.astype('bool') | mag_z.astype('bool')).astype(float)
     if len(mag_x.shape) == 3:
         if D3: 
@@ -594,8 +601,8 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     # adjust thickness to account for rotation for sample, not taken care of 
     # natively when simming the images like it is for phase computation. 
     if thk_map_3D is not None:
-        thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, theta_x,
-                                                -1*theta_y, del_px, zscale)
+        thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, -1*theta_x,
+                                                theta_y, zscale)
     else:
         thk_map_tilt = None
         isl_thk_tilt = thickness_nm
@@ -637,7 +644,7 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     return results 
 
 
-def rot_thickness_map(thk_map_3D=None, theta_x=None, theta_y=None, del_px=None, zscale=None):
+def rot_thickness_map(thk_map_3D=None, theta_x=None, theta_y=None, zscale=None):
     """Tilt a thickness map around the x and y axis.
 
     While the phase calculation takes care of tilting the sample in the algorithm,
@@ -647,12 +654,13 @@ def rot_thickness_map(thk_map_3D=None, theta_x=None, theta_y=None, del_px=None, 
     This function returns a rotated thickness map of the same shape inputted as
     well as the thickness scaling factor. 
 
+    This function only works for high tilt angles when zscale = del_px. 
+
     Args: 
         thk_map_3D (3D array): Numpy array of shape (z,y,x) shape to be rotated.
         theta_x (float): Rotation around x-axis (degrees). Rotates around x axis
             then y axis if both are nonzero. 
         theta_y (float): Rotation around y-axis (degrees). 
-        del_px (float): Scaling (nm/pixel) in x/y directions. 
         zscale (float): Scaling (nm/pixel) in z direction. 
 
     Returns: 
@@ -667,8 +675,11 @@ def rot_thickness_map(thk_map_3D=None, theta_x=None, theta_y=None, del_px=None, 
     """
     dim_z, dim_y, dim_x = thk_map_3D.shape 
     # rotate the thickness map around x then y
-    tilt1 = rotate(thk_map_3D, theta_x, axes=(0,1))
+    # pad first with 0's so edges scale correctly in the rotate function. 
+    thk_map_pad = np.pad(thk_map_3D, 20)    
+    tilt1 = rotate(thk_map_pad, theta_x, axes=(0,1))
     tilt2 = rotate(tilt1, theta_y, axes=(0,2)).sum(axis=0)
+
     # tilted region might be larger (in one dimension) than original region. crop.
     t2y, t2x = tilt2.shape
     if t2y > dim_y:
@@ -685,30 +696,7 @@ def rot_thickness_map(thk_map_3D=None, theta_x=None, theta_y=None, del_px=None, 
     p4 = int(np.ceil(pad_x))
     thk_map_tilt = np.pad(tilt2, ((p1,p2),(p3,p4)))
 
-    # now getting the appropriatge thickness factor
-    # done by getting height of rotated voxel. 
-    # has off-by-one errors for some rotations, thickness is too small by del_px amount
-    tx = np.deg2rad(theta_x)
-    ty = np.deg2rad(theta_y)
-    Rx = [[1,0,0],
-          [0, np.cos(tx), -np.sin(tx)],
-          [0, np.sin(tx), np.cos(tx)]]
-
-    Ry = [[np.cos(ty), 0, np.sin(ty)],
-          [0, 1, 0],
-          [-np.sin(ty), 0, np.cos(ty)]]
-    # defining the voxel vertices
-    points = [[del_px, del_px, zscale], [del_px, del_px, 0], [del_px, 0, zscale],
-              [del_px, 0, 0], [0, del_px, zscale], [0, del_px, 0],
-              [0, 0, zscale], [0, 0, 0]]
-    rot_points = []
-    for point in points:
-        rot_points.append(np.matmul(Ry, np.matmul(Rx, point)))
-
-    rot_heights = np.array(rot_points)[:,2]
-    thickness_scale = np.max(rot_heights) - np.min(rot_heights)
-
-    isl_thickness_tilt = np.max(thk_map_tilt * thickness_scale)
+    isl_thickness_tilt = np.max(thk_map_tilt * zscale)
     thk_map_tilt = thk_map_tilt/np.max(thk_map_tilt)
 
     return thk_map_tilt, isl_thickness_tilt
