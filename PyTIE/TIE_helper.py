@@ -573,16 +573,22 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
     return 
 
     
-def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=True,
+def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=False, hsv=True,
             origin='upper', save=None, GUI_handle=False, GUI_color_array=None):
     """ Display a 2D vector arrow plot. 
 
-    Quiver doesn't allow setting the origin as "upper" for some reason. Just 
-    flipping the axis doesn't also flip the arrow directions. 
+    Displays an an arrow plot of a vector field, with arrow length scaling with 
+    vector magnitude. If color=True, a colormap will be displayed under the 
+    arrow plot. 
+
+    If mag_z is included and color=True, a spherical colormap will be used with 
+    color corresponding to in-plane and white/black to out-of-plane vector 
+    orientation. 
 
     Args: 
         mag_x (2D array): x-component of magnetization. 
         mag_y (2D array): y-component of magnetization. 
+        mag_z (2D array): optional z-component of magnetization. 
         a (int): Number of arrows to plot along the x and y axes. Default 15. 
         l (float): Scale factor of arrows. Larger l -> shorter arrows. Default None
             guesses at a good value. None uses matplotlib default.  
@@ -633,7 +639,7 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
     if color:
         if not GUI_handle or save is not None:
             from colorwheel import color_im
-            im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap='gray',
+            im = ax.matshow(color_im(mag_x, mag_y, mag_z, hsvwheel=hsv, rad=rad), cmap='gray',
                             origin=origin)
         else:
             im = ax.matshow(GUI_color_array, cmap='gray', origin=origin, aspect='equal')

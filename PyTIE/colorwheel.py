@@ -15,14 +15,19 @@ import sys
 from TIE_helper import dist
 
 
-def color_im(Bx, By, rad=None, hsvwheel=True, background='black'):
+def color_im(Bx, By, Bz=None, rad=None, hsvwheel=True, background='black'):
     """Make the RGB image from x and y component vector maps. 
+
+    The color intensity corresponds to the in-plane vector component. If a 
+    z-component is given, it will map from black (negative) to white (positive).
 
     Args: 
         Bx (2D array): (M x N) array consisting of the x-component of the vector
-            field
+            field. 
         By (2D array): (M x N) array consisting of the y-component of the vector
-            field 
+            field. 
+        Bz (2D array): optional (M x N) array consisting of the y-component of 
+            the vector field. 
         rad (int): (`optional`) Radius of color-wheel in pixels. (default None -> height/16)
             Set rad = 0 to remove color-wheel. 
         hsvwheel (bool): 
@@ -40,9 +45,6 @@ def color_im(Bx, By, rad=None, hsvwheel=True, background='black'):
         rad = Bx.shape[0]//16
         rad = max(rad, 16)
 
-    mmax = max(np.abs(Bx).max(), np.abs(By).max())
-    Bx = Bx/mmax
-    By = By/mmax
     bmag = np.sqrt(Bx**2 + By**2) 
 
     if rad > 0: 
@@ -62,23 +64,34 @@ def color_im(Bx, By, rad=None, hsvwheel=True, background='black'):
         # Get the Hue (angle) as By/Bx and scale between [0,1]
         hue = (np.arctan2(By,Bx) + np.pi)/(2*np.pi)
 
-        # make the color image
-        if background == 'white': # value is ones, magnitude -> saturation
-            cb = np.dstack((hue, bmag/np.max(bmag), np.ones([dimy, dimx-2*rad-pad])))
-        elif background == 'black': # saturation is ones, magnitude -> values
-            cb = np.dstack((hue, np.ones([dimy, dimx-2*rad-pad]), bmag/np.max(bmag)))
+        if Bz is None:
+            z_wheel = False
+            # make the color image
+            if background == 'white': # value is ones, magnitude -> saturation
+                cb = np.dstack((hue, bmag/np.max(bmag), np.ones([dimy, dimx-2*rad-pad])))
+            elif background == 'black': # saturation is ones, magnitude -> values
+                cb = np.dstack((hue, np.ones([dimy, dimx-2*rad-pad]), bmag/np.max(bmag)))
+            else:
+                print(textwrap.dedent("""
+                    An improper argument was given in color_im(). 
+                    Please choose background as 'black' or 'white.
+                    'white' -> magnetization magnitude corresponds to saturation. 
+                    'black' -> magnetization magnitude corresponds to value."""))
+                sys.exit(1)
+
         else:
-            print(textwrap.dedent("""
-                An improper argument was given in color_im(). 
-                Please choose background as 'black' or 'white.
-                'white' -> magnetization magnitude corresponds to saturation. 
-                'black' -> magnetization magnitude corresponds to value."""))
-            sys.exit(1)
+            z_wheel=True
+            theta = np.arctan2(Bz, np.sqrt(Bx**2 + By**2)) 
+            value = np.where(theta<0, np.cos(2*theta)/2+1/2, 1)
+            # value = np.where(theta<0, 1-1/(1+np.exp(10*theta*2/np.pi+5)), 1)#sigmoid
+            sat = np.where(theta>0, np.cos(2*theta)/2+1/2, 1)
+            # sat = np.where(theta>0, 1-1/(1+np.exp(-10*theta*2/np.pi+5)), 1)#sigmoid
+            cb = np.dstack((hue, sat, value))
 
         if rad > 0: # add the color-wheel
             cimage[:,:-2*rad-pad,:] = cb
             # make the color-wheel and add to image
-            wheel = colorwheel_HSV(rad, background = background)
+            wheel = colorwheel_HSV(rad, background = background, z=z_wheel)
             cimage[dimy//2-rad:dimy//2+rad, dimx-2*rad - pad//2:-pad//2,:] = wheel
         else: 
             cimage = cb
@@ -128,7 +141,7 @@ def color_im(Bx, By, rad=None, hsvwheel=True, background='black'):
     return(cimage)
 
 
-def colorwheel_HSV(rad, background):
+def colorwheel_HSV(rad, background, z=False):
     """Creates an HSV color-wheel as a np array to be inserted into the color-image.
     
     Args:
@@ -154,8 +167,17 @@ def colorwheel_HSV(rad, background):
     # mask and normalize
     rr *= msk
     rr /= np.amax(rr)
-    # value is always 1
     val_col = np.ones(rr.shape) * msk
+
+    if z:
+        theta = (rr-0.5)*-1*np.pi
+        value = np.where(theta<0, np.cos(2*theta)/2+1/2, 1)
+        sat = np.where(theta>0, np.cos(2*theta)/2+1/2, 1)
+
+        value *= msk
+        sat *= msk
+        return np.dstack((h_col, sat, value))
+
     if background == 'white':
         return np.dstack((h_col, rr, val_col))
     else:

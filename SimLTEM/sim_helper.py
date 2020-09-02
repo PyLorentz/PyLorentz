@@ -28,7 +28,7 @@ from TIE_reconstruct import TIE
 import skimage.external.tifffile as tifffile
 from TIE_params import TIE_params
 from TIE_helper import dist
-from scipy.ndimage import rotate
+from scipy.ndimage import rotate, gaussian_filter
 
 
 # ================================================================= #
@@ -37,7 +37,7 @@ from scipy.ndimage import rotate
 
 def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1, 
     def_val=0, add_random=False, save_path=None, save_name=None,
-    isl_thk=20, isl_xip0=50, mem_thk=50, mem_xip0=1000, v=1):
+    isl_thk=20, isl_xip0=50, mem_thk=50, mem_xip0=1000, v=1, filter=True):
     """Simulate LTEM images for a given electron phase shift through a sample. 
 
     This function returns LTEM images simulated for in-focus and at +/- def_val 
@@ -52,6 +52,11 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
     There are many required parameters here that must be set to account for the 
     support membrane. The default values apply to 20nm permalloy islands on a 
     50nm SiN membrane window. 
+
+    There is a known bug where sharp edges in the ephi creates problems with the
+    image simulations. As a workaround, this function applies a light gaussian 
+    filter (sigma = 1 pixel) to the ephi and isl_shape arrays. This can be 
+    controlled with the ``filter`` argument. 
 
     Args:
         mphi (2D array): Numpy array of size (M, N), magnetic phase shift
@@ -78,6 +83,7 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
         mem_thk (float): Support membrane thickness (nm). Default 50 (nm). 
         mem_xip0 (float): Support membrane extinction distance (nm). Default 
             1000 (nm). 
+        filter (Bool): Apply a light gaussian filter to ephi and isl_shape. 
 
     Returns: 
         tuple: (Tphi, im_un, im_in, im_ov)
@@ -90,6 +96,9 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
     """
     vprint = print if v>=1 else lambda *a, **k: None
     
+    if filter:
+        ephi = gaussian_filter(ephi, sigma=1)
+
     Tphi = mphi + ephi
     vprint(f'Total fov is ({np.shape(Tphi)[1]*del_px:.3g},{np.shape(Tphi)[0]*del_px:.3g}) nm')
     dy, dx = Tphi.shape
@@ -119,6 +128,8 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
                 Mask given must be 2D (y,x) or 3D (z,y,x) array. 
                 It was given as a {isl_shape.ndim} dimension array."""))
             sys.exit(1)
+        if filter:
+            thk_map = gaussian_filter(thk_map, sigma=1)
 
     Amp = np.exp((-np.ones([dy,dx]) * mem_thk / mem_xip0) - (thk_map / isl_xip0))
     ObjWave = Amp * (np.cos(Tphi) + 1j * np.sin(Tphi))
@@ -785,7 +796,7 @@ def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
     hue = phi/(2*np.pi)+0.5
 
     # setting the out of plane values now
-    theta = np.arctan2(W[::az, ::ay,::axx],(U[::az, ::ay,::axx]**2+V[::az, ::ay,::axx]**2))
+    theta = np.arctan2(W[::az, ::ay,::axx],np.sqrt(U[::az, ::ay,::axx]**2+V[::az, ::ay,::axx]**2))
     value = np.ravel(np.where(theta<0, 1+2*theta/np.pi, 1))
     sat = np.ravel(np.where(theta>0, 1-2*theta/np.pi, 1))
 
