@@ -7,6 +7,13 @@ An assortment of helper functions broadly categorized into four sections
 - Helper functions for displaying vector fields
 - Generating variations of magnetic vortex/skyrmion states
 
+Known Bugs: 
+
+- Simulating images with sharp edges in the electrostatic phase shift and 
+  thickness maps gives images with incorrect Fresnel fringes. This can be 
+  resolved by applying a light filter to the electrostatic phase shift and 
+  thickness map before simulating images. 
+
 Author: Arthur McCray, ANL, Summer 2019.
 """
 

@@ -5,7 +5,6 @@ TEM through focal series (tfs) to reconstruct B field magnetization of the sampl
 
 Known Bugs: 
 
-- Electrostatic phase shift is not quantitative. 
 - Longitudinal derivative gives a magnetization scaling error for some 
   experimental datasets.
 
