@@ -246,7 +246,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
                                     hsvwheel=hsv, background='black')
 
     if v >= 1:
-        show_im(results['color_b'], "B-field color HSV colorwheel", cbar=False)
+        show_im(results['color_b'], "B-field color HSV colorwheel", cbar=False,
+            scale=ptie.scale)
 
     # save the images
     if save: 
@@ -345,7 +346,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     vprint = print if v>=1 else lambda *a, **k: None
 
     if image is not None and defval is not None:
-        vprint(f"Running with given image, defval = {defval:g}nm, and scale = {scale:g}nm/pixel")
+        vprint(f"Running with given image, defval = {defval:g}nm, and scale = {scale:.3g}nm/pixel")
         ptie = TIE_params(imstack=[image], defvals=[defval], data_loc=data_loc,v=0)
         ptie.set_scale(scale)
         dim_y, dim_x = image.shape
@@ -412,7 +413,8 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
         hsvwheel=True, background='black')
     if v >= 1:
-        show_im(results['color_b'], "B field color, HSV colorhweel", cbar=False)
+        show_im(results['color_b'], "B field color, HSV colorhweel", cbar=False,
+            scale=scale)
     
     # save the images
     if save: 

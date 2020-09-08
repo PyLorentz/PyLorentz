@@ -509,7 +509,6 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True,
                 return f"{scale*x:.3g}"
 
             fov = scale * max(image.shape[0], image.shape[1])
-            print('fov is (nm): ', fov)
 
             if fov < 4e3: # if fov < 4um use nm scale
                 ticks_label = ' nm '
@@ -535,7 +534,7 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True,
     return
 
 
-def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
+def show_stack(images, ptie=None, origin='upper', title=False):
     """Shows a stack of dm3s or np images with a slider to navigate slice axis. 
     
     Uses ipywidgets.interact to allow user to view multiple images on the same
@@ -550,7 +549,6 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
         ptie (``TIE_params`` object): Will use ptie.crop to show only the region
             that will remain after being cropped. 
         origin (str): (`optional`) Control image orientation. 
-        simple (bool): (`optional`) Default output or additional labels.  
         title (bool): (`optional`) Try and pull a title from the signal objects. 
     Returns:
         None 
@@ -579,6 +577,7 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
     images = images[:,t:b,l:r]
 
     fig, ax = plt.subplots()
+    plt.axis('off')
     N = images.shape[0]
 
     def view_image(i=0):
@@ -588,13 +587,6 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
                 plt.title('Image title: {:}'.format(titles[i]))
             else:
                 plt.title('Stack[{:}]'.format(i))
-
-    if not simple:
-        ax.tick_params(direction='in')
-        if origin == 'lower': 
-            ax.text(y=0,x=0,s='pixels', rotation=-45, va='top', ha='right')
-        elif origin =='upper': 
-            ax.text(y=images[0].shape[0],x=0,s='pixels', rotation=-45, va='top', ha='right')
 
     interact(view_image, i=(0, N-1))
     return 
