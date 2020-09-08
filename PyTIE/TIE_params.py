@@ -45,6 +45,8 @@ class TIE_params(object):
             infocus image. Contains useful information such as scale if loaded 
             from dm3. 
         shape (tuple): Shape of original image data (y, x)
+        scale (float): Scale of images (nm/pixel). Taken from the dm3 metadata 
+            or set with the ``set_scale()`` method. 
         rotation (float, int): The rotation to apply to the image before reconstruction in deg.
         x_transl (int): The x_translation to apply to the image before reconstruction in pix.
         y_transl (int): The y_translation to apply to the image before reconstruction in pix.

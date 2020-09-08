@@ -42,9 +42,9 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         dataname (str): The output filename to be used for saving the images. 
         sym (bool): (`optional`) Fourier edge effects are marginally improved by 
             symmetrizing the images before reconstructing. Default False.
-        qc (float/str): (`optional`) The Tikhonov frequency to use as filter, or 
-            "percent" to use 15% of q, Default None. If you use a Tikhonov 
-            filter the resulting magnetization is no longer quantitative. 
+        qc (float/str): (`optional`) The Tikhonov frequency to use as filter.
+            Default None. If you use a Tikhonov filter the resulting 
+            phase shift and induction is no longer quantitative. 
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
@@ -133,13 +133,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     q = dist(dim_y,dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False:
-        if qc == 'percent':
-            vprint("Reconstructing with Tikhonov percentage: 15%")
-            qc = 0.15 * q * ptie.scale**2
-        else:
-            qc = qc 
-            vprint("Reconstructing with Tikhonov value: {:}".format(qc))
-
+        vprint("Reconstructing with Tikhonov value: {:}".format(qc))
         qi = q**2 / (q**2 + qc**2)**2
     else: # normal Laplacian method
         vprint("Reconstructing with normal Laplacian method")
@@ -300,9 +294,9 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
         dataname (str): The output filename to be used for saving the images. 
         sym (bool): (`optional`) Fourier edge effects are marginally improved by 
             symmetrizing the images before reconstructing. Default False.
-        qc (float/str): (`optional`) The Tikhonov frequency to use as filter, or 
-            "percent" to use 15% of q, Default None. If you use a Tikhonov 
-            filter the resulting magnetization is no longer quantitative. 
+        qc (float/str): (`optional`) The Tikhonov frequency to use as filter.
+            Default None. If you use a Tikhonov filter the resulting 
+            phase shift and induction is no longer quantitative. 
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
@@ -393,12 +387,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     q = dist(dim_y,dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False: # add Tikhonov filter
-        if qc == 'percent':
-            print("Reconstructing with Tikhonov percentage: 15%")
-            qc = 0.15 * q * ptie.scale**2
-        else:
-            qc = qc 
-            print("Reconstructing with Tikhonov value: {:}".format(qc))
+        print("Reconstructing with Tikhonov value: {:}".format(qc))
         qi = q**2 / (q**2 + qc**2)**2
     else: # normal laplacian method
         print("Reconstructing with normal Laplacian method")

@@ -71,6 +71,9 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
         fls_full = os.path.join(path, 'unflip', fls_file)
     elif os.path.isfile(os.path.join(path, 'tfs', fls_file)) and not flip:
         fls_full = os.path.join(path, 'tfs', fls_file)
+    else:
+        print("fls file could not be found.")
+        sys.exit(1)
 
     if flip_fls_file is None: # one fls file given
         fls = []
@@ -142,7 +145,7 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
     # load the aligned tifs and update the dm3 data to match
     # The data from the dm3's will be replaced with the aligned image data. 
     try:
-        al_tifs = io.imread(path + al_file)
+        al_tifs = io.imread(os.path.join(path, al_file))
     except FileNotFoundError as e:
         print('Incorrect aligned stack filename given.')
         raise e
