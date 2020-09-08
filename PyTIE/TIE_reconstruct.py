@@ -42,9 +42,9 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         dataname (str): The output filename to be used for saving the images. 
         sym (bool): (`optional`) Fourier edge effects are marginally improved by 
             symmetrizing the images before reconstructing. Default False.
-        qc (float/str): (`optional`) The Tikhonov frequency to use as filter, or 
-            "percent" to use 15% of q, Default None. If you use a Tikhonov 
-            filter the resulting magnetization is no longer quantitative. 
+        qc (float/str): (`optional`) The Tikhonov frequency to use as filter.
+            Default None. If you use a Tikhonov filter the resulting 
+            phase shift and induction is no longer quantitative. 
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
@@ -133,13 +133,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     q = dist(dim_y,dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False:
-        if qc == 'percent':
-            vprint("Reconstructing with Tikhonov percentage: 15%")
-            qc = 0.15 * q * ptie.scale**2
-        else:
-            qc = qc 
-            vprint("Reconstructing with Tikhonov value: {:}".format(qc))
-
+        vprint("Reconstructing with Tikhonov value: {:}".format(qc))
         qi = q**2 / (q**2 + qc**2)**2
     else: # normal Laplacian method
         vprint("Reconstructing with normal Laplacian method")
@@ -252,7 +246,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
                                     hsvwheel=hsv, background='black')
 
     if v >= 1:
-        show_im(results['color_b'], "B-field color HSV colorwheel", cbar=False)
+        show_im(results['color_b'], "B-field color HSV colorwheel", cbar=False,
+            scale=ptie.scale)
 
     # save the images
     if save: 
@@ -300,9 +295,9 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
         dataname (str): The output filename to be used for saving the images. 
         sym (bool): (`optional`) Fourier edge effects are marginally improved by 
             symmetrizing the images before reconstructing. Default False.
-        qc (float/str): (`optional`) The Tikhonov frequency to use as filter, or 
-            "percent" to use 15% of q, Default None. If you use a Tikhonov 
-            filter the resulting magnetization is no longer quantitative. 
+        qc (float/str): (`optional`) The Tikhonov frequency to use as filter.
+            Default None. If you use a Tikhonov filter the resulting 
+            phase shift and induction is no longer quantitative. 
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
@@ -351,7 +346,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     vprint = print if v>=1 else lambda *a, **k: None
 
     if image is not None and defval is not None:
-        vprint(f"Running with given image, defval = {defval:g}nm, and scale = {scale:g}nm/pixel")
+        vprint(f"Running with given image, defval = {defval:g}nm, and scale = {scale:.3g}nm/pixel")
         ptie = TIE_params(imstack=[image], defvals=[defval], data_loc=data_loc,v=0)
         ptie.set_scale(scale)
         dim_y, dim_x = image.shape
@@ -393,12 +388,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     q = dist(dim_y,dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False: # add Tikhonov filter
-        if qc == 'percent':
-            print("Reconstructing with Tikhonov percentage: 15%")
-            qc = 0.15 * q * ptie.scale**2
-        else:
-            qc = qc 
-            print("Reconstructing with Tikhonov value: {:}".format(qc))
+        print("Reconstructing with Tikhonov value: {:}".format(qc))
         qi = q**2 / (q**2 + qc**2)**2
     else: # normal laplacian method
         print("Reconstructing with normal Laplacian method")
@@ -423,7 +413,8 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
         hsvwheel=True, background='black')
     if v >= 1:
-        show_im(results['color_b'], "B field color, HSV colorhweel", cbar=False)
+        show_im(results['color_b'], "B field color, HSV colorhweel", cbar=False,
+            scale=scale)
     
     # save the images
     if save: 

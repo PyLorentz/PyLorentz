@@ -8,6 +8,7 @@ Author: Arthur McCray, ANL, Summer 2019.
 """
  
 import matplotlib.pyplot as plt 
+import matplotlib as mpl
 import numpy as np
 import hyperspy.api as hs
 from skimage import io
@@ -71,6 +72,9 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
         fls_full = os.path.join(path, 'unflip', fls_file)
     elif os.path.isfile(os.path.join(path, 'tfs', fls_file)) and not flip:
         fls_full = os.path.join(path, 'tfs', fls_file)
+    else:
+        print("fls file could not be found.")
+        sys.exit(1)
 
     if flip_fls_file is None: # one fls file given
         fls = []
@@ -142,7 +146,7 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
     # load the aligned tifs and update the dm3 data to match
     # The data from the dm3's will be replaced with the aligned image data. 
     try:
-        al_tifs = io.imread(path + al_file)
+        al_tifs = io.imread(os.path.join(path, al_file))
     except FileNotFoundError as e:
         print('Incorrect aligned stack filename given.')
         raise e
@@ -448,7 +452,8 @@ def scale_stack(imstack):
 to have handy when working in Jupyter notebooks."""
 
 
-def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_title='', **kwargs):
+def show_im(image, title=None, simple=False, origin='upper', cbar=True,
+    cbar_title='', scale=None, **kwargs):
     """Display an image on a new axis.
     
     Takes a 2D array and displays the image in grayscale with optional title on 
@@ -473,6 +478,8 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_tit
             simple = False. 
         cbar_title (str): (`optional`) Title attached to the colorbar (indicating the 
             units or significance of the values). 
+        scale (float): Scale of image in nm/pixel. Axis markers will be given in
+            units of nanometers. 
 
     Returns:
         None
@@ -490,16 +497,35 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_tit
         ax.set_title(str(title), pad=0)
 
     if simple:
-        # plt.axis('off')
-        pass
+        plt.axis('off')
     else:
         plt.tick_params(axis='x',top=False)
         ax.xaxis.tick_bottom()
         ax.tick_params(direction='in')
+        if scale is None:
+            ticks_label = 'pixels'
+        else:
+            def mjrFormatter(x, pos):
+                return f"{scale*x:.3g}"
+
+            fov = scale * max(image.shape[0], image.shape[1])
+
+            if fov < 4e3: # if fov < 4um use nm scale
+                ticks_label = ' nm '
+            elif fov > 4e6: # if fov > 4mm use m scale
+                ticks_label = "  m  "
+                scale /= 1e9
+            else: # if fov between the two, use um
+                ticks_label = " $\mu$m "
+                scale /= 1e3
+
+            ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(mjrFormatter))
+            ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(mjrFormatter))
+
         if origin == 'lower': 
-            ax.text(y=0,x=0,s='pixels', rotation=-45, va='top', ha='right')
-        elif origin =='upper': 
-            ax.text(y=image.shape[0],x=0,s='pixels', rotation=-45, va='top', ha='right')
+            ax.text(y=0,x=0,s=ticks_label, rotation=-45, va='top', ha='right')
+        elif origin =='upper': # keep label in lower left corner
+            ax.text(y=image.shape[0],x=0,s=ticks_label, rotation=-45, va='top', ha='right')
 
         if cbar: 
             plt.colorbar(im, ax=ax, pad=0.02, format="%.2g", label=str(cbar_title))
@@ -508,7 +534,7 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_tit
     return
 
 
-def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
+def show_stack(images, ptie=None, origin='upper', title=False):
     """Shows a stack of dm3s or np images with a slider to navigate slice axis. 
     
     Uses ipywidgets.interact to allow user to view multiple images on the same
@@ -523,7 +549,6 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
         ptie (``TIE_params`` object): Will use ptie.crop to show only the region
             that will remain after being cropped. 
         origin (str): (`optional`) Control image orientation. 
-        simple (bool): (`optional`) Default output or additional labels.  
         title (bool): (`optional`) Try and pull a title from the signal objects. 
     Returns:
         None 
@@ -552,6 +577,7 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
     images = images[:,t:b,l:r]
 
     fig, ax = plt.subplots()
+    plt.axis('off')
     N = images.shape[0]
 
     def view_image(i=0):
@@ -561,13 +587,6 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
                 plt.title('Image title: {:}'.format(titles[i]))
             else:
                 plt.title('Stack[{:}]'.format(i))
-
-    if not simple:
-        ax.tick_params(direction='in')
-        if origin == 'lower': 
-            ax.text(y=0,x=0,s='pixels', rotation=-45, va='top', ha='right')
-        elif origin =='upper': 
-            ax.text(y=images[0].shape[0],x=0,s='pixels', rotation=-45, va='top', ha='right')
 
     interact(view_image, i=(0, N-1))
     return 
