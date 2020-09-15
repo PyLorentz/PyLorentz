@@ -130,18 +130,20 @@ class Microscope(object):
         #convert all the properties to pixel values
         lam = self.lam / del_px
         def_val = self.defocus / del_px
-        spread = self.def_spr / del_px
         cs = self.Cs / del_px
         ca = self.Ca / del_px
-        phi = 0
+
+        dy, dx = np.shape(qq)
+        ly = np.arange(dy) - dy//2
+        lx = np.arange(dx) - dx//2
+        lY,lX = np.meshgrid(ly, lx, indexing='ij')
+        phi = np.arctan2(lY,lX)
 
         #compute the required prefactor terms
         p1 = np.pi * lam * (def_val + ca * np.cos(2.0 * (phi - self.phi_a)))
         p2 = np.pi * cs * lam**3 * 0.5
-        p3 = 2.0 * (np.pi * self.theta_c * spread)**2
 
         #compute the phase transfer function
-        u = 1.0 + p3 * qq**2
         chiq = -p1 * qq**2 + p2 * qq**4
         return chiq
 
