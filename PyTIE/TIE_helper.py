@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 import hyperspy.api as hs
+import sys
 from skimage import io
 from scipy.ndimage.filters import median_filter
 from ipywidgets import interact
