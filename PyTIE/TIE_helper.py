@@ -14,6 +14,7 @@ import hyperspy.api as hs
 import sys
 from skimage import io
 from scipy.ndimage.filters import median_filter
+from scipy import ndimage
 from ipywidgets import interact
 import hyperspy # just for checking type in show_stack. 
 from copy import deepcopy
@@ -570,6 +571,11 @@ def show_stack(images, ptie=None, origin='upper', title=False):
         t , b = 0, images[0].shape[0]
         l , r = 0, images[0].shape[1]
     else:
+        if ptie.rotation != 0 or ptie.x_transl != 0 or ptie.y_transl != 0:
+            rotate, x_shift, y_shift = ptie.rotation, ptie.x_transl, ptie.y_transl
+            for i in range(len(images)):
+                images[i] = ndimage.rotate(images[i], rotate, reshape=False)
+                images[i] = ndimage.shift(images[i], (-y_shift, x_shift))
         t = ptie.crop['top']
         b = ptie.crop['bottom']
         l = ptie.crop['left']

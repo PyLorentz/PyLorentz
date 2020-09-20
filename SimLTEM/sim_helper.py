@@ -694,7 +694,7 @@ def rot_thickness_map(thk_map_3D=None, theta_x=None, theta_y=None, zscale=None):
     dim_z, dim_y, dim_x = thk_map_3D.shape 
     # rotate the thickness map around x then y
     # pad first with 0's so edges scale correctly in the rotate function. 
-    thk_map_pad = np.pad(thk_map_3D, 20)    
+    thk_map_pad = np.pad(thk_map_3D, pad_width=20, mode='constant')    
     tilt1 = rotate(thk_map_pad, theta_x, axes=(0,1))
     tilt2 = rotate(tilt1, theta_y, axes=(0,2)).sum(axis=0)
 
