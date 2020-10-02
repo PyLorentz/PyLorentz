@@ -22,6 +22,7 @@ from threading import Thread
 from typing import Any, Dict, List, Optional, Tuple, Union
 import webbrowser
 import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # Third-party imports
 from numpy import setdiff1d
@@ -30,6 +31,7 @@ from matplotlib import colors
 
 # Local imports
 sys_path.append("../PyTIE/")
+
 from align import check_setup, run_bUnwarp_align, run_ls_align, run_single_ls_align
 from gui_layout import window_ly, save_window_ly, output_ly, element_keys
 from gui_styling import WindowStyle, get_icon
@@ -2072,7 +2074,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
         else:
             print(f'{prefix}Fiji path is set, you may now proceed to registration.')
             disable_elements(window, ['__Fiji_Path__', '__Fiji_Set__', '__Fiji_Browse__'])
-            # enable_elements(winfo, window, ['align_tab'])
+            enable_elements(winfo, window, ['align_tab'])
             change_inp_readonly_bg_color(window, ['__Fiji_Path__'], 'Readonly')
     elif event == '__Fiji_Reset__':
         update_values(winfo, window, [('__Fiji_Path__', '')])
