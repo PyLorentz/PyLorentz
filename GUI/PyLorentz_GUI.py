@@ -31,7 +31,7 @@ from matplotlib import colors
 # Local imports
 sys_path.append("../PyTIE/")
 from align import check_setup, run_bUnwarp_align, run_ls_align, run_single_ls_align
-from gui_layout import window_ly, save_window_ly, output_ly, element_keys
+from gui_layout import window_ly, file_choice_ly, save_window_ly, output_ly, element_keys
 from gui_styling import WindowStyle, get_icon
 from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
 from microscopes import Microscope
@@ -1984,25 +1984,36 @@ def ptie_save(winfo: Struct, window: sg.Window, cwd: str, images: Dict,
     if not os_path.exists(f'{cwd}/images'):
         os.mkdir(f'{cwd}/images')
     winfo.rec_tie_prefix = pref
+    if save_tie != 'manual':
+        names = None
+    else:
+        names = filenames
     save_results(winfo.rec_def_val, winfo.rec_tie_results, winfo.rec_ptie,
                  pref, winfo.rec_sym, winfo.rec_qc, save=save_tie, v=2,
-                 directory=im_dir, long_deriv=False)
+                 directory=im_dir, long_deriv=False, filenames=names)
     try:
-        if save_tie in [True, 'b']:
-            arrow_filenames = filenames[-2:]
-            hsv = window['__REC_Colorwheel__'].get() == "HSV"
-            color_float_array = images['color_b'].float_array
-            mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
-            v_num, v_len, v_wid = winfo.rec_past_arrow_transform[:3]
-            graph_size = window['__REC_Graph__'].get_size()
-            for i in range(len(arrow_filenames)):
-                name = arrow_filenames[i]
-                if i == 0:
-                    v_color = True
-                else:
-                    v_color = False
-                util.add_vectors(mag_x, mag_y, color_float_array, v_color, hsv, v_num, v_len,
-                                 v_wid, graph_size, save=name)
+        if save_tie in [True, 'b'] or save_tie == 'manual':
+            if save_tie == 'manual':
+                arrow_filenames = []
+                for name in filenames:
+                    if 'arrow' in name:
+                        arrow_filenames.append(name)
+            else:
+                arrow_filenames = filenames[-2:]
+            if arrow_filenames:
+                hsv = window['__REC_Colorwheel__'].get() == "HSV"
+                color_float_array = images['color_b'].float_array
+                mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
+                v_num, v_len, v_wid = winfo.rec_past_arrow_transform[:3]
+                graph_size = window['__REC_Graph__'].get_size()
+                for i in range(len(arrow_filenames)):
+                    name = arrow_filenames[i]
+                    if i == 0:
+                        v_color = True
+                    else:
+                        v_color = False
+                    util.add_vectors(mag_x, mag_y, color_float_array, v_color, hsv, v_num, v_len,
+                                     v_wid, graph_size, save=name)
     except:
         print('Did not save images correctly')
 
@@ -4065,7 +4076,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             display_img = stack.byte_data[slider_val]
         elif stack_key == 'REC_Stack':
             if window['__REC_Mask__'].metadata['State'] == 'Set':
-                display_img, stack.rgba_data[i] = util.adjust_image(stack.flt_data[slider_val], transform,
+                display_img, stack.rgba_data[slider_val] = util.adjust_image(stack.flt_data[slider_val], transform,
                                                                       stack.x_size, graph.get_size()[0])
             else:
                 display_img = util.convert_to_bytes(stack.rgba_data[slider_val])
@@ -4371,7 +4382,10 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                                                                             orientations=prefix,
                                                                             defocus=winfo.rec_def_val, tfs=tfs)
             pref, save_tie, im_dir = additional_vals
-            save = overwrite_signals[0]
+            if len(overwrite_signals) > 0:
+                save = overwrite_signals[0]
+            else:
+                save = False
             if filenames == 'close' or not filenames or not save or not save_tie:
                 print(f'{prefix}Exited without saving files!\n')
             elif save:
@@ -4616,7 +4630,8 @@ def check_overwrite(winfo: Struct, save_win: sg.Window, true_paths: List[str],
 
 
 def save_window_values(save_win: sg.Window, num_paths: int, event: str,
-                       orientations: List[str], defocus: Optional[str] = None) -> List[str]:
+                       orientations: List[str], defocus: Optional[str] = None, tfs: Optional[str] = None,
+                       true_paths: Optional[List] = None) -> List[str]:
     """Sets ups the save window layout.
 
     Args:
@@ -4629,32 +4644,74 @@ def save_window_values(save_win: sg.Window, num_paths: int, event: str,
             the orientations of the image ('flip',
             'unflip', 'stack', etc.)
         defocus: The defocus value for the image if its REC.
+        tfs: The selected through focal series.
+        true_paths: The true_paths for the files to be saved.
 
     Returns:
         true_paths: The list containing the full path names.
     """
 
     # Comb through all input fields and pull current path name
-    true_paths = []
     if event != '__REC_Save_TIE__':
+        true_paths = []
         for i in range(1, num_paths + 1):
             true_paths.append(save_win[f'__save_win_filename{i}__'].Get())
     elif event == '__REC_Save_TIE__':
         save_choice = save_win['__save_rec_combo__'].Get()
         pref = save_win[f'__save_win_prefix__'].Get()
-        if save_choice == 'Color':
-            stop = 2
-        elif save_choice == 'Full Save':
-            stop = 10
-        elif save_choice == 'Mag. & Color':
-            stop = 4
-        elif save_choice == 'No Save':
-            stop = 0
-        for i in range(stop):
-            true_paths.append(util.join([pref, str(defocus), orientations[i]], '_'))
-        if save_choice in ['Mag. & Color', 'Full Save']:
-            true_paths.append(util.join([pref, str(defocus), orientations[10]], '_'))
-            true_paths.append(util.join([pref, str(defocus), orientations[11]], '_'))
+        if save_choice != '----':
+            true_paths = []
+            if save_choice == 'Color':
+                stop = 2
+            elif save_choice == 'Full Save':
+                stop = 10
+            elif save_choice == 'Mag. & Color':
+                stop = 4
+            elif save_choice == 'No Save':
+                stop = 0
+            elif save_choice == 'Manual':
+                stop = None
+
+            # Batch choose files to save
+            if stop is not None:
+                for i in range(stop):
+                    true_paths.append(util.join([pref, str(defocus), orientations[i]], '_'))
+            # Manually select the files to save and pass the orientations into true pqths
+            else:
+                save_win.Hide()
+                file_choice_layout = file_choice_ly(tfs)
+                file_choice_win = sg.Window('File Choice Window', file_choice_layout, size=(220, 300), element_justification="left",
+                                            finalize=True, icon=get_icon())
+                while True:
+                    ev3, vals3 = file_choice_win.Read(timeout=400)
+                    if ev3 == 'Exit' or ev3 is None or ev3 in ['fc_win_submit', 'fc_win_close']:
+                        file_choices = [0]
+                        if tfs == 'Unflip/Flip':
+                            item_list = ['color_b', 'byt', 'bxt',
+                                         'bbt', 'dIdZ_e', 'dIdZ_m', 'inf_im',
+                                         'phase_e', 'phase_b', 'arrow_colormap',
+                                         'bw_arrow_colormap']
+                        elif tfs == 'Single':
+                            item_list = ['color_b', 'byt', 'bxt',
+                                         'bbt', 'dIdZ_m', 'inf_im',
+                                         'phase_b', 'arrow_colormap',
+                                         'bw_arrow_colormap']
+                        for key in item_list:
+                            if file_choice_win[key].Get():
+                                file_choices.append(item_list.index(key) + 1)
+                        if ev3 == 'fc_win_close' or len(file_choices) == 1:
+                            file_choices = []
+                        file_choice_win.Close()
+                        save_win['__save_rec_combo__'].Update(value='----')
+                        break
+
+                for i in file_choices:
+                    true_paths.append(f"{pref}_{defocus}_{orientations[i]}")
+                save_win.UnHide()
+
+            if save_choice in ['Mag. & Color', 'Full Save']:
+                true_paths.append(util.join([pref, str(defocus), orientations[10]], '_'))
+                true_paths.append(util.join([pref, str(defocus), orientations[11]], '_'))
     return true_paths
 
 
@@ -4697,7 +4754,10 @@ def run_save_window(winfo: Struct, event: str, image_dir: str,
     if winfo.output_window_active:
         winfo.output_window.Disappear()
         winfo.output_window.Hide()
-    true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
+    if event == '__REC_Save_TIE__':
+        true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus, tfs)
+    else:
+        true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
 
     # Run save window event handler
     # Initiate event allows successful creation and reading of window
@@ -4720,11 +4780,14 @@ def run_save_window(winfo: Struct, event: str, image_dir: str,
                 save_tie = 'b'
             elif save_choice == 'No Save':
                 save_tie = False
+            elif save_choice in ['Manual', '----']:
+                save_tie = 'manual'
 
         # Getting full paths to the images and checking if they need to be overwritten
         filenames = []
         if ev2 and ev2 != 'Exit':
-            true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
+            true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus, tfs,
+                                            true_paths)
         if ev2 and 'TIMEOUT' not in ev2:
             overwrite_signals = check_overwrite(winfo, save_win, true_paths, orientations,
                                                 image_dir, im_type, event, tfs)
@@ -4750,7 +4813,7 @@ def run_save_window(winfo: Struct, event: str, image_dir: str,
         if ev2 == 'Initiate':
             ev2 = None
 
-    # Return values beased off saving reconstructed images or not.
+    # Return values based off saving reconstructed images or not.
     if event != '__REC_Save_TIE__':
         return filenames, overwrite_signals, None
     elif event == '__REC_Save_TIE__':
@@ -4829,10 +4892,6 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                     except:
                         print('*** ATTEMPT TO ACCESS ABOUT PAGE FAILED ***')
                         print('*** CHECK INTERNET CONNECTION ***')
-
-                # if event != '__TIMEOUT__':
-                #     print('Event:', event)
-                #     print('True Element:', winfo.true_element)
 
                 # Disable window clicks if creating mask or setting subregion
                 if ((winfo.true_element == '__BUJ_Graph__' and bound_click and

@@ -541,7 +541,8 @@ def symmetrize(image):
     return imi
 
 
-def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = None, long_deriv=False):
+def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=None, long_deriv=False,
+                 filenames=None):
     """Save the contents of results dictionary as 32 bit tiffs.
     
     This function saves the contents of the supplied dictionary (either all or 
@@ -584,7 +585,8 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
             ===  ===============
         directory (str): An override directory name to store the saved files. If 
             None (default), saves to ptie.data_loc/Images/ 
-        long_deriv (bool): Same as qc. Included in text file. 
+        long_deriv (bool): Same as qc. Included in text file.
+        filenames (list[str]): The list of filenames to save. Defaults to None, this is for manual file saving.
 
     Returns: 
         None
@@ -598,7 +600,13 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
         b_keys = ['bxt', 'byt', 'color_b']
     elif save == 'color': 
         b_keys = ['color_b']
-    
+    elif save == 'manual':
+        b_keys = []
+        for key, value in results.items():
+            for name in filenames:
+                if key in name and key not in b_keys:
+                    b_keys.append(key)
+
     res = 1/ptie.scale 
     if not dataname.endswith('_'):
         dataname += '_'
@@ -612,9 +620,9 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory = 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-    for key,value in results.items():
+    for key, value in results.items():
         # save either all or just some of the images
-        if save == 'b' or save == 'color':
+        if save == 'b' or save == 'color' or save == 'manual':
             if key not in b_keys:
                 continue
         if value is None: 
