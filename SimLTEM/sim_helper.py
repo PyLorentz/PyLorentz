@@ -34,7 +34,7 @@ import io
 from TIE_reconstruct import TIE
 import skimage.external.tifffile as tifffile
 from TIE_params import TIE_params
-from TIE_helper import dist
+from TIE_helper import dist, show_im
 from scipy.ndimage import rotate, gaussian_filter
 
 
@@ -590,6 +590,7 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
 
     else:
         thk_map_3D = None
+        thickness_nm = zscale*zsize
 
     if theta_x == 0 and theta_y == 0 and method.lower() == 'mans': 
         vprint('Calculating phase shift with Mansuripur algorithm. ')
@@ -619,8 +620,12 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     # adjust thickness to account for rotation for sample, not taken care of 
     # natively when simming the images like it is for phase computation. 
     if thk_map_3D is not None:
-        thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, -1*theta_x,
-                                                theta_y, zscale)
+        if np.max(thk_map_3D) != np.min(thk_map_3D):
+            thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, -1*theta_x,
+                                                    theta_y, zscale)
+        else: #it's a uniform thickness map, to avoid the edge effects set to none. 
+            thk_map_tilt = None
+            isl_thk_tilt = thickness_nm
     else:
         thk_map_tilt = None
         isl_thk_tilt = thickness_nm
@@ -662,7 +667,7 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     return results 
 
 
-def rot_thickness_map(thk_map_3D=None, theta_x=None, theta_y=None, zscale=None):
+def rot_thickness_map(thk_map_3D=None, theta_x=0, theta_y=0, zscale=None):
     """Tilt a thickness map around the x and y axis.
 
     While the phase calculation takes care of tilting the sample in the algorithm,
@@ -789,8 +794,6 @@ def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
     mag_z[zinds] = bmax/1e5
     mag_x[zinds] = bmax/1e5
     mag_y[zinds] = bmax/1e5
-
-    # show_im(np.where(np.abs(mag_x)=0.01, 0, 1)[0])
 
     U = mag_x.reshape((dimz,dimy,dimx))
     V = mag_y.reshape((dimz,dimy,dimx))
