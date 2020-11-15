@@ -680,7 +680,7 @@ def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=Fa
             plt.axis('off')
 
     ashift = (dimx-1)%a//2
-    q = ax.quiver(X[::a]+ashift, Y[::a]+ashift, U[::a,+ashift ::a]+ashift, V[::a,+ashift ::a]+ashift,
+    q = ax.quiver(X[ashift::a], Y[ashift::a], U[ashift::a,ashift::a], V[ashift::a,ashift::a],
                   units='xy',
                   scale=l,
                   scale_units='xy',
