@@ -679,7 +679,8 @@ def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=Fa
             im = ax.matshow(white_array, cmap='gray', origin=origin, aspect='equal')
             plt.axis('off')
 
-    q = ax.quiver(X[::a], Y[::a], U[::a, ::a], V[::a, ::a],
+    ashift = (dimx-1)%a//2
+    q = ax.quiver(X[::a]+ashift, Y[::a]+ashift, U[::a,+ashift ::a]+ashift, V[::a,+ashift ::a]+ashift,
                   units='xy',
                   scale=l,
                   scale_units='xy',
@@ -721,4 +722,4 @@ def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=Fa
     if GUI_handle:
         return fig, ax
     else:
-        return
+        return 
