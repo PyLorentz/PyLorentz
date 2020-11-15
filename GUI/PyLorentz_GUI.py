@@ -4059,7 +4059,9 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 print('current stack.')
         else:
             print(f'{prefix}There was an incompatibility between the fls contents and the', end=' ')
-            print('files within the directories.')
+            print('files within the directories. Check to make sure the folder you loaded', end=' ')
+            print('the image stack from is the set working directory.', end=' ')
+
 
     # Change the slider
     elif event == '__REC_Slider__':
@@ -4602,8 +4604,6 @@ def check_overwrite(winfo: Struct, save_win: sg.Window, true_paths: List[str],
         elif event == '__REC_Save_TIE__':
             if tfs != 'Single' or (tfs == 'Single' and 'phase_e' not in true_paths[i] and
                                    'dIdZ_e' not in true_paths[i]):
-                # index = true_paths[i].rfind('/')
-                # insertion = true_paths[i][index+1:]
                 if exists and not overwrite_box:
                     rec_tie_dont_overwrite_state = True
                     save_enable = False
@@ -4686,19 +4686,14 @@ def save_window_values(save_win: sg.Window, num_paths: int, event: str,
                     ev3, vals3 = file_choice_win.Read(timeout=400)
                     if ev3 == 'Exit' or ev3 is None or ev3 in ['fc_win_submit', 'fc_win_close']:
                         file_choices = [0]
-                        if tfs == 'Unflip/Flip':
-                            item_list = ['color_b', 'byt', 'bxt',
-                                         'bbt', 'dIdZ_e', 'dIdZ_m', 'inf_im',
-                                         'phase_e', 'phase_b', 'arrow_colormap',
-                                         'bw_arrow_colormap']
-                        elif tfs == 'Single':
-                            item_list = ['color_b', 'byt', 'bxt',
-                                         'bbt', 'dIdZ_m', 'inf_im',
-                                         'phase_b', 'arrow_colormap',
-                                         'bw_arrow_colormap']
+                        item_list = ['color_b', 'byt', 'bxt',
+                                     'bbt', 'dIdZ_e', 'dIdZ_m', 'inf_im',
+                                     'phase_e', 'phase_b', 'arrow_colormap',
+                                     'bw_arrow_colormap']
                         for key in item_list:
-                            if file_choice_win[key].Get():
-                                file_choices.append(item_list.index(key) + 1)
+                            if tfs == 'Unflip/Flip' or (tfs == 'Single' and 'phase_e' not in key and 'dIdZ_e' not in key):
+                                if file_choice_win[key].Get():
+                                    file_choices.append(item_list.index(key) + 1)
                         if ev3 == 'fc_win_close' or len(file_choices) == 1:
                             file_choices = []
                         file_choice_win.Close()
