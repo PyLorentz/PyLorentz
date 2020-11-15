@@ -1056,7 +1056,7 @@ def save_window_ly(event: str, image_dir: str,
             col1 += [[sg.Text(f'prefix:', pad=((89, 0), (10, 0))),
                       sg.Input(f'{tie_prefix}', key=f'__save_win_prefix__', size=(30, 1), enable_events=True,
                                pad=((0, 0), (10, 0))),
-                      sg.Combo(['Color', 'Full Save', 'Mag. & Color', 'No Save'], key='__save_rec_combo__',
+                      sg.Combo(['Manual', 'Color', 'Full Save', 'Mag. & Color', 'No Save', '----'], key='__save_rec_combo__',
                                 enable_events=True, size=(12, 1), default_value='Color',
                                 readonly=True, pad=((20, 0), (10, 0)))]]
             inputs.extend(['__save_win_prefix__'])
@@ -1069,6 +1069,34 @@ def save_window_ly(event: str, image_dir: str,
                            pad=((x_pad, 0), (0, 15)))]]
     layout = [[sg.Col(col1), sg.Col(col2)]]
     return layout, im_type, file_paths, orientations, inputs
+
+
+def file_choice_ly(tfs: str) -> List[List[Any]]:
+    """Creates the file choice window for saving reconstructed windows.
+
+    Args:
+        tfs: The type of through focal series (Single or Unflip/FLip)
+
+    Returns:
+        window: The layout for the file choice window."""
+
+    if tfs == 'Unflip/Flip':
+        orientations = ['color_b', 'byt', 'bxt',
+                        'bbt', 'dIdZ_e', 'dIdZ_m', 'inf_im',
+                        'phase_e', 'phase_b', 'arrow_colormap',
+                        'bw_arrow_colormap']
+    elif tfs == 'Single':
+        orientations = ['color_b', 'byt', 'bxt',
+                        'bbt', 'dIdZ_m', 'inf_im',
+                        'phase_b', 'arrow_colormap',
+                        'bw_arrow_colormap']
+    file_choice_window = []
+    for orientation in orientations:
+        file_choice_window.append([sg.Checkbox(orientation, key=orientation)])
+
+    file_choice_window.append([sg.Button('Submit', key='fc_win_submit', pad=(20, 10), enable_events=True),
+                               sg.Button('Close', key='fc_win_close', pad=(5, 10), enable_events=True)])
+    return file_choice_window
 
 
 def output_ly() -> Window:

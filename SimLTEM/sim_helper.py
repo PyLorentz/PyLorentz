@@ -44,7 +44,7 @@ from scipy.ndimage import rotate, gaussian_filter
 
 def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1, 
     def_val=0, add_random=False, save_path=None, save_name=None,
-    isl_thk=20, isl_xip0=50, mem_thk=50, mem_xip0=1000, v=1, filter=True):
+    isl_thk=20, isl_xip0=50, mem_thk=50, mem_xip0=1000, v=1, Filter=True):
     """Simulate LTEM images for a given electron phase shift through a sample. 
 
     This function returns LTEM images simulated for in-focus and at +/- def_val 
@@ -90,7 +90,7 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
         mem_thk (float): Support membrane thickness (nm). Default 50 (nm). 
         mem_xip0 (float): Support membrane extinction distance (nm). Default 
             1000 (nm). 
-        filter (Bool): Apply a light gaussian filter to ephi and isl_shape. 
+        Filter (Bool): Apply a light gaussian filter to ephi and isl_shape. 
 
     Returns: 
         tuple: (Tphi, im_un, im_in, im_ov)
@@ -103,7 +103,7 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
     """
     vprint = print if v>=1 else lambda *a, **k: None
     
-    if filter:
+    if Filter:
         ephi = gaussian_filter(ephi, sigma=1)
 
     Tphi = mphi + ephi
@@ -135,7 +135,7 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
                 Mask given must be 2D (y,x) or 3D (z,y,x) array. 
                 It was given as a {isl_shape.ndim} dimension array."""))
             sys.exit(1)
-        if filter:
+        if Filter:
             thk_map = gaussian_filter(thk_map, sigma=1)
 
     Amp = np.exp((-np.ones([dy,dx]) * mem_thk / mem_xip0) - (thk_map / isl_xip0))
@@ -623,7 +623,8 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
         if np.max(thk_map_3D) != np.min(thk_map_3D):
             thk_map_tilt, isl_thk_tilt = rot_thickness_map(thk_map_3D, -1*theta_x,
                                                     theta_y, zscale)
-        else: #it's a uniform thickness map, to avoid the edge effects set to none. 
+        else: #it's a uniform thickness map, assuming infinitely large to avoid 
+              # the edge effects, setting to none. 
             thk_map_tilt = None
             isl_thk_tilt = thickness_nm
     else:
