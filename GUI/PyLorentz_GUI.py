@@ -3845,7 +3845,10 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     try:
         change_img = winfo.rec_last_image_choice != image_list[0]
     except:
-        change_img = False
+        list_values = window['__REC_Image_List__'].GetListValues()
+        last_index = list_values.index(winfo.rec_last_image_choice)
+        window['__REC_Image_List__'].update(set_to_index=last_index)
+        change_img = True
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
               and (window['__REC_Image_List__'].get()[0] in ['Stack', 'Loaded Stack'] or
