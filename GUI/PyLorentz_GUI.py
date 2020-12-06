@@ -1908,8 +1908,8 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
             winfo.rec_sym = sym
             winfo.rec_qc = qc
 
-            loaded_green_list = []
             # Load the color image immediately after reconstruction
+            loaded_green_list = []
             for key in results:
                 float_array = results[key]
                 if key == 'color_b':
@@ -3841,7 +3841,11 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     # Import event handler names (overlaying, etc.)
     adjust = mask_button.metadata['State'] == 'Set' and (winfo.rec_past_transform != transform or
                                                          winfo.rec_past_mask != mask_transform)
-    change_img = winfo.rec_last_image_choice != window['__REC_Image_List__'].get()[0]
+    image_list = window['__REC_Image_List__'].get()
+    try:
+        change_img = winfo.rec_last_image_choice != image_list[0]
+    except:
+        change_img = False
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
               and (window['__REC_Image_List__'].get()[0] in ['Stack', 'Loaded Stack'] or
@@ -4063,7 +4067,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             print(f'{prefix}There was an incompatibility between the fls contents and the', end=' ')
             print('files within the directories. Check to make sure the folder you loaded', end=' ')
             print('the image stack from is the set working directory.', end=' ')
-
 
     # Change the slider
     elif event == '__REC_Slider__':
