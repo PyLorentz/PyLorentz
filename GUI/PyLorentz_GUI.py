@@ -22,6 +22,7 @@ from threading import Thread
 from typing import Any, Dict, List, Optional, Tuple, Union
 import webbrowser
 import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # Third-party imports
 from numpy import setdiff1d
@@ -30,6 +31,7 @@ from matplotlib import colors
 
 # Local imports
 sys_path.append("../PyTIE/")
+
 from align import check_setup, run_bUnwarp_align, run_ls_align, run_single_ls_align
 from gui_layout import window_ly, file_choice_ly, save_window_ly, output_ly, element_keys
 from gui_styling import WindowStyle, get_icon
@@ -1906,8 +1908,8 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
             winfo.rec_sym = sym
             winfo.rec_qc = qc
 
-            loaded_green_list = []
             # Load the color image immediately after reconstruction
+            loaded_green_list = []
             for key in results:
                 float_array = results[key]
                 if key == 'color_b':
@@ -2083,7 +2085,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
         else:
             print(f'{prefix}Fiji path is set, you may now proceed to registration.')
             disable_elements(window, ['__Fiji_Path__', '__Fiji_Set__', '__Fiji_Browse__'])
-            # enable_elements(winfo, window, ['align_tab'])
+            enable_elements(winfo, window, ['align_tab'])
             change_inp_readonly_bg_color(window, ['__Fiji_Path__'], 'Readonly')
     elif event == '__Fiji_Reset__':
         update_values(winfo, window, [('__Fiji_Path__', '')])
@@ -3839,7 +3841,14 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
     # Import event handler names (overlaying, etc.)
     adjust = mask_button.metadata['State'] == 'Set' and (winfo.rec_past_transform != transform or
                                                          winfo.rec_past_mask != mask_transform)
-    change_img = winfo.rec_last_image_choice != window['__REC_Image_List__'].get()[0]
+    image_list = window['__REC_Image_List__'].get()
+    try:
+        change_img = winfo.rec_last_image_choice != image_list[0]
+    except:
+        list_values = window['__REC_Image_List__'].GetListValues()
+        last_index = list_values.index(winfo.rec_last_image_choice)
+        window['__REC_Image_List__'].update(set_to_index=last_index)
+        change_img = True
     change_colorwheel = winfo.rec_last_colorwheel_choice != colorwheel_choice
     scroll = (event in ['MouseWheel:Up', 'MouseWheel:Down']
               and (window['__REC_Image_List__'].get()[0] in ['Stack', 'Loaded Stack'] or
@@ -4061,7 +4070,6 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             print(f'{prefix}There was an incompatibility between the fls contents and the', end=' ')
             print('files within the directories. Check to make sure the folder you loaded', end=' ')
             print('the image stack from is the set working directory.', end=' ')
-
 
     # Change the slider
     elif event == '__REC_Slider__':

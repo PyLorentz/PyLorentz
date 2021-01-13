@@ -679,6 +679,53 @@ def apply_crop_to_stack(coords: Tuple[int, int, int, int], graph_size: Tuple[int
 
 
 # ============================================================= #
+#                   Run Fiji from Command Line                  #
+# ============================================================= #
+def run_macro(ijm_macro_script: str, key: str,
+              image_dir: str, fiji_path: str) -> str:
+    """Run Fiji macros.
+    This script generates the command to run the Fiji macro from
+    the subprocess command.
+    Args:
+        ijm_macro_script: String of the full Fiji macro (.ijm) to run.
+        key: The key of the button element that was clicked for running.
+        image_dir: The path to the image direcotry.
+        fiji_path: The path to Fiji.
+    Returns:
+        cmd: The subprocess command to run as a string.
+    """
+
+    # Check Fiji path
+    if platform.startswith('win'):
+        add_on = "/ImageJ-win64"
+    elif platform.startswith('darwin'):
+        add_on = "/Contents/MacOS/ImageJ-macosx"
+    elif platform.startswith('linux'):
+        add_on = "/ImageJ-linux64"
+    fiji_path = fiji_path + add_on
+
+    if key == '__LS_Run_Align__':
+        align_type = 'LS'
+    elif key == "__BUJ_Elastic_Align__":
+        align_type = 'BUJ'
+    elif key == "__BUJ_Unflip_Align__":
+        align_type = 'BUJ_unflip_LS'
+    elif key == "__BUJ_Flip_Align__":
+        align_type = 'BUJ_flip_LS'
+
+    macro_file = f'{image_dir}/macros/{align_type}_macro.ijm'
+    if not os.path.exists(f'{image_dir}/macros'):
+        os.mkdir(f'{image_dir}/macros')
+
+    with open(macro_file, 'w') as f:
+        f.write(ijm_macro_script)
+        f.close()
+
+    cmd = join([fiji_path, "--ij2", "--headless", "--console", "-macro ", macro_file], " ")
+    return cmd
+
+
+# ============================================================= #
 #                 Mask Interaction on GUI Graph                 #
 # ============================================================= #
 def draw_mask_points(winfo: Struct, graph: sg.Graph,
