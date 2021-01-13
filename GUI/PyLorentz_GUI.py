@@ -54,10 +54,11 @@ def defaults() -> Dict[str, str]:
     Returns:
         DEFAULTS: Dictionary of the FIJI and working directory paths.
     """
-    GUI_dir = os_path.dirname(__file__)
+    GUI_dir = os.path.dirname(os.path.abspath(__file__))
     default_txt = f'{GUI_dir}/defaults.txt'
     DEFAULTS = {'fiji_dir': '',
                 'browser_dir': ''}
+    print(GUI_dir)
     if not os_path.exists(default_txt):
         with open(default_txt, 'w+') as f:
             f.write('// File contains the default paths to FIJI and the browser working directory for GUI.\n')
@@ -934,18 +935,18 @@ def file_loading(winfo: Struct, window: sg.Window, filename: str, active_key: st
         window: The element representing the main GUI window.
         filename: The name of the file being loaded.
         active_key: The key of the element that is active process.
-        image_key: The key of the image in the image dictionary file should be 
+        image_key: The key of the image in the image dictionary file should be
             loaded to.
         target_key: The target key that should be updated when image is loaded.
-        conflict_keys: All the keys that should be disabled if they are in 
+        conflict_keys: All the keys that should be disabled if they are in
             conflict with the active key.
         num_files: The number of files that should be loaded, 1 if not stack.
-        disable_elem_list: The list of elements to disable based off active key 
+        disable_elem_list: The list of elements to disable based off active key
             or next active keys.
 
     Returns:
         remove: Boolean value if active key should be removed
-        disable_elem_list: The list of elements to disable based off active key 
+        disable_elem_list: The list of elements to disable based off active key
         or next active keys.
     """
 
@@ -2043,7 +2044,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
 
     prefix = 'HOM: '
     # Get directories for Fiji and image directory
-    python_dir = os_path.dirname(__file__)
+    python_dir = os.path.dirname(os.path.abspath(__file__))
     default_txt = f'{python_dir}/defaults.txt'
     with open(default_txt, 'r') as f:
         lines = f.readlines()
@@ -2094,7 +2095,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
         disable_elements(window, ['align_tab'])
         change_inp_readonly_bg_color(window, ['__Fiji_Path__'], 'Default')
     elif event in ['__Browser_Set__', '__Fiji_Def_Set__']:
-        python_dir = os_path.dirname(__file__)
+        python_dir = os.path.dirname(os.path.abspath(__file__))
         default_txt = f'{python_dir}/defaults.txt'
         with open(default_txt, 'r') as f:
             lines = f.readlines()
@@ -2126,7 +2127,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
                 elif line.startswith('//'):
                     fnew.write(line)
     elif event in ['__Browser_Reset__', '__Fiji_Def_Reset__']:
-        python_dir = os_path.dirname(__file__)
+        python_dir = os.path.dirname(os.path.abspath(__file__))
         default_txt = f'{python_dir}/defaults.txt'
         with open(default_txt, 'r') as f:
             lines = f.readlines()
