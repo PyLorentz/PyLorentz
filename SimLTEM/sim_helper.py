@@ -180,7 +180,7 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
 
 
 def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, del_px=1, isl_shape=None,
-    pscope=None, b0=1e4, isl_thk=20, isl_V0=20, mem_thk=50, mem_V0=10):
+    pscope=None, b0=1e4, isl_thk=20, isl_V0=20, mem_thk=50, mem_V0=10, add_random=None):
     """Calculates the electron phase shift through a given 2D magnetization. 
     
     This function was originally created for simulating LTEM images of magnetic
@@ -212,6 +212,10 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, del_px=1, isl_shap
         isl_V0 (float): Island mean inner potential (V). Default 20. 
         mem_thk (float): Support membrane thickness (nm). Default 50. 
         mem_V0 (float): Support membrane mean inner potential (V). Default 10. 
+        add_random (float): Account for the random phase shift of the amorphous
+            membrane. Phase shift will scale with mem_V0 and mem_thk, but the 
+            initial factor has to be set by hand. True -> 1/32, which is 
+            a starting place that works well for some images. 
         
     Returns: 
         tuple: (ephi, mphi)
@@ -258,7 +262,17 @@ def std_mansPhi(mag_x=None, mag_y=None, mag_z=None, zscale=1, del_px=1, isl_shap
                 It was given as a {isl_shape.ndim} dimension array."""))
             sys.exit(1)
 
-    ephi = pscope.sigma * (thk_map * isl_V0 + np.ones(mag_x.shape) * mem_thk * mem_V0)
+    if add_random is None: 
+        ephi = pscope.sigma * (thk_map * isl_V0 + np.ones(mag_x.shape) * mem_thk * mem_V0)
+    else:
+        if type(add_random) == bool:
+            add_random = 1/64
+        ran_phi = np.random.uniform(low= -np.pi, 
+                                    high = np.pi, 
+                                    size=mag_x.shape) * add_random
+        ephi = pscope.sigma * (thk_map * isl_V0 + 
+            ran_phi*np.ones(mag_x.shape)*mem_thk*mem_V0)
+
     ephi -= np.sum(ephi)/np.size(ephi)
     return (ephi, mphi)
 

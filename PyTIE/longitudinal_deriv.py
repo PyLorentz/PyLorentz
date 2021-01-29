@@ -16,6 +16,9 @@ Author: Arthur McCray, ANL, May 2020.
 import numpy as np
 import time
 
+from TIE_helper import show_im
+import matplotlib.pyplot as plt
+
 def polyfit_deriv(stack, defvals, v=1):
     """
     Calculates a longitudinal derivative of intensity values taken at different
@@ -37,7 +40,7 @@ def polyfit_deriv(stack, defvals, v=1):
     vprint = print if v>=1 else lambda *a, **k: None
     stack = np.array(stack)
     dim_y, dim_x = np.shape(stack[0])
-    derivatives = np.zeros(np.shape(stack[0]))
+    derivatives = np.zeros((dim_y, dim_x))
     starttime = time.time()
     vprint('00.00%')
     for i in range(dim_y):
@@ -45,7 +48,8 @@ def polyfit_deriv(stack, defvals, v=1):
             vprint('{:.2f}%'.format(i/dim_y*100))
             starttime = time.time()
         
-        unf_d = P.polyfit(defvals,stack[:,i],2)
-        derivatives[i] = unf_d[1]
+        unf_d = np.polyfit(defvals,stack[:,i],1)
+        derivatives[i] = unf_d[0]
+        
     vprint('100.0%')
     return derivatives
