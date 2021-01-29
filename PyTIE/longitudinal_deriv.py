@@ -1,11 +1,5 @@
 """Generate longitudinal derivatives through stack of intensity values. 
 
-`This has bugs!`  
-Using a longitudinal derivative instead of 3-point will, for some experimental
-datasets, give a reconstructed phase shift that is an order of magnitude 
-different. This does not seem to be the case for simulated datasets. 
-Additionally, using this derivative can affect ideal Tikhonov filter values. 
-
 This file contains routines for generating the longitudinal derivative through 
 a stack of images by fitting a quadratic polynomial to the intensity values for 
 each (y,x) pixel. 
@@ -15,9 +9,6 @@ Author: Arthur McCray, ANL, May 2020.
 
 import numpy as np
 import time
-
-from TIE_helper import show_im
-import matplotlib.pyplot as plt
 
 def polyfit_deriv(stack, defvals, v=1):
     """
@@ -48,8 +39,8 @@ def polyfit_deriv(stack, defvals, v=1):
             vprint('{:.2f}%'.format(i/dim_y*100))
             starttime = time.time()
         
-        unf_d = np.polyfit(defvals,stack[:,i],1)
-        derivatives[i] = unf_d[0]
-        
+        unf_d = np.polyfit(defvals,stack[:,i],2)
+        derivatives[i] = unf_d[1]
+
     vprint('100.0%')
     return derivatives
