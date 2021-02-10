@@ -9,6 +9,7 @@ Timothy Cote, ANL, Fall 2019.
 
 # Standard Library Imports
 from io import BytesIO
+import dask.array as da
 import os
 from warnings import catch_warnings, simplefilter
 with catch_warnings() as w:
@@ -297,6 +298,7 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
         img = hs.load(img_path)
         img_data = img.data
         shape = img_data.shape
+
         # Differetiate between loading of stack and single image, raise an exception if
         # loading a single image for a stack.
         if stack and len(shape) > 1:
@@ -321,9 +323,12 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
     except (IndexError, TypeError, NameError):
         print(f'{prefix}Error. You may have tried loading a file that is not recognized. Try a different file type',
               end='')
+
         return None, None, None
     # If any other exception just return Nones
+    # Usually file might be too big
     except:
+        print(f'{prefix}Error. File might be too big. Usually has to be <= 2GB', end='')
         return None, None, None
 
 

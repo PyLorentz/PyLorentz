@@ -97,7 +97,7 @@ class WindowStyle(object):
 
         python_dir = os.path.dirname(__file__)
         spinner_gif = f'{python_dir}/spinner.gif'
-        background_img =  f'{python_dir}/background.png'
+        background_img =  f'{python_dir}/background.gif'
         theme_background = self.DEF_BACKGROUND
         B_f = self.fonts['body']
 
@@ -241,8 +241,7 @@ class WindowStyle(object):
                            disabled_readonly_background_color='#A7A7A7',
                            metadata={'Set': 'None', 'Def': 'None', 'State': 'Def'})
             elif key == '__LS_Image1__':
-                default_text = 'None'
-                val.update(default_text=default_text, pad=pad(0, 0, 0, 0), enable_events=True,
+                val.update(default_text='None', pad=pad(0, 0, 0, 0), enable_events=True,
                            size=(30, 1), background_color=self.DEF_BACKGROUND,
                            metadata={'Set': 'None', 'Def': 'None',
                                      'State': 'Def'})

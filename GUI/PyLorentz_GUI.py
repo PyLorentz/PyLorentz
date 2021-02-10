@@ -58,13 +58,19 @@ def defaults() -> Dict[str, str]:
     default_txt = f'{GUI_dir}/defaults.txt'
     DEFAULTS = {'fiji_dir': '',
                 'browser_dir': ''}
-    print(GUI_dir)
     if not os_path.exists(default_txt):
         with open(default_txt, 'w+') as f:
             f.write('// File contains the default paths to FIJI and the browser working directory for GUI.\n')
             f.write('FIJI Directory,\n')
             f.write('Browser Directory,\n')
     else:
+        try:
+            new_mode = os.stat(my_file).st_mode | 0o777
+            print('hi')
+            os.chmod(default_txt, new_mode)
+        except:
+            pass
+
         with open(default_txt, 'r') as f:
             for line in f.readlines():
                 if not line.startswith('//'):
@@ -384,7 +390,7 @@ def reset(winfo: Struct, window: sg.Window, current_tab: str) -> None:
                                '__BUJ_Flip_Stack_Inp__', '__BUJ_Unflip_Stack_Inp__',
                                '__BUJ_Unflip_Mask_Inp__', '__BUJ_Flip_Mask_Inp__',
                                '__BUJ_Set_Img_Dir__'], state='Def')
-        change_inp_readonly_bg_color(window, ['__BUJ_FLS1__', '__BUJ_FLS2__'
+        change_inp_readonly_bg_color(window, ['__BUJ_FLS1__', '__BUJ_FLS2__',
                                               '__BUJ_Unflip_Mask_Inp__', '__BUJ_Flip_Mask_Inp__'], 'Readonly')
         window['__BUJ_Image_Choice__'].update(set_to_index=0)
         update_values(winfo, window, [('__BUJ_Image_Dir_Path__', ""),
@@ -2045,6 +2051,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
     prefix = 'HOM: '
     # Get directories for Fiji and image directory
     python_dir = os.path.dirname(os.path.abspath(__file__))
+    # chmod
     default_txt = f'{python_dir}/defaults.txt'
     with open(default_txt, 'r') as f:
         lines = f.readlines()
@@ -2109,6 +2116,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
                         if os_path.exists(filename) and 'Fiji' in filename:
                             fnew.write(f'FIJI Directory,{filename}\n')
                             print(f'{prefix}Fiji default was set.')
+                            window['__Fiji_Browse__'].InitialFolder = filename
                         else:
                             fnew.write(line)
                             print(f'{prefix}Incorrect Fiji was chosen, try again.')
@@ -2119,6 +2127,9 @@ def run_home_tab(winfo: Struct, window: sg.Window,
                         if os_path.exists(filename):
                             fnew.write(f'Browser Directory,{filename}\n')
                             print(f'{prefix}Browser working directory default was set.')
+                            window['__LS_Image_Dir_Browse__'].InitialFolder = filename
+                            window['__BUJ_Image_Dir_Browse__'].InitialFolder = filename
+                            window['__REC_Image_Dir_Browse__'].InitialFolder = filename
                         else:
                             fnew.write(line)
                             print(f'{prefix}Directory does not exist, try again.')
@@ -2140,11 +2151,15 @@ def run_home_tab(winfo: Struct, window: sg.Window,
                     enable_elements(winfo, window, ['__Fiji_Path__', '__Fiji_Set__', '__Fiji_Browse__'])
                     disable_elements(window, ['align_tab'])
                     change_inp_readonly_bg_color(window, ['__Fiji_Path__'], 'Default')
+                    window['__Fiji_Browse__'].InitialFolder = ''
                     print(f'{prefix}Fiji default was reset.')
                 elif line.startswith('Browser Directory') and event == '__Browser_Reset__':
                     update_values(winfo, window, [('__Browser_Path__', '')])
                     fnew.write('Browser Directory, \n')
                     print(f'{prefix}Browser working directory default was reset.')
+                    window['__LS_Image_Dir_Browse__'].InitialFolder = ''
+                    window['__BUJ_Image_Dir_Browse__'].InitialFolder = ''
+                    window['__REC_Image_Dir_Browse__'].InitialFolder = ''
                 else:
                     fnew.write(line)
 
@@ -2528,7 +2543,7 @@ def run_ls_tab(winfo: Struct, window: sg.Window, current_tab: str,
                                                               sift_params, transform_params, filename,
                                                               tfs_value=tfs_value, fls_value=fls_value,
                                                               fls_files=fls_file_names)
-                        # cmd = util.run_macro(ijm_macro_script, event, image_dir, winfo.fiji_path)
+                        cmd = util.run_macro(ijm_macro_script, event, image_dir, winfo.fiji_path)
 
                         # Remove any current loaded files for this stack
                         metadata_change(winfo, window, ['__LS_Stack__'], reset=True)
@@ -3090,7 +3105,7 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                         # Execute fiji macro
                         fls_file_names = [winfo.buj_fls_files[0].path, winfo.buj_fls_files[1].path]
                         ijm_macro_script = run_single_ls_align(image_dir, orient, sift_params, filename, fls_file_names)
-                        # cmd = util.run_macro(ijm_macro_script, event, image_dir, winfo.fiji_path)
+                        cmd = util.run_macro(ijm_macro_script, event, image_dir, winfo.fiji_path)
 
                         # Load file
                         if event == '__BUJ_Unflip_Align__':
@@ -3414,6 +3429,7 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                                 image2 = util.FileImage(None, None, None, filenames[1])
                                 images['BUJ_flip_mask'] = image1
                                 images['BUJ_unflip_mask'] = image2
+
                                 metadata_change(winfo, window, [('__BUJ_Unflip_Mask_Inp__', image2.shortname)])
                                 metadata_change(winfo, window, [('__BUJ_Flip_Mask_Inp__', image1.shortname)])
                                 toggle(winfo, window, ['__BUJ_Flip_Mask_Inp__',
@@ -3555,7 +3571,7 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
             mask_files = [None, None]
             if 'BUJ_unflip_mask' in images:
                 mask_files[0] = images['BUJ_unflip_mask'].path
-            elif 'BUJ_flip_mask' in images:
+            if 'BUJ_flip_mask' in images:
                 mask_files[1] = images['BUJ_flip_mask'].path
 
             im_size = images['BUJ_flip_stack'].lat_dims
@@ -3591,7 +3607,7 @@ def run_bunwarpj_tab(winfo: Struct, window: sg.Window,
                                                         stackpaths, sift_FE_params=sift_params,
                                                         buj_params=buj_params, savenames=(src1, src2),
                                                         fls_files=fls_file_names)
-                        # cmd = util.run_macro(macro, event, image_dir, winfo.fiji_path)
+                        cmd = util.run_macro(macro, event, image_dir, winfo.fiji_path)
 
                         # Load the stack when ready
                         target_key = '__BUJ_Stack__'

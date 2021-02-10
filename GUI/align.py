@@ -209,11 +209,13 @@ def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
     for file in flatten_order_list(files1):
         full_path = join([path1, file], '/')
         if not path.exists(full_path):
+            print(full_path, " doesn't exist!")
             return
     if files2:
         for file in flatten_order_list(files2):
             full_path = join([path2, file], '/')
             if not path.exists(full_path):
+                print(full_path, " doesn't exist!")
                 return
     return files1, files2
 
@@ -257,6 +259,7 @@ def check_setup(datafolder: str, tfs_value: str,
     # Grab the files that exist in the flip and unflip dirs.
     file_result = read_fls(path1, path2, fls_files,
                            tfs_value, fls_value, check_sift=False)
+
     vals = (False, None, None, None, None)
     if isinstance(file_result, tuple):
         files1, files2 = file_result
@@ -268,9 +271,9 @@ def check_setup(datafolder: str, tfs_value: str,
     # Prints if task failed
     else:
         print(f'{prefix}Task failed because the number of files extracted from the directory', end=' ')
-        print(f'{prefix}does not match the number of files expected from the .fls file.')
+        print(f'does not match the number of files expected from the .fls file.')
         print(f'{prefix}Check that filenames in the flip or unflip', end=' ')
-        print(f'{prefix}path match and all files exist in the right directories.')
+        print(f'path match and all files exist in the right directories.')
     return vals
 
 
@@ -345,6 +348,7 @@ def get_shift_rot_macro(transformation: Tuple[float, float, float, bool],
                              run("Rotate... ", "angle={-rot} grid=1 interpolation=Bilinear{run_stack}");
                           '''
     if x_shift != 0 or y_shift != 0:
+        y_shift = -y_shift
         apply_translation = f'''
                                 run("Translate...", "x={x_shift} y={y_shift} interpolation=None{run_stack}");
                              '''
@@ -892,6 +896,7 @@ def bUnwarp_align(src_img: str, target_img: str, mask_fn: List[Optional[str]],
     src_mask, tgt_mask = "", ""
     mask_macro = ""
     open_blank_mask = False
+
     for i in range(len(mask_fn)):
         if mask_fn[i]:
             if i == 0:
