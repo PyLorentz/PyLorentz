@@ -62,8 +62,6 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         hsv (bool): Whether to use the hsv colorwheel (True) or the 4-fold colorwheel (False).
         long_deriv (bool): Whether to use the longitudinal derivative (True) or
             central difference method (False). Default False. 
-            `Currently has bugs`. Qualitatively looks alright but quantitatively
-            is not accurate. 
         v (int): (`optional`) Verbosity. 
 
             ===  ========
@@ -164,8 +162,6 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
 
     # Normalizing, scaling the images 
     scaled_tifs = scale_stack(tifs)
-    # very small offset from 0, affects uniform magnetizations
-    # but can be compensated for (if 0) by symmetrizing the image.
     scaled_tifs += 1e-9 
 
     # get the infocus image
@@ -191,9 +187,12 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         print()
 
     # Calculate derivatives
-    if long_deriv: # Not always quantitative. Has bugs. 
+    if long_deriv: 
+        # have to renormalize each stack
         unflip_stack = tifs[:ptie.num_files]
+        unflip_stack = scale_stack(unflip_stack) + 1e-9
         flip_stack = tifs[ptie.num_files:]
+        flip_stack = scale_stack(flip_stack) + 1e-9
         vprint('Computing the longitudinal derivative.')
         unflip_deriv = polyfit_deriv(unflip_stack, defval, v)
         if ptie.flip:
@@ -251,7 +250,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
 
     # save the images
     if save: 
-        save_results(defval, results, ptie, dataname, sym, qc, save, v, long_deriv = long_deriv)
+        save_results(defval, results, ptie, dataname, sym, qc, save, v, long_deriv=long_deriv)
 
     vprint('Phase reconstruction completed.')
     return results

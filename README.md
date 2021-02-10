@@ -1,5 +1,5 @@
 # PyLorentz
-A codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions: 
+PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions: 
 
 - PyTIE -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
 - SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
