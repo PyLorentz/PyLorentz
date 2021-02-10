@@ -66,7 +66,6 @@ def defaults() -> Dict[str, str]:
     else:
         try:
             new_mode = os.stat(my_file).st_mode | 0o777
-            print('hi')
             os.chmod(default_txt, new_mode)
         except:
             pass
