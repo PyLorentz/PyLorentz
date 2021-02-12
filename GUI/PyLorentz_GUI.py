@@ -209,10 +209,14 @@ def init_rec(winfo: Struct, window: sg.Window) -> None:
     winfo.rec_image_dir = ''
     winfo.rec_images = {}
     winfo.last_rec_disable, winfo.last_rec_enable = None, None
-
     winfo.rec_fls_files = [None, None]
     winfo.rec_files1 = None
     winfo.rec_files2 = None
+
+    # Declare rectangular selection of reconstruction region
+    winfo.rec_corner1 = None
+    winfo.rec_corner2 = None
+    winfo.new_selection = True
 
     # PTIE parameters and elements
     winfo.rec_ptie = None
@@ -241,6 +245,7 @@ def init_rec(winfo: Struct, window: sg.Window) -> None:
     winfo.rec_mask = (50,)
     winfo.rec_past_mask = (50,)
     winfo.graph_slice = (None, None)
+    winfo.rec_pad_info = (None, 0, 0, 0)
 
     graph_size = window['__REC_Graph__'].metadata['size']
     winfo.rec_mask_center = ((graph_size[0])/2, (graph_size[1])/2)
@@ -1269,6 +1274,9 @@ def load_file_queue(winfo: Struct, window: sg.Window,
         disable_elements(window, disable_elem_list)
 
 
+
+
+
 # ------------- Changing Element Values ------------- #
 def update_values(winfo: Struct, window: sg.Window,
                   elem_val_list: List[Tuple[sg.Element, Any]]) -> None:
@@ -1539,9 +1547,8 @@ def set_crop_data(winfo: Struct, graph: sg.Graph, images: Dict, ptie: TIE_params
     reg_width, reg_height = images['REC_Stack'].lat_dims
     scale_x, scale_y = reg_width / graph.get_size()[0], reg_height / graph.get_size()[1]
 
-    # Make sure the image is square
+    # Take care of odd number of pixels or if hitting boundaries
     if round(right * scale_x) - round(left * scale_x) != round(bottom * scale_y) - round(top * scale_y):
-        print(f'REC: The crop region was not square. Fixing.')
         if round(right * scale_x) - round(left * scale_x) < round(bottom * scale_y) - round(top * scale_y):
             if (round(right * scale_x) - round(left * scale_x)) % 2 != 0:
                 if right == reg_width:
@@ -1563,13 +1570,78 @@ def set_crop_data(winfo: Struct, graph: sg.Graph, images: Dict, ptie: TIE_params
                 else:
                     bottom += 1
 
-    # Set ptie crop
+    # Make sure lengths of sides even boundaries and set scaled indices
     scaled_left, scaled_right = round(left * scale_x), round(right * scale_x)
     scaled_bottom, scaled_top = round(bottom * scale_y), round(top * scale_y)
+    if scaled_left % 2 != 0:
+        scaled_left = max(scaled_left - 1, 0)
+    if scaled_right % 2 != 0:
+        scaled_right = min(scaled_right + 1, reg_width)
+    if scaled_top % 2 != 0:
+        scaled_top = max(scaled_top - 1, 0)
+    if scaled_bottom % 2 != 0:
+        scaled_bottom = min(scaled_bottom + 1, reg_height)
+
+    # Set ptie crop
     ptie.crop['right'], ptie.crop['left'] = scaled_right, scaled_left
     ptie.crop['bottom'], ptie.crop['top'] = scaled_bottom, scaled_top
-    winfo.graph_slice = (round(right * scale_x) - round(left * scale_x),
-                         round(bottom * scale_x) - round(top * scale_x))
+    winfo.graph_slice = (scaled_bottom - scaled_top, scaled_right - scaled_left)  # y, x, z
+    winfo.rec_pad_info = (None, 0, 0, 0)
+
+
+def erase_mask_data(winfo: Struct, graph: sg.Graph, current_tab: str, display_img: bytes,
+                    values: dict) -> Tuple[bool, bool, bytes, Tuple, Tuple]:
+    """Erase the masks on the region selection planes
+
+          Args:
+              winfo: The data structure holding all information about
+                  windows and GUI.
+              graph: The graph of the reconstruction tab.
+              current_tab: The current selected tab in the GUI.
+              display_img: The current display image.
+              values: Dictionary of GUI window values associated with element keys.
+
+          Returns:
+              Tuple that contains booleans of whether to draw/adjust mask, along with transformation
+              and resulting image.
+          """
+
+    util.erase_marks(winfo, graph, current_tab, full_erase=True)
+    graph_size = graph.get_size()
+    draw_mask = True
+    adjust = True
+    if winfo.window['__REC_Mask__'].metadata['State'] == 'Def':
+        winfo.rec_mask_coords = []
+        winfo.rec_mask_markers = []
+
+        draw_mask = False
+        adjust = False
+        stack = winfo.rec_images['REC_Stack']
+        slider_val = int(values["__REC_Slider__"])
+        transform = (0, 0, 0, False)
+        resized_mask = util.array_resize(winfo.rec_ptie.mask, winfo.window['__REC_Graph__'].get_size())
+        for i in range(stack.z_size):
+            stack.uint8_data[i] = np.multiply(stack.uint8_data[i], resized_mask)
+            stack.flt_data[i] = np.multiply(stack.flt_data[i], resized_mask)
+            stack.byte_data[i], stack.rgba_data[i] = util.adjust_image(stack.flt_data[i], transform, stack.x_size,
+                                                                       winfo.window['__REC_Graph__'].get_size()[
+                                                                           0])
+        image_choice = winfo.window['__REC_Image_List__'].get()[0]
+        if image_choice == 'Stack':
+            display_img = util.convert_to_bytes(stack.rgba_data[slider_val])
+
+    winfo.rec_corner1 = None
+    winfo.rec_corner2 = None
+    winfo.new_selection = True
+    winfo.rec_pad_info = (None, 0, 0, 0)
+
+    winfo.rec_mask_center = (graph_size[0] / 2, graph_size[1] / 2)
+    winfo.rec_mask = (50,)
+    mask_transform = (50,)
+    transform = (0, 0, 0, False)
+    update_values(winfo, winfo.window, [('__REC_transform_x__', '0'), ('__REC_transform_y__', '0'),
+                                        ('__REC_transform_rot__', "0"), ('__REC_Mask_Size__', '50')])
+    return draw_mask, adjust, display_img, mask_transform, transform
 
 
 # ------------- Visualizing Elements ------------- #
@@ -1919,7 +1991,7 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
             for key in results:
                 float_array = results[key]
                 if key == 'color_b':
-                    float_array = util.slice_im(float_array, winfo.graph_slice)
+                    float_array = util.slice_im(float_array, (0, 0, winfo.graph_slice[0], winfo.graph_slice[1]))
                     colorwheel_type = window['__REC_Colorwheel__'].get()
                     rad1, rad2 = colorwheel_graph.get_size()
                     if colorwheel_type == 'HSV':
@@ -1930,12 +2002,33 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
                     uint8_colorwheel, float_colorwheel = util.convert_float_unint8(cwheel, (rad1, rad2))
                     rgba_colorwheel = util.make_rgba(uint8_colorwheel[0])
                     winfo.rec_colorwheel = util.convert_to_bytes(rgba_colorwheel)
+
+                if float_array.shape[0] != float_array.shape[1]:
+                    if float_array.shape[0] > float_array.shape[1]:
+                        pad_side = (float_array.shape[0] - float_array.shape[1]) // 2
+                        axis = 1
+                        try:
+                            if float_array.shape[2] > 0:
+                                npad = ((0, 0), (int(pad_side), int(pad_side)), (0, 0))
+                        except:
+                            npad = ((0, 0), (int(pad_side), int(pad_side)))
+
+                    elif float_array.shape[0] < float_array.shape[1]:
+                        pad_side = (float_array.shape[1] - float_array.shape[0]) // 2
+                        axis = 0
+                        try:
+                            if float_array.shape[2] > 0:
+                                npad = ((int(pad_side), int(pad_side)), (0, 0), (0, 0))
+                        except:
+                            npad = ((int(pad_side), int(pad_side)), (0, 0))
+                    float_array = np.pad(float_array, pad_width=npad, mode='constant', constant_values=0)
+                    winfo.rec_pad_info = (axis, pad_side, float_array.shape[0], float_array.shape[1])
+
                 uint8_data, float_data = {}, {}
                 uint8_data, float_data = util.convert_float_unint8(float_array, graph.get_size(),
                                                                      uint8_data, float_data)
                 if uint8_data:
-                    image = util.FileImage(uint8_data, float_data, (winfo.graph_slice[0],
-                                                                      winfo.graph_slice[1], 1), f'/{key}',
+                    image = util.FileImage(uint8_data, float_data, (winfo.graph_slice[0], winfo.graph_slice[1], 1), f'/{key}',
                                              float_array=float_array)
                     image.byte_data = util.vis_1_im(image)
                     winfo.rec_images[key] = image
@@ -1989,6 +2082,7 @@ def ptie_save(winfo: Struct, window: sg.Window, cwd: str, images: Dict,
         None
     """
 
+    # Check to see where the results should be saved
     if not os_path.exists(f'{cwd}/images'):
         os.mkdir(f'{cwd}/images')
     winfo.rec_tie_prefix = pref
@@ -2020,10 +2114,25 @@ def ptie_save(winfo: Struct, window: sg.Window, cwd: str, images: Dict,
                         v_color = True
                     else:
                         v_color = False
+
+                    if winfo.rec_pad_info[0] is not None:
+                        max_val = max(winfo.rec_pad_info[2:])
+                        pad_side = winfo.rec_pad_info[1]
+                        if winfo.rec_pad_info[0] == 1:
+                            start_x, end_x = pad_side, max_val - pad_side
+                            start_y, end_y = 0, max_val
+                        elif winfo.rec_pad_info[0] == 0:
+                            start_x, end_x = 0, max_val
+                            start_y, end_y = pad_side, max_val - pad_side
+                        color_float_array = util.slice_im(color_float_array, (start_y, start_x, end_y, end_x))
+                        mag_x = util.slice_im(mag_x, (start_y, start_x, end_y, end_x))
+                        mag_y = util.slice_im(mag_y, (start_y, start_x, end_y, end_x))
+
                     util.add_vectors(mag_x, mag_y, color_float_array, v_color, hsv, v_num, v_len,
-                                     v_wid, graph_size, save=name)
+                                     v_wid, graph_size, winfo.rec_pad_info, save=name)
     except:
         print('Did not save images correctly')
+        raise
 
     winfo.ptie_recon_thread = None
     print('--- Exited Saving ---')
@@ -3745,7 +3854,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                        '__REC_Arrow_Wid__', '__REC_Arrow_Len__', '__REC_Arrow_Color__',
                        '__REC_Mask_Size__', '__REC_Mask__', "__REC_Erase_Mask__",
                        "__REC_transform_y__", "__REC_transform_x__", "__REC_transform_rot__",
-                       '__REC_Run_TIE__', '__REC_Save_TIE__',
+                       '__REC_Run_TIE__', '__REC_Save_TIE__', "__REC_Square_Region__", "__REC_Rectangle_Region__",
                        "__REC_Slider__", "__REC_Colorwheel__", "__REC_Derivative__",
                        '__REC_Reset_Img_Dir__', "__REC_Arrow_Set__"]
 
@@ -3779,7 +3888,9 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                     if 'color_b' in winfo.rec_images:
                         enable_list.extend(["__REC_Arrow_Set__"])
                 else:
-                    enable_list.extend(['__REC_Mask_Size__', "__REC_transform_y__",
+                    if window['__REC_Square_Region__'].Get():
+                        enable_list.extend(['__REC_Mask_Size__'])
+                    enable_list.extend(["__REC_transform_y__", "__REC_Square_Region__", "__REC_Rectangle_Region__",
                                         "__REC_transform_x__",  "__REC_transform_rot__"])
             if winfo.rec_tie_results is not None and winfo.ptie_recon_thread is None:
                 enable_list.extend(['__REC_Save_TIE__'])
@@ -3842,10 +3953,11 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             graph_size = graph.get_size()
             byte_img = util.add_vectors(mag_x, mag_y, color_float_array,
                                           vector_color, hsv, vector_num, vector_len,
-                                          vector_wid, graph_size, save=None)
+                                          vector_wid, graph_size, winfo.rec_pad_info, save=None)
+
             shape = color_float_array.shape
             im = util.FileImage(np.empty(shape), np.empty(shape),
-                                  (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
+                                (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
             im.byte_data = byte_img
             winfo.rec_images['vector'] = im
         winfo.rec_past_recon_thread = None
@@ -4010,6 +4122,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         winfo.rec_graph_double_click = False
         winfo.rec_mask_coords = []
         winfo.rec_mask_markers = []
+        winfo.rec_pad_info = (None, 0, 0, 0)
 
         graph.Erase()
         colorwheel_graph.Erase()
@@ -4296,6 +4409,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
 
     # Start making reconstruct subregion
     elif event == '__REC_Mask__':
+
         stack = images['REC_Stack']
         slider_range = (0, stack.z_size - 1)
         slider_val = int(values["__REC_Slider__"])
@@ -4312,28 +4426,35 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                 prefix = 'tfs'
                 im_name = winfo.rec_files1[slider_val]
             metadata_change(winfo, window, [('__REC_Image__', f'{prefix}/{im_name}')])
+
+        # Start mask making make_mask_button
         if mask_button.metadata['State'] == 'Def':
             toggle(winfo, window, ['__REC_Mask__'], state='Set')
             update_slider(winfo, window, [('__REC_Slider__', {"value": slider_val, "slider_range": slider_range})])
             draw_mask = True
             display_img, rgba_img = util.adjust_image(stack.flt_data[slider_val],
                                                         transform, stack.x_size, graph.get_size()[0])
-            util.draw_square_mask(winfo, graph)
+            if window['__REC_Square_Region__'].Get():
+                util.draw_square_mask(winfo, graph)
 
         # Quit mask making make_mask_button
         elif mask_button.metadata['State'] == 'Set':
-            toggle(winfo, window, ['__REC_Mask__'], state='Def')
-            draw_mask = False
+            if ((abs(winfo.rec_mask_coords[2][0] - winfo.rec_mask_coords[0][0]) > 16) and
+                    (abs(winfo.rec_mask_coords[2][1] - winfo.rec_mask_coords[0][1]) > 16)):
+                toggle(winfo, window, ['__REC_Mask__'], state='Def')
+                draw_mask = False
 
-            # Apply cropping to all images
-            coords = winfo.rec_mask_coords
-            graph_size = graph.CanvasSize
-            for i in range(stack.z_size):
-                temp_img, stack.rgba_data[i] = util.adjust_image(stack.flt_data[i],
-                                                                   transform, stack.x_size, graph.get_size()[0])
-                temp_img, stack.rgba_data[i] = util.apply_crop_to_stack(coords, graph_size, stack, i)
-                if i == slider_val:
-                    display_img = temp_img
+                # Apply cropping to all images
+                coords = winfo.rec_mask_coords
+                graph_size = graph.CanvasSize
+                for i in range(stack.z_size):
+                    temp_img, stack.rgba_data[i] = util.adjust_image(stack.flt_data[i],
+                                                                       transform, stack.x_size, graph.get_size()[0])
+                    temp_img, stack.rgba_data[i] = util.apply_crop_to_stack(coords, graph_size, stack, i)
+                    if i == slider_val:
+                        display_img = temp_img
+            else:
+                print('Must choose a larger mask size.')
 
         colorwheel_graph.Erase()
         window['__REC_Image_List__'].update(set_to_index=0, scroll_to_index=0)
@@ -4341,50 +4462,51 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         winfo.rec_last_image_choice = 'Stack'
         winfo.rec_image_slider_set = 7
 
+    # Draw the square mask if the region is set
+    elif event == '__REC_Square_Region__' and mask_button.metadata['State'] == 'Set':
+        util.erase_marks(winfo, graph, current_tab)
+        draw_mask = True
+        util.draw_square_mask(winfo, graph)
+
+    elif event == '__REC_Rectangular_Region__' and mask_button.metadata['State'] == 'Set':
+        util.erase_marks(winfo, graph, current_tab)
+
     # Clicking on graph and making markers for mask
     elif event in ['__REC_Graph__', '__REC_Graph__+UP'] and mask_button.metadata['State'] == 'Set':
 
         # Erase any previous marks
         util.erase_marks(winfo, graph, current_tab)
 
-        # # Draw new marks
+        # Draw new marks
         value = values['__REC_Graph__']
-        winfo.rec_mask_center = round(value[0]), round(value[1])
-        util.draw_square_mask(winfo, graph)
+        if window['__REC_Square_Region__'].Get():
+            winfo.rec_mask_center = round(value[0]), round(value[1])
+            util.draw_square_mask(winfo, graph)
+        elif window['__REC_Rectangle_Region__'].Get():
+            if winfo.new_selection:
+                winfo.rec_corner1 = round(value[0]), round(value[1])
+                winfo.rec_corner2 = None
+                winfo.new_selection = False
+            elif not winfo.new_selection:
+                winfo.rec_corner2 = round(value[0]), round(value[1])
+
+                x_left = min(winfo.rec_corner1[0], winfo.rec_corner2[0])
+                x_right = max(winfo.rec_corner1[0], winfo.rec_corner2[0])
+                y_top = max(winfo.rec_corner1[1], winfo.rec_corner2[1])
+                y_bottom = min(winfo.rec_corner1[1], winfo.rec_corner2[1])
+
+                winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
+
+        if event == '__REC_Graph__+UP':
+            winfo.new_selection = True
+
         draw_mask = True
 
     # Remove all mask coordinates from the graph and mask file
     elif event == '__REC_Erase_Mask__':
         # Erase any previous marks
-        util.erase_marks(winfo, graph, current_tab, full_erase=True)
-        graph_size = graph.get_size()
-        draw_mask = True
-        adjust = True
-        if mask_button.metadata['State'] == 'Def':
-            winfo.rec_mask_coords = []
-            winfo.rec_mask_markers = []
-            draw_mask = False
-            adjust = False
-            stack = winfo.rec_images['REC_Stack']
-            slider_val = int(values["__REC_Slider__"])
-            transform = (0, 0, 0, False)
-            resized_mask = util.array_resize(winfo.rec_ptie.mask, winfo.window['__REC_Graph__'].get_size())
-            for i in range(stack.z_size):
-                stack.uint8_data[i] = np.multiply(stack.uint8_data[i], resized_mask)
-                stack.flt_data[i] = np.multiply(stack.flt_data[i], resized_mask)
-                stack.byte_data[i], stack.rgba_data[i] = util.adjust_image(stack.flt_data[i], transform, stack.x_size,
-                                                                             winfo.window['__REC_Graph__'].get_size()[
-                                                                                 0])
-            image_choice = window['__REC_Image_List__'].get()[0]
-            if image_choice == 'Stack':
-                display_img = util.convert_to_bytes(stack.rgba_data[slider_val])
-
-        winfo.rec_mask_center = (graph_size[0] / 2, graph_size[1] / 2)
-        winfo.rec_mask = (50,)
-        mask_transform = (50,)
-        transform = (0, 0, 0, None)
-        update_values(winfo, window, [('__REC_transform_x__', '0'), ('__REC_transform_y__', '0'),
-                                      ('__REC_transform_rot__', "0"), ('__REC_Mask_Size__', '50')])
+        draw_mask, adjust, display_img, mask_transform, transform = erase_mask_data(winfo, graph, current_tab,
+                                                                                    display_img, values)
 
     # Run PyTIE
     elif event == '__REC_Run_TIE__':
@@ -4442,17 +4564,21 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                                arrow_transform[3])
             winfo.rec_past_arrow_transform = arrow_transform
             hsv = window['__REC_Colorwheel__'].get() == "HSV"
+
             color_float_array = images['color_b'].float_array
             mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
             v_num, v_len, v_wid, v_color = arrow_transform
             v_color = v_color == 'On'
             graph_size = graph.get_size()
+
             byte_img = util.add_vectors(mag_x, mag_y, color_float_array,
                                           v_color, hsv, v_num, v_len,
-                                          v_wid, graph_size, save=None)
+                                          v_wid, graph_size, winfo.rec_pad_info, save=None)
             shape = color_float_array.shape
+
             im = util.FileImage(np.empty(shape), np.empty(shape),
                                   (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
+
             im.byte_data = byte_img
             winfo.rec_images['vector'] = im
             image_choice = window['__REC_Image_List__'].get()[0]
@@ -4472,7 +4598,11 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
                                                                            transform, stack.x_size,
                                                                            graph.get_size()[0])
         util.erase_marks(winfo, graph, current_tab, full_erase=True)
-        util.draw_square_mask(winfo, graph)
+        if window['__REC_Square_Region__']:
+            util.draw_square_mask(winfo, graph)
+        elif window['__REC_Rectangle_Region__']:
+            pass
+
     winfo.rec_past_transform = transform
     winfo.rec_past_mask = mask_transform
 
@@ -4494,7 +4624,8 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             results = winfo.rec_tie_results
             results['color_b'] = color_im(results['bxt'], results['byt'],
                                           hsvwheel=hsvwheel, background='black')
-            float_array = util.slice_im(results['color_b'], winfo.graph_slice)
+
+            float_array = util.slice_im(results['color_b'], (0, 0, winfo.graph_slice[0], winfo.graph_slice[1]))
             uint8_data, float_data = {}, {}
             uint8_data, float_data = util.convert_float_unint8(float_array, graph.get_size(),
                                                                  uint8_data, float_data)
@@ -4507,24 +4638,23 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             color_float_array = float_array
             mag_x, mag_y = images['bxt'].float_array, images['byt'].float_array
             vector_color = window['__REC_Arrow_Color__'].get()
-            if vector_color == 'On':
-                vector_color = True
-                vector_num = int(window['__REC_Arrow_Num__'].get())
-                vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
-                graph_size = graph.get_size()
-                byte_img = util.add_vectors(mag_x, mag_y, color_float_array,
-                                              vector_color, hsvwheel, vector_num, vector_len,
-                                              vector_wid, graph_size, save=None)
-                shape = color_float_array.shape
-                im = util.FileImage(np.empty(shape), np.empty(shape),
-                                      (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
-                im.byte_data = byte_img
-                winfo.rec_images['vector'] = im
+
+            vector_num = int(window['__REC_Arrow_Num__'].get())
+            vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
+            graph_size = graph.get_size()
+            byte_img = util.add_vectors(mag_x, mag_y, color_float_array,
+                                        True, hsvwheel, vector_num, vector_len,
+                                        vector_wid, graph_size, winfo.rec_pad_info, save=None)
+            shape = float_array.shape
+            im = util.FileImage(np.empty(shape), np.empty(shape),
+                                (winfo.graph_slice[0], winfo.graph_slice[1], 1), '/vector')
+            im.byte_data = byte_img
+            winfo.rec_images['vector'] = im
 
             if window['__REC_Image_List__'].get()[0] == 'Color':
                 display_img = image.byte_data
                 display_img2 = winfo.rec_colorwheel
-            elif window['__REC_Image_List__'].get()[0] == 'Vector Im.' and vector_color:
+            elif window['__REC_Image_List__'].get()[0] == 'Vector Im.' and vector_color == 'On':
                 display_img = im.byte_data
                 display_img2 = winfo.rec_colorwheel
 

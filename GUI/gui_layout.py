@@ -127,7 +127,7 @@ def element_keys() -> Dict[str, List[str]]:
 def menu_bar() -> Menu:
     """Return the menu bar layout."""
 
-    menu_def = [['PyLo', ['Documentation::Documentation', 'Exit::Exit1']],
+    menu_def = [['PyLorentz', ['Documentation::Documentation', 'Exit::Exit1']],
                 ['Log', ['Show (Control-l)::Log', 'Hide (Control-h)::Log']]]
     return sg.Menu(menu_def, font='Times 15')
 
@@ -372,7 +372,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                          [sg.Button('Run Align', **style.styles('__LS_Run_Align__')),
                           sg.Image(**style.styles('__LS_Align_Spinner__'))]]
             image_column = [[sg.Text("Image Directory:", pad=((10, 0), (0, 0))),
-                             sg.Input(DEFAULTS['browser_dir'], **style.styles('__LS_Image_Dir_Path__')),
+                             sg.Input(DEFAULTS['browser_dir'], **style.styles('__LS_Image_Dir_Path__', DEFAULTS['browser_dir'])),
                              sg.FolderBrowse("Browse", **style.styles('__LS_Image_Dir_Browse__')),
                              sg.Button('Set', **style.styles('__LS_Set_Img_Dir__')),
                              sg.Button('Reset', **style.styles('__LS_Reset_Img_Dir__'))],
@@ -633,7 +633,7 @@ def align_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
             """
 
             bunwarp_graph = [[sg.Text("1. Image Directory:", pad=((5, 0), (0, 0))),
-                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__BUJ_Image_Dir_Path__')),
+                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__BUJ_Image_Dir_Path__', DEFAULTS['browser_dir'])),
                               sg.FolderBrowse("Browse", **style.styles('__BUJ_Image_Dir_Browse__')),
                               sg.Button('Set', **style.styles('__BUJ_Set_Img_Dir__')),
                               sg.Button('Reset', **style.styles('__BUJ_Reset_Img_Dir__'))],
@@ -837,9 +837,13 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                                     [sg.Text('Y shift:', pad=((61, 0), (0, 0))),
                                      sg.Input('0', **style.styles('__REC_transform_y__')),
                                      sg.Text('px')]]),
-                            sg.Col([[sg.Text('Mask Size:', pad=((40, 71), (12, 0)))],
-                                    [sg.Input('50', **style.styles('__REC_Mask_Size__')),
-                                      sg.Text('%', pad=((4, 0), (10, 0)))]
+                            sg.Col([[sg.Text('Type:           Size:', pad=((40, 29), (5, 0)))],
+                                    [sg.Radio('Square', 'region_select', **style.styles('__REC_Square_Region__'),
+                                               pad=((20, 0), (0, 0))),
+                                     sg.Input('50', **style.styles('__REC_Mask_Size__')),
+                                     sg.Text('%', pad=((2, 0), (0, 0)))],
+                                    [sg.Radio('Rectangle', 'region_select', **style.styles('__REC_Rectangle_Region__'),
+                                     pad=((20, 0), (0, 0)))]
                                     ])
                             ]]
 
@@ -850,7 +854,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                               sg.Text('Symmetrize:', pad=((12, 0), (5, 0))),
                               sg.Checkbox('', **style.styles('__REC_Symmetrize__'))],
                              [sg.Text('Derivative:', pad=((16, 0), (5, 0))),
-                              sg.Combo(['Central Diff.'],
+                              sg.Combo(['Central Diff.', 'Longitudinal Deriv.'],
                                         **style.styles('__REC_Derivative__'))]]),
                      sg.Col([[sg.Button('Run', **style.styles('__REC_Run_TIE__'))],
                              [sg.Button('Save', **style.styles('__REC_Save_TIE__'))]]),
@@ -876,7 +880,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
                               sg.Slider(**style.styles('__REC_Image_Slider__'))]]
 
         reconstruct_graph = [[sg.Text("Image Directory:",  pad=((70, 0), (5, 0))),
-                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__REC_Image_Dir_Path__')),
+                              sg.Input(DEFAULTS['browser_dir'], **style.styles('__REC_Image_Dir_Path__', DEFAULTS['browser_dir'])),
                               sg.FolderBrowse("Browse", **style.styles('__REC_Image_Dir_Browse__')),
                               sg.Button('Set', **style.styles('__REC_Set_Img_Dir__')),
                               sg.Button('Reset', **style.styles('__REC_Reset_Img_Dir__'))],

@@ -585,25 +585,29 @@ def vis_1_im(image: FileImage, layer: int = 0) -> bytes:
     return return_img
 
 
-def slice_im(image: 'np.ndarray', slice_size: Tuple[int, int]) -> 'np.ndarray':
+def slice_im(image: 'np.ndarray', slice_size: Tuple[int, int, int, int]) -> 'np.ndarray':
     """Slice an image
 
     Args:
         image: ndarray of image data.
-        slice_size: The ends bounds of the image slice in (x, y) coords.
+        slice_size: The bounds of the image slice in (y_start, x_start, y_end, x_end) coords.
 
     Returns:
-        An ndarray of the sliced image.
+        new_image: An ndarray of the sliced image. Can be 3 or 2 dimensions
     """
 
-    end_x, end_y = slice_size
-    start_x, start_y = 0, 0
-    return image[start_x:end_x, start_y:end_y, :]
+    start_y, start_x, end_y, end_x = slice_size
+    try:
+        new_image = image[start_y:end_y, start_x:end_x, :]
+    except:
+        new_image = image[start_y:end_y, start_x:end_x]
+    return new_image
 
 
 def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
                 hsv: bool, arrows: int, length: float, width: float,
-                graph_size: Tuple[int, int], GUI_handle: bool = True,
+                graph_size: Tuple[int, int], pad_info: Tuple[Any, Any],
+                GUI_handle: bool = True,
                 save: Optional[bool] = None) -> Optional['bytes']:
     """Add a vector plot for the magnetic saturation images to be shown in the GUI.
 
@@ -616,7 +620,8 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         arrows: The number of arrows to place along the rows and cols of the image.
         length: The inverse length of the arrows. Inverted when passed to show_2D.
         width: The width of the arrows.
-        graph_size: The (x, y) size of the GUI display graph.
+        graph_size: The (y, x) size of the GUI display graph.
+        pad_info: The (axis, pad_size) datat. (None, 0, 1) for axes and int for pad_size.
         GUI_handle: The handle to pass to TIE_helper.show_2D() signalling whether to use GUI
             or matplotlib. This defaults to True for the GUI.
         save: The value to determine saving of the vectorized image.
@@ -628,7 +633,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
     # Retrieve the image with the added vector plot
     fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
-    if GUI_handle:
+    if GUI_handle and not save:
         # Get figure and remove any padding
         plt.figure(fig.number)
         fig.tight_layout(pad=0)
@@ -640,7 +645,24 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         fig.canvas.draw()
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        if pad_info[0] is not None:
+            max_val = max(pad_info[2:])
+            pad_side = pad_info[1]
+            data = array_resize(data, (max_val, max_val))
+            if pad_info[0] == 1:
+                npad = ((0, 0), (int(pad_side), int(pad_side)), (0, 0))
+                start_x, end_x = pad_side, max_val - pad_side
+                start_y, end_y = 0, max_val
+            elif pad_info[0] == 0:
+                npad = ((int(pad_side), int(pad_side)), (0, 0), (0, 0))
+                start_x, end_x = 0, max_val
+                start_y, end_y = pad_side, max_val - pad_side
+            data = slice_im(data, (start_y, start_x, end_y, end_x))
+            data = np.pad(data, pad_width=npad, mode='constant', constant_values=0)
         data = array_resize(data, graph_size)
+
+        # This has the final shape of the graph
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
         plt.close('all')

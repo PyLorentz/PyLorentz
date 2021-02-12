@@ -8,7 +8,7 @@ Timothy Cote, ANL, Fall 2019.
 """
 
 import os
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional
 
 # ============================================================= #
 #                          Window Scaling                       #
@@ -74,11 +74,12 @@ class WindowStyle(object):
         self.small_tab_size = (self.window_width, self.window_height - 50)
 
     # ---------  Individual Element Styling --------- #
-    def styles(self, key: str) -> Dict:
+    def styles(self, key: str, default_folder: Optional[str] = None) -> Dict:
         """The styles within the GUI.
 
         Args:
             key: The key for a PySimpleGUI element.
+            default_folder: The default folder to browse as defined by defaults.txt.
 
         Returns:
             key_style: A dictionary of the key-value pairs
@@ -170,7 +171,8 @@ class WindowStyle(object):
                 val.update(visible=False, enable_events=True)
             # Browse buttons element
             elif key == '__LS_Image_Dir_Browse__':
-                val.update(pad=pad(8, 0, 0, 0), target='__LS_Image_Dir_Path__')
+                val.update(pad=pad(8, 0, 0, 0), initial_folder=default_folder,
+                           target='__LS_Image_Dir_Path__')
             elif key == '__LS_Load_FLS1__':
                 val.update(target='__LS_FLS1_Staging__', pad=((10, 0), (5, 0)),
                            disabled=True)
@@ -336,7 +338,7 @@ class WindowStyle(object):
                 val.update(visible=False, enable_events=True)
             # Browse buttons element
             elif key == '__BUJ_Image_Dir_Browse__':
-                val.update(pad=pad(8, 0, 0, 0), target='__BUJ_Image_Dir_Path__')
+                val.update(pad=pad(8, 0, 0, 0), target='__BUJ_Image_Dir_Path__', initial_folder=default_folder)
             elif key == '__BUJ_Load_Flip_Stack__':
                 val.update(pad=pad(0, 0, 5, 0), target='__BUJ_Flip_Stage_Load__', disabled=True)
             elif key == '__BUJ_Load_Unflip_Stack__':
@@ -615,7 +617,8 @@ class WindowStyle(object):
                 val.update(target='__REC_FLS2_Staging__', pad=((10, 0), (5, 0)),
                            disabled=True)
             elif key == '__REC_Image_Dir_Browse__':
-                val.update(pad=((5, 0), (7, 0)))
+                val.update(target='__REC_Image_Dir_Path__',
+                           pad=((5, 0), (7, 0)), initial_folder=default_folder)
             # Button Element
             elif key == '__REC_Set_FLS__':
                 val.update(pad=((130, 0), (2, 5)), disabled=True,
@@ -716,7 +719,7 @@ class WindowStyle(object):
                            disabled_readonly_background_color='#A7A7A7')
             elif key == '__REC_Mask_Size__':
                 val.update(disabled=True, enable_events=True,
-                           pad=((48, 0), (10, 0)), size=(5, 1),
+                           pad=((30, 0), (0, 0)), size=(4, 1),
                            justification='right',
                            use_readonly_for_disable=True,
                            disabled_readonly_background_color='#A7A7A7')
@@ -759,6 +762,11 @@ class WindowStyle(object):
                 val.update(select_mode=None, size=(16, 3),
                            no_scrollbar=True, pad=((19, 0), (7, 7)),
                            metadata={'length': 1})
+            # Radio element
+            elif key == '__REC_Square_Region__':
+                val.update(default=True, disabled=True, enable_events=True)
+            elif key == '__REC_Rectangle_Region__':
+                val.update(disabled=True, enable_events=True)
             # Slider element
             elif key == '__REC_Slider__':
                 val.update(size=(40, 20), disable_number_display=True, pad=((10, 8), (80, 0)),
