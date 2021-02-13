@@ -199,9 +199,11 @@ def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
     # Read image data from .fls files and store in flip/unflip lists
     files1, files2 = grab_fls_data(fls1, fls2, tfs_value, fls_value, check_sift)
 
+    print('image names:', files1, files2)
+
     # Check same number of files between fls
     if tfs_value != 'Single':
-        if len(flatten_order_list(files2)) != len(flatten_order_list(files1)):
+        if len(flatten_order_list(files1)) != len(flatten_order_list(files2)):
             return
     # Check if image path exists and break if any path is nonexistent
     if path1 is None and path2 is None:
@@ -260,6 +262,8 @@ def check_setup(datafolder: str, tfs_value: str,
     file_result = read_fls(path1, path2, fls_files,
                            tfs_value, fls_value, check_sift=False)
 
+    print('file_result', file_result)
+
     vals = (False, None, None, None, None)
     if isinstance(file_result, tuple):
         files1, files2 = file_result
@@ -272,7 +276,7 @@ def check_setup(datafolder: str, tfs_value: str,
     else:
         print(f'{prefix}Task failed because the number of files extracted from the directory', end=' ')
         print(f'does not match the number of files expected from the .fls file.')
-        print(f'{prefix}Check that filenames in the flip or unflip', end=' ')
+        print(f'{prefix}Check that filenames in the flip, unflip, or tfs', end=' ')
         print(f'path match and all files exist in the right directories.')
     return vals
 

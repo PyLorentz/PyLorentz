@@ -1990,6 +1990,9 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
             loaded_green_list = []
             for key in results:
                 float_array = results[key]
+                # If single stack, just gloss over results that might be None.
+                if float_array is None:
+                        continue
                 if key == 'color_b':
                     float_array = util.slice_im(float_array, (0, 0, winfo.graph_slice[0], winfo.graph_slice[1]))
                     colorwheel_type = window['__REC_Colorwheel__'].get()
@@ -4101,7 +4104,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             change_inp_readonly_bg_color(window, [target_key], 'Readonly')
         else:
             if len(fls_path) != 0 and fls_path != "None":
-                print(f'{prefix}FLS path is not valid.')
+                print(f'{prefix}File is not read as an fls file.')
 
     # Set number of FLS files to use
     elif event == '__REC_Reset_FLS__':
@@ -4165,7 +4168,12 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             fls_file_names = [winfo.rec_fls_files[0].path, winfo.rec_fls_files[1].path]
         else:
             fls_file_names = [winfo.rec_fls_files[0].path, None]
+
+        print('image_dir', image_dir)
+        print('fls file names', fls_file_names)
         check = check_setup(image_dir, tfs_value, fls_value, fls_file_names, prefix='REC: ')
+
+        # The resulting check.
         if check and check[1] is not None:
             path1, path2, files1, files2 = check[1:]
             fls_1 = winfo.rec_fls_files[0]
