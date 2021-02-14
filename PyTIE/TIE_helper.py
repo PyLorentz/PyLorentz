@@ -12,6 +12,7 @@ import matplotlib as mpl
 import numpy as np
 import hyperspy.api as hs
 import sys
+from cv2 import resize, imwrite
 from skimage import io
 from scipy.ndimage.filters import median_filter
 from scipy import ndimage
@@ -635,7 +636,6 @@ def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=Fa
         fig: Returns the figure handle.
     """ 
     a = ((mag_x.shape[0] - 1)//a)+1
-    bmax = max(mag_x.max(), mag_y.max())
 
     dimy, dimx = mag_x.shape
     X = np.arange(0, dimx, 1)
@@ -648,14 +648,14 @@ def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=Fa
         if color:
             rad = mag_x.shape[0]//16
             rad = max(rad, 16)
-            pad = 10 # pixels
+            pad = 10  # pixels
             width = np.shape(mag_y)[1] + 2*rad + pad
             aspect = dimy/width
         else:
-            aspect = 1
+            aspect = dimy/dimx
 
-    if GUI_handle:
-        fig, ax = plt.subplots(figsize=(10, 10)) #, constrained_layout=True, frameon=False
+    if GUI_handle and save is None:
+        fig, ax = plt.subplots(figsize=(10, 10))
         plt.ioff()
         ax.set_aspect('equal', adjustable='box')
     else:
@@ -673,13 +673,21 @@ def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=Fa
         plt.axis('off')
     else:
         arrow_color = 'black'
-        if GUI_handle:
-            white_array = np.zeros([dimx, dimy, 3], dtype=np.uint8)
+        if GUI_handle and save is None:
+            white_array = np.zeros([dimy, dimx, 3], dtype=np.uint8)
             white_array.fill(255)
             im = ax.matshow(white_array, cmap='gray', origin=origin, aspect='equal')
             plt.axis('off')
+        elif GUI_handle and save:
+            white_array = np.zeros([dimy, dimx, 3], dtype=np.uint8)
+            white_array.fill(255)
+            im = ax.matshow(white_array, cmap='gray', origin=origin)
+            fig.tight_layout(pad=0)
+            ax.xaxis.set_major_locator(mpl.ticker.NullLocator())
+            ax.yaxis.set_major_locator(mpl.ticker.NullLocator())
+            plt.axis('off')
 
-    ashift = (dimx-1)%a//2
+    ashift = (dimx-1) % a//2
     q = ax.quiver(X[ashift::a], Y[ashift::a], U[ashift::a,ashift::a], V[ashift::a,ashift::a],
                   units='xy',
                   scale=l,
