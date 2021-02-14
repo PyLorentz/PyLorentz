@@ -9,7 +9,9 @@ Timothy Cote, ANL, Fall 2019.
 
 # Standard Library Imports
 from io import BytesIO
+import dask.array as da
 import os
+from os import path as os_path
 from warnings import catch_warnings, simplefilter
 with catch_warnings() as w:
     simplefilter('ignore')
@@ -172,27 +174,6 @@ class Stack(FileImage):
 # ============================================================= #
 #             Miscellaneous Manipulations and Checks.           #
 # ============================================================= #
-def flatten_order_list(my_list: List[List]) -> List:
-    """Flattens and orders a list of 3 lists into a single list.
-
-    Flattens and orders 2D list of lists of items:
-        [[b , a], [c, d], [e, f]]
-    into a 1D list of items:
-        [a, b, c, d, e, f]
-
-    Args:
-        my_list: A 2D list of list of items.
-
-    Returns:
-        flat_list: A 1D flattened/ordered list of items.
-    """
-
-    l0, l1, l2 = my_list[0], my_list[1], my_list[2]
-    ordered_list = [l0[::-1], l1, l2]
-    flat_list = [item for sublist in ordered_list for item in sublist]
-    return flat_list
-
-
 def join(strings: List[str], sep: str = '') -> str:
     """Method joins strings with a specific separator.
 
@@ -250,6 +231,243 @@ def represents_int_above_0(s: str) -> bool:
 
 
 # ============================================================= #
+#                    Manipulating FLS Files                     #
+# ============================================================= #
+
+#                     Declare Original Types                    #
+Check_Setup = Tuple[bool, Optional[str], Optional[str], Optional[List[str]], Optional[List[str]]]
+
+def flatten_order_list(my_list: List[List]) -> List:
+    """Flattens and orders a list of 3 lists into a single list.
+
+    Flattens and orders 2D list of lists of items:
+        [[b , a], [c, d], [e, f]]
+    into a 1D list of items:
+        [a, b, c, d, e, f]
+
+    Args:
+        my_list: A 2D list of list of items.
+
+    Returns:
+        flat_list: A 1D flattened/ordered list of items.
+    """
+
+    l0, l1, l2 = my_list[0], my_list[1], my_list[2]
+    ordered_list = [l0[::-1], l1, l2]
+    flat_list = [item for sublist in ordered_list for item in sublist]
+    return flat_list
+
+
+def pull_image_files(fls_file: str,
+                     check_align: bool = False) -> List[List[str]]:
+    """Use .fls file to return ordered images for alignment.
+
+    Initially it will read in .fls data, pull the number of files
+    from the first line, and then locate the in-focus image. Then
+    it separates the overfocus and underfocus images.
+
+    If the check alignment is set, the returned images are the infocus image,
+    and the nearest under-focused/over-focused on either side of the
+    infocus image. Otherwise all image files are returned. The files are
+    ordered from
+
+
+                    [
+                    [smallest underfocus,  ... , largest underfocus]
+                    [infocus]
+                    [smallest overfocus, ... , largest overfocus]
+                    ]
+
+    Args:
+        fls_file: The filename for the fls file.
+        check_align: Option for full alignment or parameter test.
+
+    Returns:
+        filenames: 2D list of under/in/over-focus images.
+    """
+
+    # Read data.
+    with open(fls_file) as fls_text:
+        fls_text = fls_text.read()
+
+    # Find focus line demarcations in .fls file
+    fls_lines = fls_text.splitlines()
+    num_files = int(fls_lines[0])
+    under_split = 1
+    focus_split = num_files // 2 + under_split
+    over_split = num_files // 2 + focus_split
+
+    # Grab infocus image and defocus images.
+    # If checking parameters, only grab one
+    # file on either side of the infocus image.
+    focus_file = [fls_lines[focus_split]]
+    if check_align:
+        under_files = [fls_lines[focus_split - 1]]
+        over_files = [fls_lines[focus_split + 1]]
+    else:
+        under_files = fls_lines[under_split:focus_split]
+        over_files = fls_lines[focus_split + 1: over_split + 1]
+
+    # Reverse underfocus files due to how ImageJ opens images
+    filenames = [under_files[::-1], focus_file, over_files]
+    return filenames
+
+
+def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
+                  fls_value: str, check_sift: bool) -> Tuple[List[str], List[str]]:
+    """Grab image data from .fls file.
+
+    Given the FLS files for the flip/unflip/single images,
+    return the image filenames depending on the fls_value and
+    through-focal-series (tfs) value.
+
+    Examples:
+        - 1 FLS, Unflip/FLip -> files1 : populated, files2 : populated
+        - 1 FLS, Single      -> files1 : populated, files2 : empty
+        - 2 FLS, Unflip/FLip -> files1 : populated, files2 : populated
+
+    Args:
+        fls1: Filename for 1st FLS file.
+        fls2: Filename for 2nd FLS file.
+        tfs_value: Value for type of through-focal series,
+            Single or Unflip/Flip.
+        fls_value: String of number of FLS files used.
+        check_sift: Option to check sift alignment.
+
+    Returns:
+        Tuple of image filenames for scenarios above
+            - files1: List of image filenames
+                according to examples above.
+            - files2: List of image filenames.
+                according to examples above.
+    """
+
+    # Read image data from .fls files and store in flip/unflip lists
+    if fls_value == 'One':
+        files1 = pull_image_files(fls1, check_sift)
+        if tfs_value == 'Unflip/Flip':
+            files2 = pull_image_files(fls1, check_sift)
+        else:
+            files2 = []
+    elif fls_value == 'Two':
+        files1 = pull_image_files(fls1, check_sift)
+        files2 = pull_image_files(fls2, check_sift)
+    return files1, files2
+
+
+def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
+             tfs_value: str, fls_value: str,
+             check_sift: bool = False) -> Tuple[List[str], List[str]]:
+    """Read image files from .fls files and returns their paths.
+
+    The images are read from the FLS files and the files are returned
+    depending on the through-focal series value and the fls value. Once
+    image filenames are pulled from the FLS file, they are joined to
+    the paths (directories) the images are stored in. Those resulting
+    full path names are returned in files1 and files2.
+
+    Args:
+        path1: The first unflip/flip/single path/directory. Optional
+        path2: The first unflip/flip/single path/directory. Optional
+        fls_files: A list of the FLS filenames.
+        tfs_value: The through-focal series option.
+                Options: Unflip/FLip, Single
+        fls_value: The FLS option.
+                Options: One, Two
+        check_sift: Option for checking SIFT alignment.
+
+    Returns:
+        (files1, files2): A tuple of the lists of image paths corresponding
+            to path1 and path2.
+            - files1: List of full image paths.
+            - files2: List of full image paths or empty list.
+    """
+
+    # Find paths and .fls files
+    fls1, fls2 =  fls_files[0], fls_files[1]
+
+    # Read image data from .fls files and store in flip/unflip lists
+    files1, files2 = grab_fls_data(fls1, fls2, tfs_value, fls_value, check_sift)
+
+    # Check same number of files between fls
+    if tfs_value != 'Single':
+        if len(flatten_order_list(files1)) != len(flatten_order_list(files2)):
+            return
+    # Check if image path exists and break if any path is nonexistent
+    if path1 is None and path2 is None:
+        return
+    for file in flatten_order_list(files1):
+        full_path = join([path1, file], '/')
+        if not os_path.exists(full_path):
+            print(full_path, " doesn't exist!")
+            return
+    if files2:
+        for file in flatten_order_list(files2):
+            full_path = join([path2, file], '/')
+            if not os_path.exists(full_path):
+                print(full_path, " doesn't exist!")
+                return
+    return files1, files2
+
+
+def check_setup(datafolder: str, tfs_value: str,
+                fls_value: str, fls_files: List[str],
+                prefix: str = '') -> Check_Setup:
+    """Check to see all images filenames in .fls exist in datafolder.
+
+    Args:
+        datafolder: Datafolder path.
+        tfs_value: The through-focal series option.
+                Options: Unflip/FLip, Single
+        fls_value: The FLS option.
+                Options: One, Two
+        fls_files: A list of the FLS filenames.
+        prefix: The prefix to prepend for print statements in GUI.
+
+    Returns:
+        vals: Will return images filenames and paths to those files
+            and their parent directories if all images pulled from FLS exist.
+            - vals[0]: Corresponds to process success.
+            - vals[1]: 1st parent directory path or None.
+            - vals[2]: 2nd parent directory path or None.
+            - vals[3]: 1st path list of ordered image filenames.
+            - vals[4]: 2nd path list of ordered image filenames.
+    """
+
+    # Find paths and .fls files
+    if tfs_value == 'Unflip/Flip':
+        path1 = join([datafolder, 'unflip'], '/')
+        path2 = join([datafolder, 'flip'], '/')
+    elif tfs_value == 'Single':
+        path1 = join([datafolder, 'tfs'], '/')
+        if not os_path.exists(path1):
+            path1 = join([datafolder, 'unflip'], '/')
+            if not os_path.exists(path1):
+                path1 = None
+        path2 = None
+
+    # Grab the files that exist in the flip and unflip dirs.
+    file_result = read_fls(path1, path2, fls_files,
+                           tfs_value, fls_value, check_sift=False)
+
+    vals = (False, None, None, None, None)
+    if isinstance(file_result, tuple):
+        files1, files2 = file_result
+        flattened_files1 = flatten_order_list(files1)
+        flattened_files2 = None
+        if files2:
+            flattened_files2 = flatten_order_list(files2)
+        vals = (True, path1, path2, flattened_files1, flattened_files2)
+    # Prints if task failed
+    else:
+        print(f'{prefix}Task failed because the number of files extracted from the directory', end=' ')
+        print(f'does not match the number of files expected from the .fls file.')
+        print(f'{prefix}Check that filenames in the flip, unflip, or tfs', end=' ')
+        print(f'path match and all files exist in the right directories.')
+    return vals
+
+
+# ============================================================= #
 #                  Image Loading & Manipulating.                #
 # ============================================================= #
 def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
@@ -297,6 +515,7 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
         img = hs.load(img_path)
         img_data = img.data
         shape = img_data.shape
+
         # Differetiate between loading of stack and single image, raise an exception if
         # loading a single image for a stack.
         if stack and len(shape) > 1:
@@ -321,9 +540,12 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
     except (IndexError, TypeError, NameError):
         print(f'{prefix}Error. You may have tried loading a file that is not recognized. Try a different file type',
               end='')
+
         return None, None, None
     # If any other exception just return Nones
+    # Usually file might be too big
     except:
+        print(f'{prefix}Error. File might be too big. Usually has to be <= 2GB', end='')
         return None, None, None
 
 
@@ -493,42 +715,6 @@ def convert_to_bytes(img: Image.Image) -> bytes:
     return byte_img
 
 
-def overlay_images(image1: FileImage, image2: FileImage,
-                   transform: Tuple[Union[int, float], Union[int, float], Union[int, float], bool],
-                   image_size: Tuple[int, int], graph_size: Tuple[int, int]) -> bytes:
-    """Overlay images.
-
-    Visualize overlaid images in the GUI canvas. Takes an
-    Image Object and converts uint8 data into byte data the Tk
-    canvas can use.
-
-    Args:
-        image1: FileImage object of first image to overlay.
-        image2: FileImage object of second image to overlay.
-        transform: Tuple of the rotation, x-translation, y-translation, and
-            horizontal flip to apply to the image.
-        image_size: The image size in (x, y) size.
-        graph_size: The graph size in (x, y) size.
-
-    Returns:
-        return_img: The byte representation of the image data.
-    """
-
-    # Pull the transformation data, rounding for ease of use for translations.
-    d_theta, d_x, d_y, h_flip = transform
-    d_x = round(d_x/image_size*graph_size)
-    d_y = round(d_y/image_size*graph_size)
-    array1 = image1.flt_data[0]
-    array2 = image2.flt_data[0]
-
-    # Convert to rgba images and merge to create the final bytes image.
-    source_rgba = make_rgba(array1, adjust=True, d_theta=d_theta, d_x=d_x, d_y=d_y, h_flip=h_flip)
-    target_rgba = make_rgba(array2, adjust=True)
-    final_img = Image.blend(target_rgba, source_rgba, alpha=.6)
-    return_img = convert_to_bytes(final_img)
-    return return_img
-
-
 def adjust_image(data: 'np.ndarray[np.float32, np.float64]',
                  transform: Tuple[Union[int, float], Union[int, float], Union[int, float], bool],
                  image_size: Tuple[int, int], graph_size: Tuple[int, int]) -> Tuple['bytes', Image.Image]:
@@ -580,25 +766,29 @@ def vis_1_im(image: FileImage, layer: int = 0) -> bytes:
     return return_img
 
 
-def slice_im(image: 'np.ndarray', slice_size: Tuple[int, int]) -> 'np.ndarray':
+def slice_im(image: 'np.ndarray', slice_size: Tuple[int, int, int, int]) -> 'np.ndarray':
     """Slice an image
 
     Args:
         image: ndarray of image data.
-        slice_size: The ends bounds of the image slice in (x, y) coords.
+        slice_size: The bounds of the image slice in (y_start, x_start, y_end, x_end) coords.
 
     Returns:
-        An ndarray of the sliced image.
+        new_image: An ndarray of the sliced image. Can be 3 or 2 dimensions
     """
 
-    end_x, end_y = slice_size
-    start_x, start_y = 0, 0
-    return image[start_x:end_x, start_y:end_y, :]
+    start_y, start_x, end_y, end_x = slice_size
+    try:
+        new_image = image[start_y:end_y, start_x:end_x, :]
+    except:
+        new_image = image[start_y:end_y, start_x:end_x]
+    return new_image
 
 
 def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
                 hsv: bool, arrows: int, length: float, width: float,
-                graph_size: Tuple[int, int], GUI_handle: bool = True,
+                graph_size: Tuple[int, int], pad_info: Tuple[Any, Any],
+                GUI_handle: bool = True,
                 save: Optional[bool] = None) -> Optional['bytes']:
     """Add a vector plot for the magnetic saturation images to be shown in the GUI.
 
@@ -611,7 +801,8 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         arrows: The number of arrows to place along the rows and cols of the image.
         length: The inverse length of the arrows. Inverted when passed to show_2D.
         width: The width of the arrows.
-        graph_size: The (x, y) size of the GUI display graph.
+        graph_size: The (y, x) size of the GUI display graph.
+        pad_info: The (axis, pad_size) datat. (None, 0, 1) for axes and int for pad_size.
         GUI_handle: The handle to pass to TIE_helper.show_2D() signalling whether to use GUI
             or matplotlib. This defaults to True for the GUI.
         save: The value to determine saving of the vectorized image.
@@ -623,7 +814,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
     # Retrieve the image with the added vector plot
     fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
-    if GUI_handle:
+    if GUI_handle and not save:
         # Get figure and remove any padding
         plt.figure(fig.number)
         fig.tight_layout(pad=0)
@@ -635,7 +826,24 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         fig.canvas.draw()
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        if pad_info[0] is not None:
+            max_val = max(pad_info[2:])
+            pad_side = pad_info[1]
+            data = array_resize(data, (max_val, max_val))
+            if pad_info[0] == 1:
+                npad = ((0, 0), (int(pad_side), int(pad_side)), (0, 0))
+                start_x, end_x = pad_side, max_val - pad_side
+                start_y, end_y = 0, max_val
+            elif pad_info[0] == 0:
+                npad = ((int(pad_side), int(pad_side)), (0, 0), (0, 0))
+                start_x, end_x = 0, max_val
+                start_y, end_y = pad_side, max_val - pad_side
+            data = slice_im(data, (start_y, start_x, end_y, end_x))
+            data = np.pad(data, pad_width=npad, mode='constant', constant_values=0)
         data = array_resize(data, graph_size)
+
+        # This has the final shape of the graph
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
         plt.close('all')
@@ -738,10 +946,6 @@ def erase_marks(winfo: Struct, graph: sg.Graph,
         for marks in winfo.buj_mask_markers:
             for line in marks:
                 graph.DeleteFigure(line)
-        if full_erase:
-            winfo.buj_mask_coords = []
-            winfo.buj_mask_markers = []
-            winfo.buj_graph_double_click = False
     elif current_tab == 'reconstruct_tab':
         winfo.rec_mask_coords = []
         for line in winfo.rec_mask_markers:
@@ -764,35 +968,6 @@ def create_mask(img: 'np.ndarray', mask_coords: Tuple[int, int, int, int],
     pts = array(mask_coords)
     img = fillPoly(img, pts=np.int32([pts]), color=color)
     return img
-
-
-def save_mask(winfo: Struct, filenames: List[str], ref_img: FileImage) -> None:
-    """Save created mask(s) as .bmp with a given filename(s).
-
-    Args:
-        winfo: Struct object that holds all GUI information.
-        filenames: The filenames for the masks.
-        ref_img: The reference FileImage for getting the dimensions of the image.
-
-    Returns:
-        None
-    """
-
-    # Choose the graph
-    graph = winfo.window['__BUJ_Graph__']
-    coords = winfo.buj_mask_coords
-
-    # Get mask coordinates and create cv.fillPoly image
-    graph_size = graph.CanvasSize
-    img = zeros(graph_size, np_uint8)
-    img = create_mask(img, coords, (255, 255, 255))
-
-    # Resize the mask and flip due to inverted y-axis for graph compared to saved file
-    orig_sizex, orig_sizey = ref_img.lat_dims
-    img = resize(img, (orig_sizex, orig_sizey), interpolation=INTER_NEAREST)
-    img = flipud(img)
-    for filename in filenames:
-        imwrite(f"{filename}", img)
 
 
 def draw_square_mask(winfo: Struct, graph: sg.Graph) -> None:
