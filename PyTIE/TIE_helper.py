@@ -380,7 +380,6 @@ def select_tifs(i, ptie, long_deriv = False):
     else:
         if i < 0:
             i = len(ptie.defvals)+i
-            print('new i: ', i)
         num_files = ptie.num_files
         under = num_files//2 - (i+1)
         over = num_files//2 + (i+1)
