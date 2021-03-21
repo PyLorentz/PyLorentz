@@ -22,4 +22,3 @@ dependencies:
   - pysimplegui=4.28.0
   - scikit-image=0.15.0
   - scipy
-  - tk=8.6.8
