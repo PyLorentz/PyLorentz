@@ -173,7 +173,7 @@ class Microscope(object):
 
         #compute the damping envelope
         u = 1.0 + p3 * qq**2
-        arg = 1.0/u*((p4 * qq**4) / 2.0 + p5 * (p6 * qq**3 - p7 * qq)**2)
+        arg = 1.0/u * ( (p4*qq**4)/2.0 + p5*(p6*qq**3 - p7*qq)**2)
         dampenv = np.exp(-arg)
         return dampenv
 

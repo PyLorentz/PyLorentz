@@ -1113,24 +1113,16 @@ def Neel(dim, chirality = 'io', pad = True, ir=0,show=False):
     else:
         rad = dim//2
 
-    # mask
-    x,y = np.ogrid[:dim, :dim]
-    cy = dim//2
-    cx = dim//2
-    r2 = (x-cx)*(x-cx) + (y-cy)*(y-cy)
-    circmask = r2 <= rad*rad
-    circmask *= r2 >= ir*ir
+    x,y = np.array(np.ogrid[:dim, :dim]) - dim//2
 
-    # making the magnetizations
-    a = np.arange(dim)
-    b = np.arange(dim)
-    x,y = np.meshgrid(a,b)
-    x -= cx
-    y -= cy
-    dist = np.sqrt(x**2 + y**2)
+    circmask = circ4(dim, rad)
+    circ_ir = circ4(dim, ir)
+    zmask = -1*np.ones_like(circmask) + circmask + circ_ir
+    circmask -= circ_ir
 
-    mag_x = -x * np.sin(np.pi*dist/(rad-ir) - np.pi*(2*ir-rad)/(rad-ir)) * circmask
-    mag_y = -y * np.sin(np.pi*dist/(rad-ir) - np.pi*(2*ir-rad)/(rad-ir)) * circmask
+    dist = dist4(dim)
+    mag_y = -x * np.sin(np.pi*dist/(rad-ir) - np.pi*(2*ir-rad)/(rad-ir)) * circmask
+    mag_x = -y * np.sin(np.pi*dist/(rad-ir) - np.pi*(2*ir-rad)/(rad-ir)) * circmask
     mag_x /= np.max(mag_x)
     mag_y /= np.max(mag_y)
 
@@ -1138,8 +1130,8 @@ def Neel(dim, chirality = 'io', pad = True, ir=0,show=False):
     # mag_z = (b - 2*b*dist/rad) * circmask
     mag_z = (-ir-rad + 2*dist)/(ir-rad) * circmask
 
-    mag_z[np.where(dist<ir)] = 1
-    mag_z[np.where(dist>rad)] = -1
+    mag_z[np.where(zmask==1)] = 1
+    mag_z[np.where(zmask==-1)] = -1
 
     mag = np.sqrt(mag_x**2 + mag_y**2 + mag_z**2)
     mag_x /= mag 
@@ -1166,5 +1158,29 @@ def Neel(dim, chirality = 'io', pad = True, ir=0,show=False):
         plt.show()
 
     return (mag_x, mag_y, mag_z)
+
+
+def dist4(dim, norm=False): 
+    # 4-fold symmetric distance map even at small radiuses
+    d2 = dim//2
+    a = np.arange(d2)
+    b = np.arange(d2)
+    if norm:
+        a = a/(2*d2)
+        b = b/(2*d2)
+    x,y = np.meshgrid(a,b)
+    quarter = np.sqrt(x**2 + y**2)
+    dist = np.zeros((dim, dim))
+    dist[d2:, d2:] = quarter
+    dist[d2:, :d2] = np.fliplr(quarter)
+    dist[:d2, d2:] = np.flipud(quarter)
+    dist[:d2, :d2] = np.flipud(np.fliplr(quarter))
+    return dist
+
+
+def circ4(dim, rad): 
+    # 4-fold symmetric circle even at small dimensions
+    return (dist4(dim)<rad).astype('int')
+
 
 ### End ###

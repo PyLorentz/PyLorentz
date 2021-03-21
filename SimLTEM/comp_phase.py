@@ -252,6 +252,9 @@ def mansPhi(mx = 1.0,my = 1.0,mz = None,beam = [0.0,0.0,1.0],thick = 1.0,embed =
 
     #Compute vector products and Gpts
     if mz is None: # eq 13a in Mansuripur 
+        if not np.array_equal(beam, [0,0,1]):
+            print("Using a tilted beam requires a nonzero mz input")
+            print("Proceeding with beam [0,0,1].")
         prod = sigx*fmy - sigy*fmx
         Gpts = 1+1j*0
 
