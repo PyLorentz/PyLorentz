@@ -329,7 +329,7 @@ class TIE_params(object):
         return
 
     def set_scale(self, scale): 
-        """Change the scale of the images (nm/pix) in the relevant places.f
+        """Change the scale of the images (nm/pix) in the relevant places.
         
         Args: 
             scale (float): Scale of images in nm/pixel
