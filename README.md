@@ -3,7 +3,7 @@ PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Mic
 
 - PyTIE -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
 - SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
-- GUI/Align -- Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE
+- GUI -- A user friendly GUI for PyTIE.
 
 For full documentation please check out our documentation pages: [![Documentation Status](https://readthedocs.org/projects/pylorentztem/badge/?version=latest)](https://pylorentztem.readthedocs.io/en/latest/?badge=latest) 
 
