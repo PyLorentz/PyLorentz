@@ -1,7 +1,7 @@
 """Functions for GUI event handling.
 
 Contains most functions for handling events in GUI. This includes controlling user events,
-calls to PyTIE, alignment calls to FIJI, saving images, creating image masks,
+calls to PyTIE, saving images, creating image masks,
 and image manipulation for GUI display.
 
 AUTHOR:
@@ -45,21 +45,20 @@ from util import Struct, check_setup
 
 
 # ============================================================= #
-#      Setting defaults for FIJI and the working Directory.      #
+#      Setting defaults for the working Directory.              #
 # ============================================================= #
 def defaults() -> Dict[str, str]:
-    """Load the default Fiji and working directory if any is set.
+    """Load the default working directory if any is set.
 
     Returns:
         DEFAULTS: Dictionary of the working directory paths.
     """
     GUI_dir = os.path.dirname(os.path.abspath(__file__))
     default_txt = f'{GUI_dir}/defaults.txt'
-    DEFAULTS = {'browser_dir': '', 'fiji_dir': ''}
+    DEFAULTS = {'browser_dir': ''}
     if not os_path.exists(default_txt):
         with open(default_txt, 'w+') as f:
-            f.write('// File contains the default paths to FIJI (ignore) and the browser working directory for GUI.\n')
-            f.write('FIJI Directory,\n')
+            f.write('// File contains the the browser working directory for GUI.\n')
             f.write('Browser Directory,\n')
     else:
         try:
@@ -74,9 +73,7 @@ def defaults() -> Dict[str, str]:
                     items = line.split(',')
                     key, value = items[0], items[1]
                     value = value.strip()
-                    if key == 'FIJI Directory':
-                        DEFAULTS['fiji_dir'] = value
-                    elif key == 'Browser Directory':
+                    if key == 'Browser Directory':
                         DEFAULTS['browser_dir'] = value
 
     return DEFAULTS
@@ -191,7 +188,6 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
         - The keys available for elements in the window
         - Tracks which tab is open
         - Holds the buffer for printing output to log
-        - Managers for reconstruction threads and FIJI threads (and all processes)
         - Tracks what paths are stored for the users defaults
         - Managers for which loading icons should be displayed
         - Tracks which element should have focus in the window
@@ -1544,7 +1540,7 @@ def run_home_tab(winfo: Struct, window: sg.Window,
     """
 
     prefix = 'HOM: '
-    # Get directories for Fiji and image directory
+    # Get directories for image directory
     python_dir = os.path.dirname(os.path.abspath(__file__))
     # chmod
     default_txt = f'{python_dir}/defaults.txt'
@@ -1604,8 +1600,6 @@ def run_home_tab(winfo: Struct, window: sg.Window,
                     fnew.write('Browser Directory, \n')
                     print(f'{prefix}Browser working directory default was reset.')
                     window['__REC_Image_Dir_Browse__'].InitialFolder = ''
-                elif line.startswith('FIJI Directory'):
-                    fnew.write('FIJI Directory, \n')
                 else:
                     fnew.write(line)
 
@@ -2797,7 +2791,7 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
 
     # Set up the output log window and redirecting std_out
     log_line = 0
-    with StringIO() as winfo.buf, StringIO() as winfo.fiji_buf:
+    with StringIO() as winfo.buf:
         with redirect_stdout(winfo.buf):
 
             # Run event loop
@@ -2900,14 +2894,14 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                 # Copying and pasting text from output windows
                 if winfo.output_window_active:
                     output_event, output_values = output_window.Read(timeout=0)
-                    if output_event in ['MAIN_OUTPUT+FOCUS_IN+', 'FIJI_OUTPUT+FOCUS_IN+']:
+                    if output_event in ['MAIN_OUTPUT+FOCUS_IN+']:
                         key = output_event[:-10]
                         widget = winfo.output_window[key].Widget
                         widget.bind("<1>", widget.focus_set())
                         disable_elements(output_window, [key])
                         winfo.output_focus_active = True
                         winfo.active_output_focus_el = key
-                    elif output_event in ['MAIN_OUTPUT+FOCUS_OUT+', 'FIJI_OUTPUT+FOCUS_OUT+']:
+                    elif output_event in ['MAIN_OUTPUT+FOCUS_OUT+']:
                         key = output_event[:-11]
                         widget = winfo.output_window[key].Widget
                         widget.unbind("<1>")

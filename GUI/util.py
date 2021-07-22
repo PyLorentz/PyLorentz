@@ -1,7 +1,7 @@
-"""Utility functions for GUI and alignment.
+"""Utility functions for GUI.
 
 Contains miscellaneous utility functions that help with GUI event handling,
-image handling, and certain file handling for alignment.
+image handling, and certain file handling.
 
 AUTHOR:
 Timothy Cote, ANL, Fall 2019.
@@ -258,29 +258,15 @@ def flatten_order_list(my_list: List[List]) -> List:
     return flat_list
 
 
-def pull_image_files(fls_file: str,
-                     check_align: bool = False) -> List[List[str]]:
-    """Use .fls file to return ordered images for alignment.
+def pull_image_files(fls_file: str) -> List[List[str]]:
+    """Pull images from .fls file.
 
     Initially it will read in .fls data, pull the number of files
     from the first line, and then locate the in-focus image. Then
     it separates the overfocus and underfocus images.
 
-    If the check alignment is set, the returned images are the infocus image,
-    and the nearest under-focused/over-focused on either side of the
-    infocus image. Otherwise all image files are returned. The files are
-    ordered from
-
-
-                    [
-                    [smallest underfocus,  ... , largest underfocus]
-                    [infocus]
-                    [smallest overfocus, ... , largest overfocus]
-                    ]
-
     Args:
         fls_file: The filename for the fls file.
-        check_align: Option for full alignment or parameter test.
 
     Returns:
         filenames: 2D list of under/in/over-focus images.
@@ -301,12 +287,8 @@ def pull_image_files(fls_file: str,
     # If checking parameters, only grab one
     # file on either side of the infocus image.
     focus_file = [fls_lines[focus_split]]
-    if check_align:
-        under_files = [fls_lines[focus_split - 1]]
-        over_files = [fls_lines[focus_split + 1]]
-    else:
-        under_files = fls_lines[under_split:focus_split]
-        over_files = fls_lines[focus_split + 1: over_split + 1]
+    under_files = fls_lines[under_split:focus_split]
+    over_files = fls_lines[focus_split + 1: over_split + 1]
 
     # Reverse underfocus files due to how ImageJ opens images
     filenames = [under_files[::-1], focus_file, over_files]
@@ -314,7 +296,7 @@ def pull_image_files(fls_file: str,
 
 
 def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
-                  fls_value: str, check_sift: bool) -> Tuple[List[str], List[str]]:
+                  fls_value: str) -> Tuple[List[str], List[str]]:
     """Grab image data from .fls file.
 
     Given the FLS files for the flip/unflip/single images,
@@ -332,7 +314,6 @@ def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
         tfs_value: Value for type of through-focal series,
             Single or Unflip/Flip.
         fls_value: String of number of FLS files used.
-        check_sift: Option to check sift alignment.
 
     Returns:
         Tuple of image filenames for scenarios above
@@ -344,20 +325,19 @@ def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
 
     # Read image data from .fls files and store in flip/unflip lists
     if fls_value == 'One':
-        files1 = pull_image_files(fls1, check_sift)
+        files1 = pull_image_files(fls1)
         if tfs_value == 'Unflip/Flip':
-            files2 = pull_image_files(fls1, check_sift)
+            files2 = pull_image_files(fls1)
         else:
             files2 = []
     elif fls_value == 'Two':
-        files1 = pull_image_files(fls1, check_sift)
-        files2 = pull_image_files(fls2, check_sift)
+        files1 = pull_image_files(fls1)
+        files2 = pull_image_files(fls2)
     return files1, files2
 
 
 def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
-             tfs_value: str, fls_value: str,
-             check_sift: bool = False) -> Tuple[List[str], List[str]]:
+             tfs_value: str, fls_value: str) -> Tuple[List[str], List[str]]:
     """Read image files from .fls files and returns their paths.
 
     The images are read from the FLS files and the files are returned
@@ -374,7 +354,6 @@ def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
                 Options: Unflip/FLip, Single
         fls_value: The FLS option.
                 Options: One, Two
-        check_sift: Option for checking SIFT alignment.
 
     Returns:
         (files1, files2): A tuple of the lists of image paths corresponding
@@ -387,7 +366,7 @@ def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
     fls1, fls2 =  fls_files[0], fls_files[1]
 
     # Read image data from .fls files and store in flip/unflip lists
-    files1, files2 = grab_fls_data(fls1, fls2, tfs_value, fls_value, check_sift)
+    files1, files2 = grab_fls_data(fls1, fls2, tfs_value, fls_value)
 
     # Check same number of files between fls
     if tfs_value != 'Single':
@@ -448,7 +427,7 @@ def check_setup(datafolder: str, tfs_value: str,
 
     # Grab the files that exist in the flip and unflip dirs.
     file_result = read_fls(path1, path2, fls_files,
-                           tfs_value, fls_value, check_sift=False)
+                           tfs_value, fls_value)
 
     vals = (False, None, None, None, None)
     if isinstance(file_result, tuple):
@@ -477,9 +456,7 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
                 Optional[Tuple[int, int, int]]]:
     """Loads an image file.
 
-    Load an image file if it is a stack, dm3, dm4, or bitmap. As of now,
-    Fiji doesn't allow easy loading of dm4's so be warned that alignment
-    for dm4 files probably won't work.
+    Load an image file if it is a stack, dm3, dm4, or bitmap.
 
     Args:
         img_path: Full path to the location of the image.
@@ -504,7 +481,7 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
             if img_path.endswith(end):
                 correct_end = True
         if not correct_end:
-            if 'Stage' in key or 'Align' in key:
+            if 'Stage' in key:
                 print(f'{prefix}Trying to load an incorrect file type. Acceptable values "tif" are "tiff".')
             elif 'FLS' in key:
                 print(f'{prefix}Trying to load an incorrect file type. Acceptable values "tif", "tiff", "dm3", "dm4".')

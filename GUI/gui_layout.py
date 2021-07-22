@@ -102,18 +102,16 @@ def home_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
     title = '''PyLorentz Phase Reconstruction'''
     version = '''Version 1.2.0'''
     authors = '''Authors: Tim Cote, Arthur McCray, CD Phatak'''
-    readme = '''PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions:
+    readme = '''PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are two primary features and functions:
 
 * PyTIE – Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE).
 
 * SimLTEM – Simulating phase shift and LTEM images from a given magnetization. (Unavailable in GUI)
                 
                 
-This GUI should be used as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PYTIE along with a means of faster alignment of LTEM images utilizing Fiji alignment protocols.
+This GUI should be used as an alternative to the Jupyter Notebook for some improvments in region selection and control over saving images in PyTIE.
 
 '''
-    contact = 'Contact: tcote@anl.gov, amccray@anl.gov'
-
     run_color_bg = '#0b7a29'
     no_run_color_bg = '#b00707'
     fg_color = '#f5f5f5'
@@ -139,7 +137,6 @@ This GUI should be used as an alternative to the Jupyter Notebook for some impro
                        [sg.T(version, **style.styles('home_version'))],
                        [sg.T(authors, **style.styles('home_authors'))],
                        [sg.Multiline(readme, **style.styles('home_readme'))],
-                       [sg.T(contact, **style.styles('home_contact'))],
                        [browser_def_text],
                        [browser_button, browser_wd_input, browser_def_set, browser_def_reset]])]]
     metadata = {"parent_tabgroup": "pages_tabgroup",

@@ -17,7 +17,7 @@ dependencies:
   - mdf_forge
   - numpy
   - numba
-  - opencv=4.4.0
+  - opencv=4.2.0
   - python=3.7.1
   - pysimplegui=4.28.0
   - scikit-image=0.15.0
