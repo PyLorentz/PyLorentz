@@ -176,7 +176,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     inf_im += 1 - mask
     # Make sure there are no zeros left: 
     inf_im = np.where(scaled_tifs[len(tifs)//2] == 0, 0.001, inf_im)
-    results['inf_im'] = inf_im    
+    results['inf_im'] = inf_im
     
     if v >= 2: 
         print("""\nScaled images (+- = unflip/flip, +- = over/underfocus)
@@ -243,7 +243,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     results['phase_m'] = resultsB['phase']
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
                                     hsvwheel=hsv, background='black')
-
+    results['inf_im'] = inf_im * mask
     if v >= 1:
         show_im(results['color_b'], "B-field color HSV colorwheel", cbar=False,
             scale=ptie.scale)

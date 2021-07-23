@@ -1515,7 +1515,7 @@ def ptie_save(winfo: Struct, window: sg.Window, cwd: str, images: Dict,
                         mag_x = util.slice_im(mag_x, (start_y, start_x, end_y, end_x))
                         mag_y = util.slice_im(mag_y, (start_y, start_x, end_y, end_x))
 
-                    util.add_vectors(mag_x, mag_y, color_float_array, v_color, hsv, v_num, v_len,
+                    util.add_vectors(window, mag_x, mag_y, color_float_array, v_color, hsv, v_num, v_len,
                                      v_wid, graph_size, winfo.rec_pad_info, save=name)
     except:
         print('Did not save images correctly')
@@ -1749,7 +1749,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             vector_num = int(window['__REC_Arrow_Num__'].get())
             vector_len, vector_wid = float(window['__REC_Arrow_Len__'].get()), float(window['__REC_Arrow_Wid__'].get())
             graph_size = graph.get_size()
-            byte_img = util.add_vectors(mag_x, mag_y, color_float_array,
+            byte_img = util.add_vectors(window, mag_x, mag_y, color_float_array,
                                           vector_color, hsv, vector_num, vector_len,
                                           vector_wid, graph_size, winfo.rec_pad_info, save=None)
 
@@ -2378,7 +2378,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             v_color = v_color == 'On'
             graph_size = graph.get_size()
 
-            byte_img = util.add_vectors(mag_x, mag_y, color_float_array,
+            byte_img = util.add_vectors(window, mag_x, mag_y, color_float_array,
                                           v_color, hsv, v_num, v_len,
                                           v_wid, graph_size, winfo.rec_pad_info, save=None)
             shape = color_float_array.shape
@@ -2449,7 +2449,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             vector_num = int(window['__REC_Arrow_Num__'].get())
             vector_len, vector_wid = int(window['__REC_Arrow_Len__'].get()), int(window['__REC_Arrow_Wid__'].get())
             graph_size = graph.get_size()
-            byte_img = util.add_vectors(mag_x, mag_y, color_float_array,
+            byte_img = util.add_vectors(window, mag_x, mag_y, color_float_array,
                                         True, hsvwheel, vector_num, vector_len,
                                         vector_wid, graph_size, winfo.rec_pad_info, save=None)
             shape = float_array.shape

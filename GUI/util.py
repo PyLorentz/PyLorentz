@@ -19,13 +19,16 @@ from PIL import Image, ImageDraw
 import subprocess
 from sys import platform, path as sys_path
 from typing import Any, Dict, List, Optional, Tuple, Union
+import gui_styling
 
 # Third-Party Imports
 from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 import hyperspy.api as hs
+# Set TkAgg to show if using a drawing computer so vector image gets displayed
 import matplotlib
-from matplotlib import cm as mpl_cm
-import matplotlib.pyplot as plt
+from matplotlib import cm as mpl_cm, pyplot as plt
+if platform.startswith('darwin'):
+    matplotlib.use('TkAgg')
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
 import PySimpleGUI as sg
@@ -785,7 +788,7 @@ def slice_im(image: 'np.ndarray', slice_size: Tuple[int, int, int, int]) -> 'np.
     return new_image
 
 
-def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
+def add_vectors(window: sg.Window, mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
                 hsv: bool, arrows: int, length: float, width: float,
                 graph_size: Tuple[int, int], pad_info: Tuple[Any, Any],
                 GUI_handle: bool = True,
@@ -793,6 +796,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
     """Add a vector plot for the magnetic saturation images to be shown in the GUI.
 
     Args:
+        window: The main GUI window.
         mag_x: The x-component of the magnetic induction.
         mag_y: The y-component of the magnetic induction.
         color_np_array: The colorized magnetic saturation array.
@@ -814,6 +818,8 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
     # Retrieve the image with the added vector plot
     fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
+    window.set_icon(gui_styling.get_icon())
+
     if GUI_handle and not save:
         # Get figure and remove any padding
         plt.figure(fig.number)
@@ -826,6 +832,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         fig.canvas.draw()
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
 
         if pad_info[0] is not None:
             max_val = max(pad_info[2:])
@@ -846,6 +853,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         # This has the final shape of the graph
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
+
         plt.close('all')
         return return_img
     else:
