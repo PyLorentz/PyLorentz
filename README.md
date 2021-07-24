@@ -7,22 +7,23 @@ PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Mic
 
 For full documentation please check out our documentation pages: [![Documentation Status](https://readthedocs.org/projects/pylorentztem/badge/?version=latest)](https://pylorentztem.readthedocs.io/en/latest/?badge=latest) 
 
-If you usePyLorentz, please cite us. We have a DOI through Zenodo: [![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
+If you use PyLorentz, please cite our [paper](https://doi.org/10.1103/PhysRevApplied.15.044025) [1] and this PyLorentz code: [![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
+
 
 ## Features
 ### PyTIE 
 * Uses inverse Laplacian method to solve the Transport of Intensity Equation (TIE)
-* Can reconstruct the magnetization from samples of variable thickness by using two through focal series (tfs) taken with opposite electron beam directions [1]. 
+* Can reconstruct the magnetization from samples of variable thickness by using two through focal series (tfs) taken with opposite electron beam directions [2]. 
 * Samples of uniform thicknss can be reconstructed from a single tfs.
 * Thin samples of uniform thickness, from which the only source of contrast is magnetic Fresnel contrast, can be reconstructed with a single defocused image using Single-Image-TIE (SITIE). 
 
-	* This  method does not apply to all samples; for more information please refer to Chess et al. [2]. 
+	* This  method does not apply to all samples; for more information please refer to Chess et al. [3]. 
 
-* The TIE and SITIE solvers can implement Tikhonov regularization to remove low-frequency noise [1]. 
+* The TIE and SITIE solvers can implement Tikhonov regularization to remove low-frequency noise [2]. 
 
 	* Results reconstructed with a Tikhonov filter are no longer quantitative, but a Tikhonov filter can greatly increase the range of experimental data that can be reconstructed. 
 
-* Symmetric extensions of the image can be created to reduce Fourier processing edge-effects [3]. 
+* Symmetric extensions of the image can be created to reduce Fourier processing edge-effects [4]. 
 * Subregions of the images can be selected interactively to improve processing time or remove unwanted regions of large contrast (such as the edge of a TEM window) that would otherwise interfere with reconstruction. 
 
 	* At large aspect ratios, Fourier sampling effects become more pronounced and directionally affect the reconstructed magnetization. Therefore non square images are not quantitative, though symmetrizing the image can greatly reduce this effect.
@@ -99,9 +100,10 @@ However if you have just one stack (no flip stack) then your data should be in a
                    full_align.tif  
                    
 ## References
-[1] Humphrey, E., Phatak, C., Petford-Long, A. K. & De Graef, M. Separation of electrostatic and magnetic phase shifts using a modified transport-of-intensity equation. Ultramicroscopy 139, 5–12 (2014).   
-[2] Chess, J. J. et al. Streamlined approach to mapping the magnetic induction of skyrmionic materials. Ultramicroscopy 177, 78–83 (2018).   
-[3] Volkov, V. V, Zhu, Y. & Graef, M. De. A New Symmetrized Solution for Phase Retrieval using the TI. 33, 411–416 (2002).   
+[1] 1. McCray, A. R. C., Cote, T., Li, Y., Petford-Long, A. K. & Phatak, C. Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron Microscopy. Phys. Rev. Appl. 15, 044025 (2021).   
+[2] Humphrey, E., Phatak, C., Petford-Long, A. K. & De Graef, M. Separation of electrostatic and magnetic phase shifts using a modified transport-of-intensity equation. Ultramicroscopy 139, 5–12 (2014).   
+[3] Chess, J. J. et al. Streamlined approach to mapping the magnetic induction of skyrmionic materials. Ultramicroscopy 177, 78–83 (2018).   
+[4] Volkov, V. V, Zhu, Y. & Graef, M. De. A New Symmetrized Solution for Phase Retrieval using the TI. Micron 33, 411–416 (2002).
    
 ## License
 
