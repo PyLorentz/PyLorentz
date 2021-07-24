@@ -1,14 +1,13 @@
 # PyLorentz
-A codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions: 
+PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions: 
 
 - PyTIE -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
 - SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
-- GUI/Align -- Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE
+- GUI -- GUI provided for PyTIE reconstruction.
 
-For full documentation please check out our [wiki](https://pylorentztem.readthedocs.io/en/latest/). 
+For full documentation please check out our documentation pages: [![Documentation Status](https://readthedocs.org/projects/pylorentztem/badge/?version=latest)](https://pylorentztem.readthedocs.io/en/latest/?badge=latest) 
 
-If you usePyLorentz, please cite us. We have a DOI through Zenodo:  
-[![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
+If you usePyLorentz, please cite us. We have a DOI through Zenodo: [![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
 
 ## Features
 ### PyTIE 
@@ -35,10 +34,9 @@ If you usePyLorentz, please cite us. We have a DOI through Zenodo:
 * Automate full tilt series for tomographic reconstruction of 3D magnetic samples. 
 * PyLorentz code is easily integrated into existing python workflows. 
 
-### GUI/Align
+### GUI
 * TIE reconstruction through a graphical user interface (gui) 
 * Additional features include improved region selection and easily images before saving. 
-* Image registration routines incorporated (via `FIJI <https://fiji.sc/>`) for aligning experimental data. 
 
 ## Getting started
 With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo directly, fork the project, or download the files directly in a .zip. 

@@ -8,10 +8,14 @@ Author: Arthur McCray, ANL, Summer 2019.
 """
  
 import matplotlib.pyplot as plt 
+import matplotlib as mpl
 import numpy as np
 import hyperspy.api as hs
+import sys
+from cv2 import resize, imwrite
 from skimage import io
 from scipy.ndimage.filters import median_filter
+from scipy import ndimage
 from ipywidgets import interact
 import hyperspy # just for checking type in show_stack. 
 from copy import deepcopy
@@ -71,6 +75,9 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
         fls_full = os.path.join(path, 'unflip', fls_file)
     elif os.path.isfile(os.path.join(path, 'tfs', fls_file)) and not flip:
         fls_full = os.path.join(path, 'tfs', fls_file)
+    else:
+        print("fls file could not be found.")
+        sys.exit(1)
 
     if flip_fls_file is None: # one fls file given
         fls = []
@@ -142,7 +149,7 @@ def load_data(path=None, fls_file='', al_file='', flip=None, flip_fls_file=None,
     # load the aligned tifs and update the dm3 data to match
     # The data from the dm3's will be replaced with the aligned image data. 
     try:
-        al_tifs = io.imread(path + al_file)
+        al_tifs = io.imread(os.path.join(path, al_file))
     except FileNotFoundError as e:
         print('Incorrect aligned stack filename given.')
         raise e
@@ -373,7 +380,6 @@ def select_tifs(i, ptie, long_deriv = False):
     else:
         if i < 0:
             i = len(ptie.defvals)+i
-            print('new i: ', i)
         num_files = ptie.num_files
         under = num_files//2 - (i+1)
         over = num_files//2 + (i+1)
@@ -448,7 +454,8 @@ def scale_stack(imstack):
 to have handy when working in Jupyter notebooks."""
 
 
-def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_title=''):
+def show_im(image, title=None, simple=False, origin='upper', cbar=True,
+    cbar_title='', scale=None, **kwargs):
     """Display an image on a new axis.
     
     Takes a 2D array and displays the image in grayscale with optional title on 
@@ -473,6 +480,8 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_tit
             simple = False. 
         cbar_title (str): (`optional`) Title attached to the colorbar (indicating the 
             units or significance of the values). 
+        scale (float): Scale of image in nm/pixel. Axis markers will be given in
+            units of nanometers. 
 
     Returns:
         None
@@ -484,22 +493,41 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_tit
         vmax = np.max(image) + 1e-12
         im = ax.matshow(image, cmap = 'gray', origin=origin, vmin=vmin, vmax=vmax)
     else:
-        im = ax.matshow(image, cmap = 'gray', origin=origin)
+        im = ax.matshow(image, cmap = 'gray', origin=origin, **kwargs)
 
     if title is not None: 
         ax.set_title(str(title), pad=0)
 
     if simple:
-        # plt.axis('off')
-        pass
+        plt.axis('off')
     else:
         plt.tick_params(axis='x',top=False)
         ax.xaxis.tick_bottom()
         ax.tick_params(direction='in')
+        if scale is None:
+            ticks_label = 'pixels'
+        else:
+            def mjrFormatter(x, pos):
+                return f"{scale*x:.3g}"
+
+            fov = scale * max(image.shape[0], image.shape[1])
+
+            if fov < 4e3: # if fov < 4um use nm scale
+                ticks_label = ' nm '
+            elif fov > 4e6: # if fov > 4mm use m scale
+                ticks_label = "  m  "
+                scale /= 1e9
+            else: # if fov between the two, use um
+                ticks_label = " $\mu$m "
+                scale /= 1e3
+
+            ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(mjrFormatter))
+            ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(mjrFormatter))
+
         if origin == 'lower': 
-            ax.text(y=0,x=0,s='pixels', rotation=-45, va='top', ha='right')
-        elif origin =='upper': 
-            ax.text(y=image.shape[0],x=0,s='pixels', rotation=-45, va='top', ha='right')
+            ax.text(y=0,x=0,s=ticks_label, rotation=-45, va='top', ha='right')
+        elif origin =='upper': # keep label in lower left corner
+            ax.text(y=image.shape[0],x=0,s=ticks_label, rotation=-45, va='top', ha='right')
 
         if cbar: 
             plt.colorbar(im, ax=ax, pad=0.02, format="%.2g", label=str(cbar_title))
@@ -508,7 +536,7 @@ def show_im(image, title=None, simple=False, origin='upper', cbar=True, cbar_tit
     return
 
 
-def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
+def show_stack(images, ptie=None, origin='upper', title=False):
     """Shows a stack of dm3s or np images with a slider to navigate slice axis. 
     
     Uses ipywidgets.interact to allow user to view multiple images on the same
@@ -523,7 +551,6 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
         ptie (``TIE_params`` object): Will use ptie.crop to show only the region
             that will remain after being cropped. 
         origin (str): (`optional`) Control image orientation. 
-        simple (bool): (`optional`) Default output or additional labels.  
         title (bool): (`optional`) Try and pull a title from the signal objects. 
     Returns:
         None 
@@ -544,6 +571,11 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
         t , b = 0, images[0].shape[0]
         l , r = 0, images[0].shape[1]
     else:
+        if ptie.rotation != 0 or ptie.x_transl != 0 or ptie.y_transl != 0:
+            rotate, x_shift, y_shift = ptie.rotation, ptie.x_transl, ptie.y_transl
+            for i in range(len(images)):
+                images[i] = ndimage.rotate(images[i], rotate, reshape=False)
+                images[i] = ndimage.shift(images[i], (-y_shift, x_shift))
         t = ptie.crop['top']
         b = ptie.crop['bottom']
         l = ptie.crop['left']
@@ -552,6 +584,7 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
     images = images[:,t:b,l:r]
 
     fig, ax = plt.subplots()
+    plt.axis('off')
     N = images.shape[0]
 
     def view_image(i=0):
@@ -562,27 +595,26 @@ def show_stack(images, ptie=None, origin='upper', simple=False, title=False):
             else:
                 plt.title('Stack[{:}]'.format(i))
 
-    if not simple:
-        ax.tick_params(direction='in')
-        if origin == 'lower': 
-            ax.text(y=0,x=0,s='pixels', rotation=-45, va='top', ha='right')
-        elif origin =='upper': 
-            ax.text(y=images[0].shape[0],x=0,s='pixels', rotation=-45, va='top', ha='right')
-
     interact(view_image, i=(0, N-1))
     return 
 
     
-def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=True,
+def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=False, hsv=True,
             origin='upper', save=None, GUI_handle=False, GUI_color_array=None):
     """ Display a 2D vector arrow plot. 
 
-    Quiver doesn't allow setting the origin as "upper" for some reason. Just 
-    flipping the axis doesn't also flip the arrow directions. 
+    Displays an an arrow plot of a vector field, with arrow length scaling with 
+    vector magnitude. If color=True, a colormap will be displayed under the 
+    arrow plot. 
+
+    If mag_z is included and color=True, a spherical colormap will be used with 
+    color corresponding to in-plane and white/black to out-of-plane vector 
+    orientation. 
 
     Args: 
         mag_x (2D array): x-component of magnetization. 
         mag_y (2D array): y-component of magnetization. 
+        mag_z (2D array): optional z-component of magnetization. 
         a (int): Number of arrows to plot along the x and y axes. Default 15. 
         l (float): Scale factor of arrows. Larger l -> shorter arrows. Default None
             guesses at a good value. None uses matplotlib default.  
@@ -602,8 +634,15 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
     Returns: 
         fig: Returns the figure handle.
     """ 
+    assert mag_x.ndim == mag_y.ndim
+    if mag_x.ndim == 3: 
+        print("Summing along first axis")
+        mag_x = np.sum(mag_x, axis=0)
+        mag_y = np.sum(mag_y, axis=0)
+        if mag_z is not None:
+            mag_z = np.sum(mag_z, axis=0)
+
     a = ((mag_x.shape[0] - 1)//a)+1
-    bmax = max(mag_x.max(), mag_y.max())
 
     dimy, dimx = mag_x.shape
     X = np.arange(0, dimx, 1)
@@ -616,14 +655,14 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         if color:
             rad = mag_x.shape[0]//16
             rad = max(rad, 16)
-            pad = 10 # pixels
+            pad = 10  # pixels
             width = np.shape(mag_y)[1] + 2*rad + pad
             aspect = dimy/width
         else:
-            aspect = 1
+            aspect = dimy/dimx
 
-    if GUI_handle:
-        fig, ax = plt.subplots(figsize=(10, 10)) #, constrained_layout=True, frameon=False
+    if GUI_handle and save is None:
+        fig, ax = plt.subplots(figsize=(10, 10))
         plt.ioff()
         ax.set_aspect('equal', adjustable='box')
     else:
@@ -633,7 +672,7 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
     if color:
         if not GUI_handle or save is not None:
             from colorwheel import color_im
-            im = ax.matshow(color_im(mag_x, mag_y, hsvwheel=hsv, rad=rad), cmap='gray',
+            im = ax.matshow(color_im(mag_x, mag_y, mag_z, hsvwheel=hsv, rad=rad), cmap='gray',
                             origin=origin)
         else:
             im = ax.matshow(GUI_color_array, cmap='gray', origin=origin, aspect='equal')
@@ -641,13 +680,22 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
         plt.axis('off')
     else:
         arrow_color = 'black'
-        if GUI_handle:
-            white_array = np.zeros([dimx, dimy, 3], dtype=np.uint8)
+        if GUI_handle and save is None:
+            white_array = np.zeros([dimy, dimx, 3], dtype=np.uint8)
             white_array.fill(255)
             im = ax.matshow(white_array, cmap='gray', origin=origin, aspect='equal')
             plt.axis('off')
+        elif GUI_handle and save:
+            white_array = np.zeros([dimy, dimx, 3], dtype=np.uint8)
+            white_array.fill(255)
+            im = ax.matshow(white_array, cmap='gray', origin=origin)
+            fig.tight_layout(pad=0)
+            ax.xaxis.set_major_locator(mpl.ticker.NullLocator())
+            ax.yaxis.set_major_locator(mpl.ticker.NullLocator())
+            plt.axis('off')
 
-    q = ax.quiver(X[::a], Y[::a], U[::a, ::a], V[::a, ::a],
+    ashift = (dimx-1) % a//2
+    q = ax.quiver(X[ashift::a], Y[ashift::a], U[ashift::a,ashift::a], V[ashift::a,ashift::a],
                   units='xy',
                   scale=l,
                   scale_units='xy',
@@ -689,4 +737,4 @@ def show_2D(mag_x, mag_y, a=15, l=None, w=None, title=None, color=False, hsv=Tru
     if GUI_handle:
         return fig, ax
     else:
-        return
+        return 

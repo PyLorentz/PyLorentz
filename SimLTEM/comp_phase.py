@@ -57,7 +57,8 @@ def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B
         mz (3D array): z component of magnetization at each voxel (z,y,x)
         Dshp (3D array): Binary shape function of the object. Where value is 0,
             phase is not computed.  
-        theta_x (float): Rotation around x-axis (degrees) 
+        theta_x (float): Rotation around x-axis (degrees). Rotates around x axis
+            then y axis if both are nonzero. 
         theta_y (float): Rotation around y-axis (degrees) 
         pre_B (float): Numerical prefactor for unit conversion in calculating 
             the magnetic phase shift. Units 1/pixels^2. Generally 
@@ -76,6 +77,13 @@ def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B
         arrays of the electrostatic and magnetic phase shifts respectively. 
     """
     vprint = print if v>=1 else lambda *a, **k: None
+
+    assert mx.ndim == my.ndim == mz.ndim
+    if mx.ndim == 2: 
+        mx = mx[None,...]
+        my = my[None,...]
+        mz = mz[None,...]
+
     [dimz,dimy,dimx] = mx.shape
     dx2 = dimx//2
     dy2 = dimy//2
@@ -142,6 +150,7 @@ def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B
         vprint('0.00%', end=' .. ')
         cc = -1
         for ind in inds:
+            ind = tuple(ind)
             cc += 1
             if time.time() - otime >= 15:
                 vprint(f'{cc/nelems*100:.2f}%', end=' .. ')
@@ -250,6 +259,9 @@ def mansPhi(mx = 1.0,my = 1.0,mz = None,beam = [0.0,0.0,1.0],thick = 1.0,embed =
 
     #Compute vector products and Gpts
     if mz is None: # eq 13a in Mansuripur 
+        if not np.array_equal(beam, [0,0,1]):
+            print("Using a tilted beam requires a nonzero mz input")
+            print("Proceeding with beam [0,0,1].")
         prod = sigx*fmy - sigy*fmx
         Gpts = 1+1j*0
 

@@ -1,5 +1,4 @@
-Charudatta Phatak
-Arthur McCray
-Tim Cote
-Yue Li
-Frank Barrows
+Arthur McCray -- Northwestern University, Argonne National Lab
+Tim Cote -- Northwestern University, Argonne National Lab
+Yue Li -- Argonne National Lab
+Charudatta Phatak -- Argonne National Lab

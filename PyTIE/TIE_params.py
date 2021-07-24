@@ -45,6 +45,8 @@ class TIE_params(object):
             infocus image. Contains useful information such as scale if loaded 
             from dm3. 
         shape (tuple): Shape of original image data (y, x)
+        scale (float): Scale of images (nm/pixel). Taken from the dm3 metadata 
+            or set with the ``set_scale()`` method. 
         rotation (float, int): The rotation to apply to the image before reconstruction in deg.
         x_transl (int): The x_translation to apply to the image before reconstruction in pix.
         y_transl (int): The y_translation to apply to the image before reconstruction in pix.
@@ -115,6 +117,12 @@ class TIE_params(object):
         scale_x = self.axes[1].scale 
         assert scale_y == scale_x
         self.scale = scale_y
+        scale_units = self.axes[0].units
+        for sig in self.imstack + self.flipstack: # just to make sure they all have same scale
+            sig.axes_manager[0].units = scale_units
+            sig.axes_manager[1].units = scale_units
+            sig.axes_manager[0].scale = self.scale
+            sig.axes_manager[1].scale = self.scale
         self.rotation, self.x_transl, self.y_transl = 0, 0, 0   # The rotation/translation to apply to images.
 
         vprint('Given scale: {:.4f} nm/pix\n'.format(self.imstack[0].axes_manager[0].scale))
@@ -240,13 +248,22 @@ class TIE_params(object):
         if infocus:
             display_sig = self.imstack[self.num_files//2].deepcopy()
         else:
-            display_sig=self.imstack[0].deepcopy()
+            display_sig = self.imstack[0].deepcopy()
+
+        if self.rotation != 0 or self.x_transl != 0 or self.y_transl != 0:
+            rotate, x_shift, y_shift = self.rotation, self.x_transl, self.y_transl
+            display_sig.data = ndimage.rotate(display_sig.data, rotate, reshape=False, order=0)
+            display_sig.data = ndimage.shift(display_sig.data, (-y_shift, x_shift), order=0)
 
         dimy, dimx = self.shape
         scale = self.scale
+
         # reset roi to central square
         roi = hs.roi.RectangularROI(left= dimx//4*scale, right=3*dimx//4*scale, 
                             top=dimy//4*scale, bottom=3*dimy//4*scale)
+
+        # roi = hs.roi.RectangularROI(left=  59, right=3*dimx//4*scale, 
+        #                     top= 59, bottom=3*dimy//4*scale)
         display_sig.plot()
         roi2D = roi.interactive(display_sig, color="blue")
         self.roi = roi
@@ -312,7 +329,7 @@ class TIE_params(object):
         return
 
     def set_scale(self, scale): 
-        """Change the scale of the images (nm/pix) in the relevant places.f
+        """Change the scale of the images (nm/pix) in the relevant places.
         
         Args: 
             scale (float): Scale of images in nm/pixel

@@ -1,10 +1,11 @@
 name: PyLorentz
 channels:
+  - anaconda
   - conda-forge
-  - anaconda-fusion
   - defaults
 dependencies:
-  - hyperspy
+  - hyperspy=1.5.2
+  - h5py=2.10.0
   - ipykernel 
   - ipyparallel 
   - ipython
@@ -16,7 +17,7 @@ dependencies:
   - mdf_forge
   - numpy
   - numba
-  - opencv=4.4.0
+  - opencv=4.2.0
   - python=3.7.1
   - pysimplegui=4.28.0
   - scikit-image=0.15.0
