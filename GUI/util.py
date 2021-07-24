@@ -26,9 +26,10 @@ from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 import hyperspy.api as hs
 # Set TkAgg to show if using a drawing computer so vector image gets displayed
 import matplotlib
+matplotlib.use('agg')
+
 from matplotlib import cm as mpl_cm, pyplot as plt
-if platform.startswith('darwin'):
-    matplotlib.use('TkAgg')
+
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
 import PySimpleGUI as sg
@@ -818,7 +819,6 @@ def add_vectors(window: sg.Window, mag_x: 'np.ndarray', mag_y: 'np.ndarray', col
     # Retrieve the image with the added vector plot
     fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
-    window.set_icon(gui_styling.get_icon())
 
     if GUI_handle and not save:
         # Get figure and remove any padding

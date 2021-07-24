@@ -168,7 +168,7 @@ def reconstruct_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
         """The overall reconstruction tab layout.
 
         Returns:
-            The layout for the overall alignment tab.
+            The layout for the overall reconstruction tab.
         """
 
         load_data_frame = [[sg.Text('Stack:', pad=((5, 0), (5, 0))),
