@@ -19,13 +19,15 @@ from PIL import Image, ImageDraw
 import subprocess
 from sys import platform, path as sys_path
 from typing import Any, Dict, List, Optional, Tuple, Union
+import gui_styling
 
 # Third-Party Imports
 from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 import hyperspy.api as hs
 import matplotlib
-from matplotlib import cm as mpl_cm
-import matplotlib.pyplot as plt
+matplotlib.use('agg')
+
+from matplotlib import cm as mpl_cm, pyplot as plt
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
 import PySimpleGUI as sg
@@ -791,6 +793,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
     # Retrieve the image with the added vector plot
     fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
+
     if GUI_handle and not save:
         # Get figure and remove any padding
         plt.figure(fig.number)
@@ -823,6 +826,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         # This has the final shape of the graph
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
+
         plt.close('all')
         return return_img
     else:
