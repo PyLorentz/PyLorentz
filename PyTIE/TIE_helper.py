@@ -634,6 +634,14 @@ def show_2D(mag_x, mag_y, mag_z=None, a=15, l=None, w=None, title=None, color=Fa
     Returns: 
         fig: Returns the figure handle.
     """ 
+    assert mag_x.ndim == mag_y.ndim
+    if mag_x.ndim == 3: 
+        print("Summing along first axis")
+        mag_x = np.sum(mag_x, axis=0)
+        mag_y = np.sum(mag_y, axis=0)
+        if mag_z is not None:
+            mag_z = np.sum(mag_z, axis=0)
+
     a = ((mag_x.shape[0] - 1)//a)+1
 
     dimy, dimx = mag_x.shape

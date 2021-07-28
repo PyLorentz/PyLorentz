@@ -77,6 +77,13 @@ def linsupPhi(mx=1.0, my=1.0, mz=1.0, Dshp=None, theta_x=0.0, theta_y=0.0, pre_B
         arrays of the electrostatic and magnetic phase shifts respectively. 
     """
     vprint = print if v>=1 else lambda *a, **k: None
+
+    assert mx.ndim == my.ndim == mz.ndim
+    if mx.ndim == 2: 
+        mx = mx[None,...]
+        my = my[None,...]
+        mz = mz[None,...]
+
     [dimz,dimy,dimx] = mx.shape
     dx2 = dimx//2
     dy2 = dimy//2

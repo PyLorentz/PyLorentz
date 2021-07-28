@@ -139,6 +139,8 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
             thk_map = gaussian_filter(thk_map, sigma=1)
 
     Amp = np.exp((-np.ones([dy,dx]) * mem_thk / mem_xip0) - (thk_map / isl_xip0))
+    if np.min(Amp) == np.max(Amp) and np.max(Amp) < 0.01: 
+        Amp = np.ones_like(Amp)
     ObjWave = Amp * (np.cos(Tphi) + 1j * np.sin(Tphi))
 
     # compute unflipped images
@@ -580,6 +582,9 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
                        flip stack) 
         'color_b'      RGB image of magnetization
         'inf_im'       In-focus image
+        'mag_x'        x-component of input magnetization
+        'mag_y'        y-component of input magnetization
+        'mag_z'        z-component of input magnetization
         =============  =========================================================
     """
     vprint = print if v>=1 else lambda *a, **k: None
@@ -587,6 +592,25 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     directory = os.path.abspath(directory)
     if savename is None:
         savename = os.path.splitext(filename)[0]
+
+    if save < 1:
+        save_path_tfs = None
+        TIE_save = False
+    else:
+        save_path_tfs = os.path.join(directory, 'sim_tfs')
+        if save < 2:
+            TIE_save = 'b'
+        else:
+            TIE_save = True
+
+    cache_found = False
+    # if not flip:  ## Todo implement for flip 
+    #     phase_path = os.path.join(save_path_tfs, f'{savename}_phase.tiff')
+    #     if os.path.isfile(phase_path):
+    #         vprint("Found phase file, loading and using it.")
+    #         mphi = skimage_io.imread(phase_path)
+    #         ephi = np.ones_like(mphi)
+    #         cache_found = True
 
     mag_x, mag_y, mag_z, del_px, zscale = load_ovf(file, sim='norm', v=v, B0=B0)
     (zsize, ysize, xsize) = mag_x.shape
@@ -601,34 +625,24 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
         elif thk_map.ndim == 2:
             thk_map_3D = np.tile(thk_map,(zsize,1,1))
             thickness_nm = zscale*zsize
-
     else:
         thk_map_3D = None
         thickness_nm = zscale*zsize
 
-    if theta_x == 0 and theta_y == 0 and method.lower() == 'mans': 
-        vprint('Calculating phase shift with Mansuripur algorithm. ')
-        ephi, mphi = std_mansPhi(mag_x, mag_y, mag_z, zscale=zscale, isl_thk=thickness_nm,
-            del_px=del_px, isl_shape=thk_map_3D, pscope=pscope, b0=B0, isl_V0=sample_V0)
-    else: 
-        vprint('Calculating phase shift with the linear superposition method.')
-        # define numerical prefactors for phase shift calculation
-        phi0 = 2.07e7 #Gauss*nm^2 
-        pre_B = 2*np.pi*B0/phi0*zscale*del_px #1/px^2
-        pre_E = pscope.sigma*sample_V0*zscale #1/px
-        # calculate phase shifts with linear superposition method
-        ephi, mphi = linsupPhi(mx=mag_x, my=mag_y, mz=mag_z, Dshp=thk_map_3D, v=v,
-                           theta_x=theta_x, theta_y=theta_y, pre_B=pre_B, pre_E=pre_E)
-
-    if save < 1:
-        save_path_tfs = None
-        TIE_save = False
-    else:
-        save_path_tfs = os.path.join(directory, 'sim_tfs')
-        if save < 2:
-            TIE_save = 'b'
-        else:
-            TIE_save = True
+    if not cache_found: 
+        if theta_x == 0 and theta_y == 0 and method.lower() == 'mans': 
+            vprint('Calculating phase shift with Mansuripur algorithm. ')
+            ephi, mphi = std_mansPhi(mag_x, mag_y, mag_z, zscale=zscale, isl_thk=thickness_nm,
+                del_px=del_px, isl_shape=thk_map_3D, pscope=pscope, b0=B0, isl_V0=sample_V0)
+        else: 
+            vprint('Calculating phase shift with the linear superposition method.')
+            # define numerical prefactors for phase shift calculation
+            phi0 = 2.07e7 #Gauss*nm^2 
+            pre_B = 2*np.pi*B0/phi0*zscale*del_px #1/px^2
+            pre_E = pscope.sigma*sample_V0*zscale #1/px
+            # calculate phase shifts with linear superposition method
+            ephi, mphi = linsupPhi(mx=mag_x, my=mag_y, mz=mag_z, Dshp=thk_map_3D, v=v,
+                               theta_x=theta_x, theta_y=theta_y, pre_B=pre_B, pre_E=pre_E)
 
     sim_name = savename
     # adjust thickness to account for rotation for sample, not taken care of 
@@ -679,6 +693,10 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     
     results['phase_m_sim'] = mphi
     results['phase_e_sim'] = ephi
+    results['mag_x'] = mag_x
+    results['mag_y'] = mag_y
+    results['mag_z'] = mag_z
+
     return results 
 
 

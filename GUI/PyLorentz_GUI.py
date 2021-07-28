@@ -27,6 +27,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 # Third-party imports
 from numpy import setdiff1d
 import PySimpleGUI as sg
+import matplotlib
+matplotlib.use('agg')
 from matplotlib import colors
 
 # Local imports
@@ -2787,7 +2789,7 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
     # Create output_window
     output_window = output_ly()
     output_window.Hide()
-    
+
     # Initialize window, bindings, and event variables
     init(winfo, window, output_window)
     for key in winfo.keys['input']:
@@ -2971,7 +2973,7 @@ def run_GUI() -> None:
         subprocess.call(["/usr/bin/osascript", "-e", 'tell app "Finder" to set frontmost of process "Finder" to true'])
         subprocess.call(["/usr/bin/osascript", "-e", 'tell app "Finder" to set frontmost of process "python" to true'])
 
-    # Create data structure to hold variables about GUI, alignment and reconstruction.
+    # Create data structure to hold variables about GUI and reconstruction.
     winfo = Struct()
 
     # Event handling
@@ -2980,3 +2982,4 @@ def run_GUI() -> None:
 
 if __name__ == '__main__':
     run_GUI()
+

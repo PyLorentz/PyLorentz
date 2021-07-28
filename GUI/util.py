@@ -1,4 +1,4 @@
-"""Utility functions for GUI and alignment.
+"""Utility functions for GUI.
 
 Contains miscellaneous utility functions that help with GUI event handling,
 image handling, and certain file handling for alignment.
@@ -26,9 +26,16 @@ from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 import hyperspy.api as hs
 # Set TkAgg to show if using a drawing computer so vector image gets displayed
 import matplotlib
+<<<<<<< HEAD
 from matplotlib import cm as mpl_cm, pyplot as plt
 if platform.startswith('darwin'):
     matplotlib.use('TkAgg')
+=======
+matplotlib.use('agg')
+
+from matplotlib import cm as mpl_cm, pyplot as plt
+
+>>>>>>> 9d17e86643d3189816cdcd7819d72843dd9b7bfc
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
 import PySimpleGUI as sg
@@ -818,7 +825,10 @@ def add_vectors(window: sg.Window, mag_x: 'np.ndarray', mag_y: 'np.ndarray', col
     # Retrieve the image with the added vector plot
     fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
+<<<<<<< HEAD
     window.set_icon(gui_styling.get_icon())
+=======
+>>>>>>> 9d17e86643d3189816cdcd7819d72843dd9b7bfc
 
     if GUI_handle and not save:
         # Get figure and remove any padding
@@ -1040,3 +1050,4 @@ def draw_square_mask(winfo: Struct, graph: sg.Graph) -> None:
         y_bottom = graph_y
 
     winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
+
