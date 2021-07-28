@@ -1,7 +1,7 @@
 """Utility functions for GUI.
 
 Contains miscellaneous utility functions that help with GUI event handling,
-image handling, and certain file handling.
+image handling, and certain file handling for alignment.
 
 AUTHOR:
 Timothy Cote, ANL, Fall 2019.
@@ -19,13 +19,17 @@ from PIL import Image, ImageDraw
 import subprocess
 from sys import platform, path as sys_path
 from typing import Any, Dict, List, Optional, Tuple, Union
+import gui_styling
 
 # Third-Party Imports
 from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 import hyperspy.api as hs
+# Set TkAgg to show if using a drawing computer so vector image gets displayed
 import matplotlib
-from matplotlib import cm as mpl_cm
-import matplotlib.pyplot as plt
+matplotlib.use('agg')
+
+from matplotlib import cm as mpl_cm, pyplot as plt
+
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
 import PySimpleGUI as sg
@@ -258,15 +262,29 @@ def flatten_order_list(my_list: List[List]) -> List:
     return flat_list
 
 
-def pull_image_files(fls_file: str) -> List[List[str]]:
-    """Pull images from .fls file.
+def pull_image_files(fls_file: str,
+                     check_align: bool = False) -> List[List[str]]:
+    """Use .fls file to return ordered images for alignment.
 
     Initially it will read in .fls data, pull the number of files
     from the first line, and then locate the in-focus image. Then
     it separates the overfocus and underfocus images.
 
+    If the check alignment is set, the returned images are the infocus image,
+    and the nearest under-focused/over-focused on either side of the
+    infocus image. Otherwise all image files are returned. The files are
+    ordered from
+
+
+                    [
+                    [smallest underfocus,  ... , largest underfocus]
+                    [infocus]
+                    [smallest overfocus, ... , largest overfocus]
+                    ]
+
     Args:
         fls_file: The filename for the fls file.
+        check_align: Option for full alignment or parameter test.
 
     Returns:
         filenames: 2D list of under/in/over-focus images.
@@ -287,8 +305,12 @@ def pull_image_files(fls_file: str) -> List[List[str]]:
     # If checking parameters, only grab one
     # file on either side of the infocus image.
     focus_file = [fls_lines[focus_split]]
-    under_files = fls_lines[under_split:focus_split]
-    over_files = fls_lines[focus_split + 1: over_split + 1]
+    if check_align:
+        under_files = [fls_lines[focus_split - 1]]
+        over_files = [fls_lines[focus_split + 1]]
+    else:
+        under_files = fls_lines[under_split:focus_split]
+        over_files = fls_lines[focus_split + 1: over_split + 1]
 
     # Reverse underfocus files due to how ImageJ opens images
     filenames = [under_files[::-1], focus_file, over_files]
@@ -296,7 +318,7 @@ def pull_image_files(fls_file: str) -> List[List[str]]:
 
 
 def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
-                  fls_value: str) -> Tuple[List[str], List[str]]:
+                  fls_value: str, check_sift: bool) -> Tuple[List[str], List[str]]:
     """Grab image data from .fls file.
 
     Given the FLS files for the flip/unflip/single images,
@@ -314,6 +336,7 @@ def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
         tfs_value: Value for type of through-focal series,
             Single or Unflip/Flip.
         fls_value: String of number of FLS files used.
+        check_sift: Option to check sift alignment.
 
     Returns:
         Tuple of image filenames for scenarios above
@@ -325,19 +348,20 @@ def grab_fls_data(fls1: str, fls2: str, tfs_value: str,
 
     # Read image data from .fls files and store in flip/unflip lists
     if fls_value == 'One':
-        files1 = pull_image_files(fls1)
+        files1 = pull_image_files(fls1, check_sift)
         if tfs_value == 'Unflip/Flip':
-            files2 = pull_image_files(fls1)
+            files2 = pull_image_files(fls1, check_sift)
         else:
             files2 = []
     elif fls_value == 'Two':
-        files1 = pull_image_files(fls1)
-        files2 = pull_image_files(fls2)
+        files1 = pull_image_files(fls1, check_sift)
+        files2 = pull_image_files(fls2, check_sift)
     return files1, files2
 
 
 def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
-             tfs_value: str, fls_value: str) -> Tuple[List[str], List[str]]:
+             tfs_value: str, fls_value: str,
+             check_sift: bool = False) -> Tuple[List[str], List[str]]:
     """Read image files from .fls files and returns their paths.
 
     The images are read from the FLS files and the files are returned
@@ -354,6 +378,7 @@ def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
                 Options: Unflip/FLip, Single
         fls_value: The FLS option.
                 Options: One, Two
+        check_sift: Option for checking SIFT alignment.
 
     Returns:
         (files1, files2): A tuple of the lists of image paths corresponding
@@ -366,7 +391,7 @@ def read_fls(path1: Optional[str], path2: Optional[str], fls_files: List[str],
     fls1, fls2 =  fls_files[0], fls_files[1]
 
     # Read image data from .fls files and store in flip/unflip lists
-    files1, files2 = grab_fls_data(fls1, fls2, tfs_value, fls_value)
+    files1, files2 = grab_fls_data(fls1, fls2, tfs_value, fls_value, check_sift)
 
     # Check same number of files between fls
     if tfs_value != 'Single':
@@ -427,7 +452,7 @@ def check_setup(datafolder: str, tfs_value: str,
 
     # Grab the files that exist in the flip and unflip dirs.
     file_result = read_fls(path1, path2, fls_files,
-                           tfs_value, fls_value)
+                           tfs_value, fls_value, check_sift=False)
 
     vals = (False, None, None, None, None)
     if isinstance(file_result, tuple):
@@ -456,7 +481,9 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
                 Optional[Tuple[int, int, int]]]:
     """Loads an image file.
 
-    Load an image file if it is a stack, dm3, dm4, or bitmap.
+    Load an image file if it is a stack, dm3, dm4, or bitmap. As of now,
+    Fiji doesn't allow easy loading of dm4's so be warned that alignment
+    for dm4 files probably won't work.
 
     Args:
         img_path: Full path to the location of the image.
@@ -481,7 +508,7 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
             if img_path.endswith(end):
                 correct_end = True
         if not correct_end:
-            if 'Stage' in key:
+            if 'Stage' in key or 'Align' in key:
                 print(f'{prefix}Trying to load an incorrect file type. Acceptable values "tif" are "tiff".')
             elif 'FLS' in key:
                 print(f'{prefix}Trying to load an incorrect file type. Acceptable values "tif", "tiff", "dm3", "dm4".')
@@ -762,7 +789,7 @@ def slice_im(image: 'np.ndarray', slice_size: Tuple[int, int, int, int]) -> 'np.
     return new_image
 
 
-def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
+def add_vectors(window: sg.Window, mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
                 hsv: bool, arrows: int, length: float, width: float,
                 graph_size: Tuple[int, int], pad_info: Tuple[Any, Any],
                 GUI_handle: bool = True,
@@ -770,6 +797,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
     """Add a vector plot for the magnetic saturation images to be shown in the GUI.
 
     Args:
+        window: The main GUI window.
         mag_x: The x-component of the magnetic induction.
         mag_y: The y-component of the magnetic induction.
         color_np_array: The colorized magnetic saturation array.
@@ -791,6 +819,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
     # Retrieve the image with the added vector plot
     fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
+
     if GUI_handle and not save:
         # Get figure and remove any padding
         plt.figure(fig.number)
@@ -803,6 +832,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         fig.canvas.draw()
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
 
         if pad_info[0] is not None:
             max_val = max(pad_info[2:])
@@ -823,6 +853,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         # This has the final shape of the graph
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
+
         plt.close('all')
         return return_img
     else:
@@ -1009,3 +1040,4 @@ def draw_square_mask(winfo: Struct, graph: sg.Graph) -> None:
         y_bottom = graph_y
 
     winfo.rec_mask_coords = [(x_left, y_top), (x_left, y_bottom), (x_right, y_bottom), (x_right, y_top)]
+
