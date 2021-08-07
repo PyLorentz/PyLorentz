@@ -22,22 +22,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import gui_styling
 
 # Third-Party Imports
-from cv2 import INTER_AREA, INTER_NEAREST, resize, flip, fillPoly, imwrite
 import hyperspy.api as hs
 # Set TkAgg to show if using a drawing computer so vector image gets displayed
 import matplotlib
-<<<<<<< HEAD
-from matplotlib import cm as mpl_cm, pyplot as plt
-if platform.startswith('darwin'):
-    matplotlib.use('TkAgg')
-=======
 matplotlib.use('agg')
-
 from matplotlib import cm as mpl_cm, pyplot as plt
-
->>>>>>> 9d17e86643d3189816cdcd7819d72843dd9b7bfc
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
+from skimage import transform, draw
 import PySimpleGUI as sg
 
 # Local imports
@@ -560,7 +552,7 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
 
 
 def array_resize(array: 'np.ndarray', new_size: Tuple[int, int]) -> 'np.ndarray':
-    """Resize numpy arrays with opencv.
+    """Resize numpy arrays.
 
     Args:
         array: Full path to the location of the image.
@@ -570,7 +562,7 @@ def array_resize(array: 'np.ndarray', new_size: Tuple[int, int]) -> 'np.ndarray'
         resized_array: The resized numpy array.
     """
 
-    resized_array = resize(array, new_size, interpolation=INTER_AREA)
+    resized_array = transform.resize(array, new_size)
     return resized_array
 
 
@@ -640,7 +632,7 @@ def apply_rot_transl(data: 'np.ndarray', d_theta: Union[int, float] = 0, d_x: Un
 
     # Apply horizontal flip if necessary
     if h_flip:
-        data = flip(data, 1)
+        data = np.fliplr(data)
 
     # Convert to PIL Image
     rgba_img = Image.fromarray(data).convert('RGBA')
@@ -702,7 +694,10 @@ def make_rgba(data: 'np.ndarray', adjust: bool = False,
         rgba_img = apply_rot_transl(data, d_theta, d_x, d_y, h_flip)
     else:
         # Convert to PIL Image
-        rgba_img = Image.fromarray(data).convert('RGBA')
+        try:
+            rgba_img = Image.fromarray(data).convert('RGBA')
+        except:
+            rgba_img = Image.fromarray((data * 255).astype(np.uint8))
     return rgba_img
 
 
@@ -795,7 +790,7 @@ def slice_im(image: 'np.ndarray', slice_size: Tuple[int, int, int, int]) -> 'np.
     return new_image
 
 
-def add_vectors(window: sg.Window, mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
+def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
                 hsv: bool, arrows: int, length: float, width: float,
                 graph_size: Tuple[int, int], pad_info: Tuple[Any, Any],
                 GUI_handle: bool = True,
@@ -825,10 +820,6 @@ def add_vectors(window: sg.Window, mag_x: 'np.ndarray', mag_y: 'np.ndarray', col
     # Retrieve the image with the added vector plot
     fig, ax = show_2D(mag_x, mag_y, a=arrows, l=1/length, w=width, title=None, color=color, hsv=hsv,
                       save=save, GUI_handle=GUI_handle, GUI_color_array=color_np_array)
-<<<<<<< HEAD
-    window.set_icon(gui_styling.get_icon())
-=======
->>>>>>> 9d17e86643d3189816cdcd7819d72843dd9b7bfc
 
     if GUI_handle and not save:
         # Get figure and remove any padding
@@ -838,11 +829,10 @@ def add_vectors(window: sg.Window, mag_x: 'np.ndarray', mag_y: 'np.ndarray', col
         ax.xaxis.set_major_locator(matplotlib.ticker.NullLocator())
         ax.yaxis.set_major_locator(matplotlib.ticker.NullLocator())
 
-        # Resize with CV, and return byte image suitable for Graph
+        # Resize and return byte image suitable for Graph
         fig.canvas.draw()
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-
 
         if pad_info[0] is not None:
             max_val = max(pad_info[2:])
@@ -861,10 +851,11 @@ def add_vectors(window: sg.Window, mag_x: 'np.ndarray', mag_y: 'np.ndarray', col
         data = array_resize(data, graph_size)
 
         # This has the final shape of the graph
+        plt.close('all')
+
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
 
-        plt.close('all')
         return return_img
     else:
         plt.close('all')
@@ -889,7 +880,7 @@ def apply_crop_to_stack(coords: Tuple[int, int, int, int], graph_size: Tuple[int
     # Create mask image (np mask)
     mask = zeros(graph_size, np.uint8)
     coords = [[coords[i][0], coords[i][1]] for i in range(len(coords))]
-    mask = create_mask(mask, coords, 1)
+    mask = create_mask(mask, coords, False)
     mask = flipud(mask)
 
     # Create transformed image (PIL)
@@ -970,22 +961,27 @@ def erase_marks(winfo: Struct, graph: sg.Graph,
             graph.DeleteFigure(line)
 
 
-def create_mask(img: 'np.ndarray', mask_coords: Tuple[int, int, int, int],
-                color: str) -> 'np.ndarray':
+def create_mask(img: 'np.ndarray', mask_coords: Tuple[int],
+                bmp: bool = False) -> 'np.ndarray':
     """Create a mask image utilizing corner coordinates and a fill color.
 
     Args:
         img: The numpy array of the image data.
         mask_coords: The tuple of the corner coordinates of the mask.
-        color: String denoting the color to fill in the background of the mask.
+        bmp: If a bmp is chosen, create file with 255 color. Else use 1 for fill.
 
     Returns:
         img: The return mask image numpy array.
     """
 
-    pts = array(mask_coords)
-    img = fillPoly(img, pts=np.int32([pts]), color=color)
-    return img
+    mask_coords = np.asarray(mask_coords)
+    rr, cc = draw.polygon(mask_coords[:, 1], mask_coords[:, 0], img.shape)
+    mask_img = np.zeros(img.shape, dtype=np.uint8)
+    if bmp:
+        mask_img[rr, cc] = 255
+    else:
+        mask_img[rr, cc] = 1
+    return mask_img
 
 
 def draw_square_mask(winfo: Struct, graph: sg.Graph) -> None:
