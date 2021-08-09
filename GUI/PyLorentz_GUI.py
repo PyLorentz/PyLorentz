@@ -40,6 +40,7 @@ from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
 from microscopes import Microscope
 from TIE_helper import *
 from TIE_reconstruct import TIE, SITIE, save_results
+from tkinter import INSERT as tk_insert
 import util
 from util import Struct, check_setup
 # import faulthandler
@@ -236,6 +237,8 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
 
     # --- Set up event handling and bindings --- #
     winfo.true_element = None
+    winfo.true_input_element = None
+    winfo.cursor_pos = 'end'
     winfo.window.bind("<Button-1>", 'Window Click')
     winfo.output_window.bind("<Button-1>", 'Log Click')
 
@@ -690,6 +693,9 @@ def update_values(winfo: Struct, window: sg.Window,
     for elem_key, value in elem_val_list:
         if elem_key in winfo.keys['button']:
             window[elem_key].Update(text=value)
+        elif elem_key in ["__REC_transform_y__", "__REC_transform_x__", "__REC_transform_rot__",
+                          "__REC_Mask_Size__"]:
+            window[elem_key].Update(value=value, move_cursor_to=winfo.cursor_pos)
         else:
             window[elem_key].Update(value=value)
 
@@ -1057,6 +1063,9 @@ def set_pretty_focus(winfo: Struct, window: sg.Window, event: str) -> None:
             window[winfo.true_element].SetFocus()
         else:
             winfo.invis_graph.SetFocus(force=True)
+
+        if winfo.true_element in ["__REC_transform_x__", "__REC_transform_y__", "__REC_transform_rot__", "__REC_Mask_Size__"]:
+            winfo.true_input_element = winfo.true_element
 
     # Set pretty focus for log.
     if event == 'Log Click':
@@ -1797,6 +1806,8 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
         if os_path.exists(image_dir):
             winfo.rec_image_dir = image_dir
             toggle(winfo, window, ['__REC_Set_Img_Dir__'], state='Set')
+            for item in ["__REC_Load_FLS2__", "__REC_Load_FLS1__", "__REC_Load_Stack__"]:
+                window[item].InitialFolder = image_dir
             change_inp_readonly_bg_color(window, ['__REC_Stack__', '__REC_FLS1__', '__REC_FLS2__'], 'Default')
             print(f'{prefix}The path is set: {image_dir}.')
         else:
@@ -2591,7 +2602,7 @@ def check_overwrite(winfo: Struct, save_win: sg.Window, true_paths: List[str],
 
 def save_window_values(save_win: sg.Window, num_paths: int, event: str,
                        orientations: List[str], defocus: Optional[str] = None, tfs: Optional[str] = None,
-                       true_paths: Optional[List] = None) -> List[str]:
+                       true_paths: Optional[List] = None, file_choices: Optional[List] = []) -> List[str]:
     """Sets ups the save window layout.
 
     Args:
@@ -2606,6 +2617,7 @@ def save_window_values(save_win: sg.Window, num_paths: int, event: str,
         defocus: The defocus value for the image if its REC.
         tfs: The selected through focal series.
         true_paths: The true_paths for the files to be saved.
+        file_choices: The files selected for ptie save, only necessary for manual.
 
     Returns:
         true_paths: The list containing the full path names.
@@ -2667,7 +2679,12 @@ def save_window_values(save_win: sg.Window, num_paths: int, event: str,
             if save_choice in ['Mag. & Color', 'Full Save']:
                 true_paths.append(util.join([pref, str(defocus), orientations[10]], '_'))
                 true_paths.append(util.join([pref, str(defocus), orientations[11]], '_'))
-    return true_paths
+        elif save_choice == '----':
+            true_paths = []
+            for i in file_choices:
+                true_paths.append(f"{pref}_{defocus}_{orientations[i]}")
+
+    return true_paths, file_choices
 
 
 def run_save_window(winfo: Struct, event: str, image_dir: str,
@@ -2696,6 +2713,7 @@ def run_save_window(winfo: Struct, event: str, image_dir: str,
     """
 
     # Create layout of save window
+    file_choices = []
     vals = save_window_ly(event, image_dir, orientations, tfs=tfs, tie_prefix=winfo.rec_tie_prefix)
     window_layout, im_type, file_paths = vals[0:3]
     orientations, inputs = vals[3:]
@@ -2710,9 +2728,11 @@ def run_save_window(winfo: Struct, event: str, image_dir: str,
         winfo.output_window.Disappear()
         winfo.output_window.Hide()
     if event == '__REC_Save_TIE__':
-        true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus, tfs)
+        true_paths, file_choices = save_window_values(save_win, len(file_paths), event, orientations, defocus, tfs,
+                                                      file_choices=file_choices)
     else:
-        true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus)
+        true_paths, file_choices = save_window_values(save_win, len(file_paths), event, orientations, defocus,
+                                                      file_choices=file_choices)
 
     # Run save window event handler
     # Initiate event allows successful creation and reading of window
@@ -2741,8 +2761,8 @@ def run_save_window(winfo: Struct, event: str, image_dir: str,
         # Getting full paths to the images and checking if they need to be overwritten
         filenames = []
         if ev2 and ev2 != 'Exit':
-            true_paths = save_window_values(save_win, len(file_paths), event, orientations, defocus, tfs,
-                                            true_paths)
+            true_paths, file_choices = save_window_values(save_win, len(file_paths), event, orientations, defocus, tfs,
+                                                          file_choices=file_choices)
         if ev2 and 'TIMEOUT' not in ev2:
             overwrite_signals = check_overwrite(winfo, save_win, true_paths, orientations,
                                                 image_dir, im_type, event, tfs)
@@ -2858,6 +2878,16 @@ def event_handler(winfo: Struct, window: sg.Window) -> None:
                     state = window[event].metadata['State']
                     text = window[event].metadata[state]
                     window[event].update(value=text)
+
+                # Set cursor for the transformation variables
+                if window['__REC_Mask__'].metadata['State'] == 'Set':
+                    # Get focus if the cursor is in an element
+                    chosen_element = winfo.true_input_element
+                    if chosen_element in ["__REC_transform_y__", "__REC_transform_x__", "__REC_transform_rot__",
+                                          "__REC_Mask_Size__"]:
+                        winfo.cursor_pos = window[chosen_element].Widget.index(tk_insert)
+                    else:
+                        winfo.cursor_pos = 'end'
 
                 # Check which tab is open and execute events regarding that tab
                 current_tab = winfo.current_tab = get_open_tab(winfo, winfo.pages, event)
