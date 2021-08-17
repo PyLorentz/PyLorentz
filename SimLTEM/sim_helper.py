@@ -1131,7 +1131,9 @@ def Neel(dim, chirality = 'io', pad = True, ir=0,show=False):
     else:
         rad = dim//2
 
-    x,y = np.array(np.ogrid[:dim, :dim]) - dim//2
+    x,y = np.ogrid[:dim, :dim]
+    x = np.array(x)-dim//2
+    y = np.array(y)-dim//2
 
     circmask = circ4(dim, rad)
     circ_ir = circ4(dim, ir)
