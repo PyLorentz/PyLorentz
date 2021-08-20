@@ -260,8 +260,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
 
 
 def SITIE(image=None, defval=None, scale=1, E=200e3,
-            ptie=None, i=-1, flipstack=False, pscope=None,
-            data_loc='', dataname='', sym=False, qc=None, save=False, v=1):
+            ptie=None, i=-1, flipstack=False, pscope=None, data_loc='', 
+            dataname='', sym=False, qc=None, norm=False, save=False, v=1):
     """Uses a modified derivative to get the magnetic phase shift with TIE from a single image.
 
     This technique is only applicable to uniformly thin samples from which the
@@ -300,6 +300,10 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
         qc (float/str): (`optional`) The Tikhonov frequency to use as filter.
             Default None. If you use a Tikhonov filter the resulting
             phase shift and induction is no longer quantitative.
+        norm (bool): (`optional`) Normalizes the input image to [0,1]. This can
+            preserve consistent outputs between images that have the same 
+            contrast patterns but different scales and ranges, but will also 
+            make the reconstruction non-quantitative. 
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
@@ -380,6 +384,10 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
             image = ptie.flipstack[i].data[top:bottom, left:right]
         else:
             image = ptie.imstack[i].data[top:bottom, left:right]
+
+    if norm: # this can mess up quantitative results 
+        cp = np.copy(image)
+        image = (cp-cp.min())/np.max(cp-cp.min()) # normalize image [0,1]
 
     if sym:
         print("Reconstructing with symmetrized image.")
