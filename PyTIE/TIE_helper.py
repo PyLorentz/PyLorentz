@@ -12,7 +12,6 @@ import matplotlib as mpl
 import numpy as np
 import hyperspy.api as hs
 import sys
-from cv2 import resize, imwrite
 from skimage import io
 from scipy.ndimage.filters import median_filter
 from scipy import ndimage
