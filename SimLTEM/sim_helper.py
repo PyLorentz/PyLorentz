@@ -32,7 +32,7 @@ import textwrap
 from itertools import takewhile
 import io 
 from TIE_reconstruct import TIE
-from skimage import io
+from skimage import io as skio
 from TIE_params import TIE_params
 from TIE_helper import dist, show_im
 from scipy.ndimage import rotate, gaussian_filter
@@ -158,16 +158,16 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
         if not os.path.exists(save_path):
                 os.makedirs(save_path)
         res = 1/del_px
-        io.imsave(os.path.join(save_path, f'{save_name}_align.tiff'), im_stack.astype('float32'), 
+        skio.imsave(os.path.join(save_path, f'{save_name}_align.tiff'), im_stack.astype('float32'), 
             imagej = True,
             resolution = (res, res),
             metadata={'unit': 'nm'})
-        io.imsave(os.path.join(save_path, f'{save_name}_phase.tiff'), Tphi.astype('float32'), 
+        skio.imsave(os.path.join(save_path, f'{save_name}_phase.tiff'), Tphi.astype('float32'), 
             imagej = True,
             resolution = (res, res),
             metadata={'unit': 'nm'})
 
-        with io.imread(os.path.join(save_path, f'{save_name}_params.txt'), 'w') as text:
+        with io.open(os.path.join(save_path, f'{save_name}_params.txt'), 'w') as text:
             text.write(f"def_val (nm) \t{def_val:g}\n")
             text.write(f"del_px (nm/pix) \t{del_px:g}\n") 
             text.write(f"scope En. (V) \t{pscope.E:g}\n")        
@@ -322,12 +322,12 @@ def load_ovf(file=None, sim='norm', B0=1e4, v=1):
     """
     vprint = print if v>=1 else lambda *a, **k: None
 
-    with io.imread(file) as f:
+    with io.open(file, mode='r') as f:
         try:
             header = list(takewhile(lambda s: s[0]=='#', f))
         except UnicodeDecodeError: #happens with binary files
             header = []
-            with io.imread(file, mode='rb') as f2:
+            with io.open(file, mode='rb') as f2:
                 for line in f2:
                     if line.startswith('#'.encode()):
                         header.append(line.decode())
