@@ -322,7 +322,7 @@ def load_ovf(file=None, sim='norm', B0=1e4, v=1):
     """
     vprint = print if v>=1 else lambda *a, **k: None
 
-    with io.imread(file, mode='r') as f:
+    with io.imread(file) as f:
         try:
             header = list(takewhile(lambda s: s[0]=='#', f))
         except UnicodeDecodeError: #happens with binary files
