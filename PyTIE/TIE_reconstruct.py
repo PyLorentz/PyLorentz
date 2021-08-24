@@ -15,7 +15,7 @@ import numpy as np
 from TIE_helper import dist, scale_stack, show_im, select_tifs
 from TIE_params import TIE_params
 from microscopes import Microscope
-import skimage.external.tifffile as tifffile
+from skimage import io
 from colorwheel import color_im
 import os
 import sys
@@ -646,7 +646,7 @@ def save_results(defval, results, ptie, dataname, sym, qc, save, v, directory=No
         save_name = f"{dataname}{defval}_{key}.tiff"
         if v >= 2:
             print(f'Saving {os.path.join(Path(save_path).absolute(), save_name)}')
-        tifffile.imsave(os.path.join(save_path, save_name), im,
+        io.imsave(os.path.join(save_path, save_name), im,
             imagej = True,
             resolution = (res, res),
             metadata={'unit': 'nm'})
