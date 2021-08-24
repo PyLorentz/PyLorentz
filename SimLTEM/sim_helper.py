@@ -32,7 +32,7 @@ import textwrap
 from itertools import takewhile
 import io 
 from TIE_reconstruct import TIE
-import skimage.external.tifffile as tifffile
+from skimage import io
 from TIE_params import TIE_params
 from TIE_helper import dist, show_im
 from scipy.ndimage import rotate, gaussian_filter
@@ -158,11 +158,11 @@ def sim_images(mphi=None, ephi=None, pscope=None, isl_shape=None, del_px=1,
         if not os.path.exists(save_path):
                 os.makedirs(save_path)
         res = 1/del_px
-        tifffile.imsave(os.path.join(save_path, f'{save_name}_align.tiff'), im_stack.astype('float32'), 
+        io.imsave(os.path.join(save_path, f'{save_name}_align.tiff'), im_stack.astype('float32'), 
             imagej = True,
             resolution = (res, res),
             metadata={'unit': 'nm'})
-        tifffile.imsave(os.path.join(save_path, f'{save_name}_phase.tiff'), Tphi.astype('float32'), 
+        io.imsave(os.path.join(save_path, f'{save_name}_phase.tiff'), Tphi.astype('float32'), 
             imagej = True,
             resolution = (res, res),
             metadata={'unit': 'nm'})
