@@ -1,11 +1,11 @@
-"""Module containing TIE and SITIE reconstruction routines. 
+"""Module containing TIE and SITIE reconstruction routines.
 
 Routines for solving the transport of intensity equation; for use with Lorentz
-TEM through focal series (tfs) to reconstruct B field magnetization of the sample. 
+TEM through focal series (tfs) to reconstruct B field magnetization of the sample.
 
-Known Bugs: 
+Known Bugs:
 
-- Longitudinal derivative gives a magnetization scaling error for some 
+- Longitudinal derivative gives a magnetization scaling error for some
   experimental datasets.
 
 Author: Arthur McCray, ANL, Summer 2019.
@@ -19,67 +19,69 @@ from skimage import io
 from colorwheel import color_im
 import os
 import sys
-import scipy 
+import scipy
 from pathlib import Path
 from longitudinal_deriv import polyfit_deriv
 
 
 def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=False, hsv=True, long_deriv=False, v=1):
-    """Sets up the TIE reconstruction and calls phase_reconstruct. 
+    """Sets up the TIE reconstruction and calls phase_reconstruct.
 
-    This function calculates the necessary arrays, derivatives, etc. and then 
-    passes them to phase_reconstruct which solve the TIE. 
-    
-    Args: 
-        i (int): Index of ptie.defvals to use for reconstruction. Default value 
-            is -1 which corresponds to the most defocused images for a central 
+    This function calculates the necessary arrays, derivatives, etc. and then
+    passes them to phase_reconstruct which solve the TIE.
+
+    Results are not quantitatively correct if a a Tikhonov filter is used.
+
+    Args:
+        i (int): Index of ptie.defvals to use for reconstruction. Default value
+            is -1 which corresponds to the most defocused images for a central
             difference method derivative. i is ignored if using a longitudinal
-            derivative. 
+            derivative.
         ptie (``TIE_params`` object): Object containing the images and other
             data parameters. From TIE_params.py
         pscope (``Microscope`` object): Should have same accelerating voltage
             as the microscope that took the images.
-        dataname (str): The output filename to be used for saving the images. 
-        sym (bool): (`optional`) Fourier edge effects are marginally improved by 
+        dataname (str): The output filename to be used for saving the images.
+        sym (bool): (`optional`) Fourier edge effects are marginally improved by
             symmetrizing the images before reconstructing. Default False.
         qc (float/str): (`optional`) The Tikhonov frequency to use as filter.
-            Default None. If you use a Tikhonov filter the resulting 
-            phase shift and induction is no longer quantitative. 
+            Default None. If you use a Tikhonov filter the resulting
+            phase shift and induction is no longer quantitative.
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
             input value  saved images
             ===========  ============
-            True         All images   
+            True         All images
             'b'          bx, by, and color image
-            'color'      Color image  
-            False        None         
+            'color'      Color image
+            False        None
             ===========  ============
 
-            Files will be saved as 
-            ptie.data_loc/images/dataname_<defval>_<key>.tiff, where <key> is 
-            the key for the results dictionary that corresponds to the image. 
+            Files will be saved as
+            ptie.data_loc/images/dataname_<defval>_<key>.tiff, where <key> is
+            the key for the results dictionary that corresponds to the image.
         hsv (bool): Whether to use the hsv colorwheel (True) or the 4-fold colorwheel (False).
         long_deriv (bool): Whether to use the longitudinal derivative (True) or
-            central difference method (False). Default False. 
-        v (int): (`optional`) Verbosity. 
+            central difference method (False). Default False.
+        v (int): (`optional`) Verbosity.
 
             ===  ========
             v    print output
             ===  ========
             0    No output
             1    Default output
-            2    Extended output for debugging. 
+            2    Extended output for debugging.
             ===  ========
 
-    Returns: 
+    Returns:
         dict: A dictionary of image arrays
-        
+
         =========  ==============
         key        value
         =========  ==============
-        'byt'      y-component of integrated magnetic induction
-        'bxt'      x-component of integrated magnetic induction
+        'byt'      y-component of integrated magnetic induction [T*nm]
+        'bxt'      x-component of integrated magnetic induction [T*nm]
         'bbt'      Magnitude of integrated magnetic induction
         'phase_m'  Magnetic phase shift (radians)
         'phase_e'  Electrostatic phase shift (if using flip stack) (radians)
@@ -92,11 +94,11 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     results = {
         'byt' : None,
         'bxt' : None,
-        'bbt' : None, 
+        'bbt' : None,
         'phase_e' : None,
         'phase_m' : None,
         'dIdZ_m' : None,
-        'dIdZ_e' : None, 
+        'dIdZ_e' : None,
         'color_b' : None,
         'inf_im' : None}
 
@@ -118,8 +120,8 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
 
     right, left = ptie.crop['right']  , ptie.crop['left']
     bottom, top = ptie.crop['bottom'] , ptie.crop['top']
-    dim_y = bottom - top 
-    dim_x = right - left 
+    dim_y = bottom - top
+    dim_x = right - left
     tifs = select_tifs(i, ptie, long_deriv)
 
     if sym:
@@ -127,7 +129,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         dim_y *= 2
         dim_x *= 2
 
-    # make the inverse laplacian, uses python implementation of IDL dist funct 
+    # make the inverse laplacian, uses python implementation of IDL dist funct
     q = dist(dim_y,dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False:
@@ -154,27 +156,27 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     else:
         mask = mask[top:bottom, left:right]
 
-    # crop images and apply mask 
+    # crop images and apply mask
     # mask = ptie.mask[top:bottom, left:right]
     for ii in range(len(tifs)):
         tifs[ii] = tifs[ii][top:bottom, left:right]
         tifs[ii] *= mask
 
-    # Normalizing, scaling the images 
+    # Normalizing, scaling the images
     scaled_tifs = scale_stack(tifs)
-    scaled_tifs += 1e-9 
+    scaled_tifs += 1e-9
 
     # get the infocus image
     if long_deriv and ptie.flip:
         inf_unflip = scaled_tifs[len(tifs)//4]
         inf_flip = scaled_tifs[3*len(tifs)//4]
         inf_im = (inf_unflip+inf_flip)/2
-    else: 
+    else:
         inf_im = scaled_tifs[len(tifs)//2]
 
     # Inverting masked areas on infocus image because we divide by it
     inf_im += 1 - mask
-    # Make sure there are no zeros left: 
+    # Make sure there are no zeros left:
     inf_im = np.where(scaled_tifs[len(tifs)//2] == 0, 0.001, inf_im)
     results['inf_im'] = inf_im
 
@@ -260,7 +262,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
 
 
 def SITIE(image=None, defval=None, scale=1, E=200e3,
-            ptie=None, i=-1, flipstack=False, pscope=None, data_loc='', 
+            ptie=None, i=-1, flipstack=False, pscope=None, data_loc='',
             dataname='', sym=False, qc=None, norm=False, save=False, v=1):
     """Uses a modified derivative to get the magnetic phase shift with TIE from a single image.
 
@@ -279,6 +281,8 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     case you need specify only whether to choose from the imstack or flipstack
     and the index of the image to use. It's possible that in the future this
     method of selecting an image will be removed or moved to a separate function.
+
+    Results are not quantitatively correct if a a Tikhonov filter is used.
 
     Args:
         image (2D array): Input image to reconstruct.
@@ -301,9 +305,9 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
             Default None. If you use a Tikhonov filter the resulting
             phase shift and induction is no longer quantitative.
         norm (bool): (`optional`) Normalizes the input image to [0,1]. This can
-            preserve consistent outputs between images that have the same 
-            contrast patterns but different scales and ranges, but will also 
-            make the reconstruction non-quantitative. 
+            preserve consistent outputs between images that have the same
+            contrast patterns but different scales and ranges, but will also
+            make the reconstruction non-quantitative.
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
@@ -334,11 +338,12 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
         =========  ==============
         key        value
         =========  ==============
-        'byt'      y-component of integrated magnetic induction
-        'bxt'      x-component of integrated magnetic induction
+        'byt'      y-component of integrated magnetic induction [T*nm]
+        'bxt'      x-component of integrated magnetic induction [T*nm]
         'bbt'      Magnitude of integrated magnetic induction
         'phase_m'  Magnetic phase shift (radians)
         'color_b'  RGB image of magnetization
+        'image'    Image used for reconstruction. Saved as it might be preprocessed.
         =========  ==============
     """
     results = {
@@ -385,7 +390,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
         else:
             image = ptie.imstack[i].data[top:bottom, left:right]
 
-    if norm: # this can mess up quantitative results 
+    if norm: # this can mess up quantitative results
         cp = np.copy(image)
         image = (cp-cp.min())/np.max(cp-cp.min()) # normalize image [0,1]
 
@@ -422,6 +427,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     results['phase_m'] = resultsB['phase']
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
         hsvwheel=True, background='black')
+    results['image'] = image # save because sometimes the image will be preprocessed
     if v >= 1:
         show_im(results['color_b'], "B field color, HSV colorhweel", cbar=False,
             scale=scale)
@@ -459,8 +465,8 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
         =========  ==============
         key        value
         =========  ==============
-        'ind_y'    y-component of integrated induction
-        'ind_x'    x-component of integrated induction
+        'ind_y'    y-component of integrated induction [T*nm]
+        'ind_x'    x-component of integrated induction [T*nm]
         'phase'    Phase shift (radians)
         =========  ==============
     """
