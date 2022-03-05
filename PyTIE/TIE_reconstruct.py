@@ -83,9 +83,9 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         'byt'      y-component of integrated magnetic induction [T*nm]
         'bxt'      x-component of integrated magnetic induction [T*nm]
         'bbt'      Magnitude of integrated magnetic induction
-        'phase_m'  Magnetic phase shift (radians)
+        'phase_b'  Magnetic phase shift (radians)
         'phase_e'  Electrostatic phase shift (if using flip stack) (radians)
-        'dIdZ_m'   Intensity derivative for calculating phase_m
+        'dIdZ_m'   Intensity derivative for calculating phase_b
         'dIdZ_e'   Intensity derivative for calculating phase_e (if using flip stack)
         'color_b'  RGB image of magnetization
         'inf_im'   In-focus image
@@ -96,7 +96,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
         'bxt' : None,
         'bbt' : None,
         'phase_e' : None,
-        'phase_m' : None,
+        'phase_b' : None,
         'dIdZ_m' : None,
         'dIdZ_e' : None,
         'color_b' : None,
@@ -242,7 +242,7 @@ def TIE(i=-1, ptie=None, pscope=None, dataname='', sym=False, qc=None, save=Fals
     results['byt'] = resultsB['ind_y']
     results['bxt'] = resultsB['ind_x']
     results['bbt'] = np.sqrt(resultsB['ind_x']**2 + resultsB['ind_y']**2)
-    results['phase_m'] = resultsB['phase']
+    results['phase_b'] = resultsB['phase']
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
                                     hsvwheel=hsv, background='black')
 
@@ -341,7 +341,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
         'byt'      y-component of integrated magnetic induction [T*nm]
         'bxt'      x-component of integrated magnetic induction [T*nm]
         'bbt'      Magnitude of integrated magnetic induction
-        'phase_m'  Magnetic phase shift (radians)
+        'phase_b'  Magnetic phase shift (radians)
         'color_b'  RGB image of magnetization
         'image'    Image used for reconstruction. Saved as it might be preprocessed.
         =========  ==============
@@ -350,7 +350,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
         'byt' : None,
         'bxt' : None,
         'bbt' : None,
-        'phase_m' : None,
+        'phase_b' : None,
         'color_b' : None}
 
     # turning off the print function if v=0
@@ -424,7 +424,7 @@ def SITIE(image=None, defval=None, scale=1, E=200e3,
     results['byt'] = resultsB['ind_y']
     results['bxt'] = resultsB['ind_x']
     results['bbt'] = np.sqrt(resultsB['ind_x']**2 + resultsB['ind_y']**2)
-    results['phase_m'] = resultsB['phase']
+    results['phase_b'] = resultsB['phase']
     results['color_b'] = color_im(resultsB['ind_x'], resultsB['ind_y'],
         hsvwheel=True, background='black')
     results['image'] = image # save because sometimes the image will be preprocessed

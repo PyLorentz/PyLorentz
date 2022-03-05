@@ -1085,7 +1085,7 @@ def rec_get_listbox_ind_from_key(key_list: List[str]) -> List[int]:
             ind = 5
         elif key == 'phase_e':
             ind = 6
-        elif key == 'phase_m':
+        elif key == 'phase_b':
             ind = 7
         elif key == 'dIdZ_e':
             ind = 8
@@ -2146,7 +2146,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             image_key = 'bbt'
             im_name = 'Magnitude of Mag. Induction'
         elif image_choice == 'Mag. Phase':
-            image_key = 'phase_m'
+            image_key = 'phase_b'
             im_name = 'Magnetic Phase Shift (radians)'
         elif image_choice == 'Electr. Phase':
             image_key = 'phase_e'

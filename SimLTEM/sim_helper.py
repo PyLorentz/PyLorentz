@@ -573,11 +573,11 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
         'byt'          y-component of integrated magnetic induction
         'bxt'          x-component of integrated magnetic induction
         'bbt'          Magnitude of integrated magnetic induction
-        'phase_m_sim'  Simulated magnetic phase shift
+        'phase_b_sim'  Simulated magnetic phase shift
         'phase_e_sim'  Simulated electrostatic phase shift
-        'phase_m'      Magnetic phase shift (radians)
+        'phase_b'      Magnetic phase shift (radians)
         'phase_e'      Electrostatic phase shift (if using flip stack) (radians),
-        'dIdZ_m'       Intensity derivative for calculating phase_m
+        'dIdZ_m'       Intensity derivative for calculating phase_b
         'dIdZ_e'       Intensity derivative for calculating phase_e (if using 
                        flip stack) 
         'color_b'      RGB image of magnetization
@@ -691,7 +691,7 @@ def reconstruct_ovf(file=None, savename=None, save=1, v=1, flip=True,
     results = TIE(i=0, ptie=ptie, pscope=pscope, dataname=savename, sym=sym,
                     qc=qc, save=TIE_save, v=v)
     
-    results['phase_m_sim'] = mphi
+    results['phase_b_sim'] = mphi
     results['phase_e_sim'] = ephi
     results['mag_x'] = mag_x
     results['mag_y'] = mag_y

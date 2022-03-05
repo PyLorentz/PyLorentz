@@ -554,7 +554,7 @@ def load_image(img_path: str, graph_size: Tuple[int, int], key: str,
 
 
 def array_resize(array: 'np.ndarray', new_size: Tuple[int, int]) -> 'np.ndarray':
-    """Resize numpy arrays with opencv.
+    """Resize numpy arrays.
 
     Args:
         array: Full path to the location of the image.
