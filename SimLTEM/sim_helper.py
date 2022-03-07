@@ -38,6 +38,7 @@ from skimage import io as skio
 from TIE_params import TIE_params
 from TIE_helper import dist, show_im
 from scipy.ndimage import rotate, gaussian_filter
+import tifffile
 
 
 # ================================================================= #
@@ -1083,16 +1084,17 @@ def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
     plt.show()
 
 
-def show_sims(phi, im_un, im_in, im_ov, title=None):
+def show_sims(phi, im_un, im_in, im_ov, title=None, save=None):
     """Plot phase, underfocus, infocus, and overfocus images in one plot.
 
     Uses same scale of intensity values for all simulated images but not phase.
 
     Args:
-        phi(2D array): Image of phase shift of object.
-        im_un(2D array): Underfocus image.
-        im_in(2D array): Infocus image.
-        im_ov(2D array): Overfocus image.
+        phi (2D array): Image of phase shift of object.
+        im_un (2D array): Underfocus image.
+        im_in (2D array): Infocus image.
+        im_ov (2D array): Overfocus image.
+        save (str): (`optional`) Filepath for which to save this image.
 
     Returns:
         None: Displays matplotlib plot.
@@ -1101,7 +1103,7 @@ def show_sims(phi, im_un, im_in, im_ov, title=None):
     vmin = np.min(phi) - 0.05
     fig = plt.figure(figsize=(12, 3))
     ax11 = fig.add_subplot(141)
-    im = ax11.imshow(phi, cmap="gray", origin="upper", vmax=vmax, vmin=vmin)
+    ax11.imshow(phi, cmap="gray", origin="upper", vmax=vmax, vmin=vmin)
     plt.axis("off")
     plt.title("Phase")
     vmax = np.max(im_un) + 0.05
@@ -1120,6 +1122,14 @@ def show_sims(phi, im_un, im_in, im_ov, title=None):
     plt.title("Overfocus")
     if title is not None:
         fig.suptitle(str(title))
+
+    if save is not None:
+        if not (
+            save.endswith(".png") or save.endswith(".tiff") or save.endswith(".tif")
+        ):
+            save = save + ".png"
+        plt.savefig(save, dpi=300, bbox_inches="tight")
+
     plt.show()
     return
 
