@@ -10,9 +10,8 @@ Arthur McCray, ANL, Summer 2019
 
 import numpy as np
 from scipy import constants, ndimage
-import hyperspy #just to check signal type
+import hyperspy  # just to check signal type
 import hyperspy.api as hs
-import os
 import textwrap
 
 
@@ -65,8 +64,17 @@ class TIE_params(object):
         mask (2D array): Binary mask made form all the images. 1 where all images have
             nonzero data, 0 where any do not. Made by self.make_mask()
     """
-    def __init__(self, imstack=None, flipstack=[], defvals=None, flip=None,
-        data_loc=None, no_mask=False, v=1):
+
+    def __init__(
+        self,
+        imstack=None,
+        flipstack=[],
+        defvals=None,
+        flip=None,
+        data_loc=None,
+        no_mask=False,
+        v=1,
+    ):
         """Constructs TIE_params object. imstack, defvals must be specified at minimum.
 
         Flipstack, flip, no_mask, and v are optional arguments.
@@ -74,7 +82,7 @@ class TIE_params(object):
             - 0 : No output
             - 1 : Default output
         """
-        vprint = print if v>=1 else lambda *a, **k: None
+        vprint = print if v >= 1 else lambda *a, **k: None
 
         if type(imstack) == list:
             pass
@@ -89,13 +97,13 @@ class TIE_params(object):
         if type(defvals) is not list and type(defvals) is not np.ndarray:
             self.defvals = [defvals]
         else:
-            self.defvals = defvals # array of the defocus steps.
+            self.defvals = defvals  # array of the defocus steps.
 
         self.num_files = len(self.imstack)
         if self.num_files == 1:
             assert len(self.defvals) == 1
         else:
-            assert self.num_files == 2*len(self.defvals)+1 # confirm they match
+            assert self.num_files == 2 * len(self.defvals) + 1  # confirm they match
 
         if type(imstack[0]) != hyperspy._signals.signal2d.Signal2D:
             # images loaded are tifs, conver to dm3s
@@ -108,24 +116,37 @@ class TIE_params(object):
                 for arr in flipstack:
                     nflipimstack.append(hs.signals.Signal2D(arr))
                 self.flipstack = nflipimstack
-            vprint("Data not given in hyperspy signal objects. You likely need to set ptie.scale (nm/pix).")
+            vprint(
+                "Data not given in hyperspy signal objects. You likely need to set ptie.scale (nm/pix)."
+            )
 
-        infocus = self.imstack[self.num_files//2] # unflip infocus dm3
-        self.axes = infocus.axes_manager # dm3 axes manager
-        self.shape = (self.axes.shape[1], self.axes.shape[0]) # to be consistent with np
-        scale_y = self.axes[0].scale # pixel size (nm/pix)
+        infocus = self.imstack[self.num_files // 2]  # unflip infocus dm3
+        self.axes = infocus.axes_manager  # dm3 axes manager
+        self.shape = (
+            self.axes.shape[1],
+            self.axes.shape[0],
+        )  # to be consistent with np
+        scale_y = self.axes[0].scale  # pixel size (nm/pix)
         scale_x = self.axes[1].scale
         assert scale_y == scale_x
         self.scale = scale_y
         scale_units = self.axes[0].units
-        for sig in self.imstack + self.flipstack: # just to make sure they all have same scale
+        for sig in (
+            self.imstack + self.flipstack
+        ):  # just to make sure they all have same scale
             sig.axes_manager[0].units = scale_units
             sig.axes_manager[1].units = scale_units
             sig.axes_manager[0].scale = self.scale
             sig.axes_manager[1].scale = self.scale
-        self.rotation, self.x_transl, self.y_transl = 0, 0, 0   # The rotation/translation to apply to images.
+        self.rotation, self.x_transl, self.y_transl = (
+            0,
+            0,
+            0,
+        )  # The rotation/translation to apply to images.
 
-        vprint('Given scale: {:.4f} nm/pix\n'.format(self.imstack[0].axes_manager[0].scale))
+        vprint(
+            "Given scale: {:.4f} nm/pix\n".format(self.imstack[0].axes_manager[0].scale)
+        )
 
         if flip is not None:
             self.flip = flip
@@ -135,54 +156,56 @@ class TIE_params(object):
             self.flip = False
 
         if data_loc:
-            if not data_loc.endswith('/'):
-                data_loc += '/'
+            if not data_loc.endswith("/"):
+                data_loc += "/"
             self.data_loc = data_loc
         else:
-            self.data_loc = './'
+            self.data_loc = "./"
 
         if flip:
             assert len(self.imstack) == len(self.flipstack)
-            flip_infocus = self.flipstack[self.num_files//2]
-            self.infocus = (infocus.data + flip_infocus.data)/2
+            flip_infocus = self.flipstack[self.num_files // 2]
+            self.infocus = (infocus.data + flip_infocus.data) / 2
             # An averaged infocus image between the flip/unflip stack.
         else:
             self.infocus = np.copy(infocus.data)
 
-        self.qi = np.zeros(self.shape) # will be inverse Laplacian array
+        self.qi = np.zeros(self.shape)  # will be inverse Laplacian array
         # Default to central square for ROI
-        self.roi = hs.roi.RectangularROI(left= self.shape[1]//4*self.scale,
-                                         right=3*self.shape[1]//4*self.scale,
-                                         top=self.shape[0]//4*self.scale,
-                                         bottom=3*self.shape[0]//4*self.scale)
+        self.roi = hs.roi.RectangularROI(
+            left=self.shape[1] // 4 * self.scale,
+            right=3 * self.shape[1] // 4 * self.scale,
+            top=self.shape[0] // 4 * self.scale,
+            bottom=3 * self.shape[0] // 4 * self.scale,
+        )
         # Default to full image for crop, (remember: bottom > top, right > left)
-        self.crop = {'top'   : 0,
-                     'bottom': self.shape[0],
-                     'left'  : 0,
-                     'right' : self.shape[1]}
+        self.crop = {
+            "top": 0,
+            "bottom": self.shape[0],
+            "left": 0,
+            "right": self.shape[1],
+        }
         if no_mask:
             self.mask = np.ones(self.shape)
         else:
             self.make_mask()
 
-
     def pre_Lap(self, pscope, def_step=1):
-        """ Scaling prefactor used in the TIE reconstruction.
+        """Scaling prefactor used in the TIE reconstruction.
 
-            Args:
-                pscope (``Microscope`` object): Microscope object from
-                    microscopes.py
-                def_step (float): The defocus value for which is being
-                    reconstructed. If using a longitudinal derivative, def_step
-                    should be 1.
+        Args:
+            pscope (``Microscope`` object): Microscope object from
+                microscopes.py
+            def_step (float): The defocus value for which is being
+                reconstructed. If using a longitudinal derivative, def_step
+                should be 1.
 
-            Returns:
-                float: Numerical prefactor
+        Returns:
+            float: Numerical prefactor
         """
-        return -1 * self.scale**2 / (16 * np.pi**3 * pscope.lam * def_step)
+        return -1 * self.scale ** 2 / (16 * np.pi ** 3 * pscope.lam * def_step)
 
-
-    def make_mask(self, imstack = None, threshold=0):
+    def make_mask(self, imstack=None, threshold=0):
         """Sets self.mask to be a binary bounding mask from imstack and flipstack.
 
         Makes all images binary using a threshold value, and then
@@ -202,7 +225,7 @@ class TIE_params(object):
         Returns:
             None. Assigns result to self.mask()
         """
-        if len(self.imstack) == 1: # SITIE params
+        if len(self.imstack) == 1:  # SITIE params
             self.mask = np.ones(self.shape)
             return
         if imstack is None:
@@ -214,25 +237,24 @@ class TIE_params(object):
             for sig in imstack:
                 im_mask = np.where(sig.data <= threshold, 0, 1)
                 mask *= im_mask
-        else: # assume they're images
+        else:  # assume they're images
             for im in imstack:
                 im_mask = np.where(im <= threshold, 0, 1)
                 mask *= im_mask
 
         # shrink mask slightly
-        its = int(min(15, self.shape[0]//250, self.shape[1]//250))
-        if its >= 1: # binary_erosion fails if iterations=0
-            mask = ndimage.morphology.binary_erosion(mask, iterations = its)
-        mask = mask.astype(float, copy = False)
+        its = int(min(15, self.shape[0] // 250, self.shape[1] // 250))
+        if its >= 1:  # binary_erosion fails if iterations=0
+            mask = ndimage.morphology.binary_erosion(mask, iterations=its)
+        mask = mask.astype(float, copy=False)
         # apply a light filter to the edges
-        mask = ndimage.gaussian_filter(mask,2)
+        mask = ndimage.gaussian_filter(mask, 2)
         self.mask = mask
         self.infocus *= mask
         return
 
-
     def select_region(self, infocus=True):
-        """ Interactively crop imstack to smaller size.
+        """Interactively crop imstack to smaller size.
 
         This method sets self.roi to be the region (square or otherwise) as
         selected by the user. Default is central quarter of image.
@@ -246,21 +268,29 @@ class TIE_params(object):
             None
         """
         if infocus:
-            display_sig = self.imstack[self.num_files//2].deepcopy()
+            display_sig = self.imstack[self.num_files // 2].deepcopy()
         else:
             display_sig = self.imstack[0].deepcopy()
 
         if self.rotation != 0 or self.x_transl != 0 or self.y_transl != 0:
             rotate, x_shift, y_shift = self.rotation, self.x_transl, self.y_transl
-            display_sig.data = ndimage.rotate(display_sig.data, rotate, reshape=False, order=0)
-            display_sig.data = ndimage.shift(display_sig.data, (-y_shift, x_shift), order=0)
+            display_sig.data = ndimage.rotate(
+                display_sig.data, rotate, reshape=False, order=0
+            )
+            display_sig.data = ndimage.shift(
+                display_sig.data, (-y_shift, x_shift), order=0
+            )
 
         dimy, dimx = self.shape
         scale = self.scale
 
         # reset roi to central square
-        roi = hs.roi.RectangularROI(left= dimx//4*scale, right=3*dimx//4*scale,
-                            top=dimy//4*scale, bottom=3*dimy//4*scale)
+        roi = hs.roi.RectangularROI(
+            left=dimx // 4 * scale,
+            right=3 * dimx // 4 * scale,
+            top=dimy // 4 * scale,
+            bottom=3 * dimy // 4 * scale,
+        )
 
         # roi = hs.roi.RectangularROI(left=  59, right=3*dimx//4*scale,
         #                     top= 59, bottom=3*dimy//4*scale)
@@ -268,9 +298,8 @@ class TIE_params(object):
         roi2D = roi.interactive(display_sig, color="blue")
         self.roi = roi
 
-
     def crop_ims(self):
-        """ Sets self.crop in pixels as region to be reconstructed.
+        """Sets self.crop in pixels as region to be reconstructed.
 
         Converts self.roi (in units of nm) to pixels and asks for user input if
         this an acceptable shape.
@@ -286,46 +315,56 @@ class TIE_params(object):
         roi (hyperspy region of interest). Adjusts other axes accordingly.
         """
         if self.roi is None:
-            print('No region previously selected, defaulting to central square.')
+            print("No region previously selected, defaulting to central square.")
             dimy, dimx = self.shape
             scale = self.scale
-            self.roi = hs.roi.RectangularROI(left= dimx//4*scale, right=3*dimx//4*scale,
-                                top=dimy//4*scale, bottom=3*dimy//4*scale)
+            self.roi = hs.roi.RectangularROI(
+                left=dimx // 4 * scale,
+                right=3 * dimx // 4 * scale,
+                top=dimy // 4 * scale,
+                bottom=3 * dimy // 4 * scale,
+            )
 
-        left = int(self.roi.left/self.scale)
-        right = int(self.roi.right/self.scale)
-        top = int(self.roi.top/self.scale)
-        bottom = int(self.roi.bottom/self.scale)
+        left = int(self.roi.left / self.scale)
+        right = int(self.roi.right / self.scale)
+        top = int(self.roi.top / self.scale)
+        bottom = int(self.roi.bottom / self.scale)
 
-        print('The new images will be cropped (in pixels)')
-        print(F'left: {left} , right: {right} , top: {top} , bottom: {bottom}')
-        print(F"New dimensions will be: ({bottom-top}, {right-left})")
+        print("The new images will be cropped (in pixels)")
+        print(f"left: {left} , right: {right} , top: {top} , bottom: {bottom}")
+        print(f"New dimensions will be: ({bottom-top}, {right-left})")
         print()
 
-        proceed = input("""Does this work? (y/n):\nOr you can reset to the original full images (reset):\n""")
-        while proceed != 'y':
-            if proceed == 'n':
+        proceed = input(
+            """Does this work? (y/n):\nOr you can reset to the original full images (reset):\n"""
+        )
+        while proceed != "y":
+            if proceed == "n":
                 print("Okay, change the region and run this again.")
                 return
-            elif proceed == 'reset':
-                self.crop['left'] = 0
-                self.crop['right'] = self.shape[1]
-                self.crop['top'] = 0
-                self.crop['bottom'] = self.shape[0]
+            elif proceed == "reset":
+                self.crop["left"] = 0
+                self.crop["right"] = self.shape[1]
+                self.crop["top"] = 0
+                self.crop["bottom"] = self.shape[0]
                 print("The region has been returned to the full image.")
                 return
             else:
                 proceed = input("Please respond with 'y' , 'n' , or 'reset'.\n")
 
-        self.crop['left'] = left
-        self.crop['right'] = right
-        self.crop['top'] = top
-        self.crop['bottom'] = bottom
+        self.crop["left"] = left
+        self.crop["right"] = right
+        self.crop["top"] = top
+        self.crop["bottom"] = bottom
 
-        print(textwrap.dedent(f"""
+        print(
+            textwrap.dedent(
+                f"""
             Your images are now shape: ({bottom-top}, {right-left})
             Changes can continue to be made by moving/updating the region,
-            but you have to run this again for them to take affect.\n"""))
+            but you have to run this again for them to take affect.\n"""
+            )
+        )
         return
 
     def set_scale(self, scale):
@@ -340,16 +379,18 @@ class TIE_params(object):
         self.axes[0].scale = scale
         self.axes[1].scale = scale
         for sig in self.imstack + self.flipstack:
-            sig.axes_manager[0].units = 'nm'
-            sig.axes_manager[1].units = 'nm'
+            sig.axes_manager[0].units = "nm"
+            sig.axes_manager[1].units = "nm"
             sig.axes_manager[0].scale = scale
             sig.axes_manager[1].scale = scale
 
         self.scale = scale
-        self.roi = hs.roi.RectangularROI(left= self.shape[1]//4*self.scale,
-                                 right=3*self.shape[1]//4*self.scale,
-                                 top=self.shape[0]//4*self.scale,
-                                 bottom=3*self.shape[0]//4*self.scale)
+        self.roi = hs.roi.RectangularROI(
+            left=self.shape[1] // 4 * self.scale,
+            right=3 * self.shape[1] // 4 * self.scale,
+            top=self.shape[0] // 4 * self.scale,
+            bottom=3 * self.shape[0] // 4 * self.scale,
+        )
         return
 
 
