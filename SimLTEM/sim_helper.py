@@ -645,7 +645,7 @@ def reconstruct_ovf(
             symmetrizing the images before reconstructing, but the process is
             more computationally intensive as images are 4x as large.
             (default) False.
-        qc (float): (`optional`) The Tikhonov frequency to use as a filter,
+        qc (float): (`optional`) The Tikhonov frequency to use as a filter [1/nm],
             (default) None. If you use a Tikhonov filter the resulting
             magnetization is no longer quantitative
         method (str): (`optional`) Method of phase calculation to use if theta_x == 0 and

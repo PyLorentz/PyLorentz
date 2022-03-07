@@ -44,7 +44,7 @@ def TIE(
     This function calculates the necessary arrays, derivatives, etc. and then
     passes them to phase_reconstruct which solve the TIE.
 
-    Results are not quantitatively correct if a a Tikhonov filter is used.
+    Results are not quantitatively correct if a Tikhonov filter is used.
 
     Args:
         i (int): Index of ptie.defvals to use for reconstruction. Default value
@@ -58,7 +58,7 @@ def TIE(
         dataname (str): The output filename to be used for saving the images.
         sym (bool): (`optional`) Fourier edge effects are marginally improved by
             symmetrizing the images before reconstructing. Default False.
-        qc (float/str): (`optional`) The Tikhonov frequency to use as filter.
+        qc (float/str): (`optional`) The Tikhonov frequency to use as filter [1/nm].
             Default None. If you use a Tikhonov filter the resulting
             phase shift and induction is no longer quantitative.
         save (bool/str): Whether you want to save the output.
@@ -159,8 +159,8 @@ def TIE(
     q = dist(dim_y, dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False:
-        vprint("Reconstructing with Tikhonov value: {:}".format(qc))
-        qi = q ** 2 / (q ** 2 + qc ** 2) ** 2
+        vprint("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
+        qi = q ** 2 / (q ** 2 + (qc * ptie.scale) ** 2) ** 2  # qc in 1/pix
     else:  # normal Laplacian method
         vprint("Reconstructing with normal Laplacian method")
         qi = 1 / q ** 2
@@ -362,7 +362,7 @@ def SITIE(
         dataname (str): The output filename to be used for saving the images.
         sym (bool): (`optional`) Fourier edge effects are marginally improved by
             symmetrizing the images before reconstructing. Default False.
-        qc (float/str): (`optional`) The Tikhonov frequency to use as filter.
+        qc (float/str): (`optional`) The Tikhonov frequency to use as filter [1/nm].
             Default None. If you use a Tikhonov filter the resulting
             phase shift and induction is no longer quantitative.
         norm (bool): (`optional`) Normalizes the input image to [0,1]. This can
@@ -460,8 +460,8 @@ def SITIE(
     q = dist(dim_y, dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False:  # add Tikhonov filter
-        print("Reconstructing with Tikhonov value: {:}".format(qc))
-        qi = q ** 2 / (q ** 2 + qc ** 2) ** 2
+        print("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
+        qi = q ** 2 / (q ** 2 + (qc * ptie.scale) ** 2) ** 2  # put qc in 1/pix
     else:  # normal laplacian method
         print("Reconstructing with normal Laplacian method")
         qi = 1 / q ** 2
@@ -647,7 +647,7 @@ def save_results(
         dataname (str): Name attached to the saved images.
         sym (bool): If the symmetrized method was used. Only relevant as its
             included in the recon_params.txt file.
-        qc (float): Same as sym, included in the text file.
+        qc (float): [1/nm] Same as sym, included in the text file.
         save (bool/str): How much of the results dictionary to save.
 
             ===========  ============
@@ -738,7 +738,7 @@ def save_results(
         txt.write("Defocus value: {} nm\n".format(defval))
         txt.write("Full E and M reconstruction: {} \n".format(ptie.flip))
         txt.write("Symmetrized: {} \n".format(sym))
-        txt.write("Tikhonov filter: {} \n".format(qc))
+        txt.write("Tikhonov filter [1/nm]: {} \n".format(qc))
         txt.write("Longitudinal derivative: {} \n".format(long_deriv))
 
     return
