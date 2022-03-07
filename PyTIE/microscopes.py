@@ -84,29 +84,23 @@ class Microscope(object):
         )
 
         if verbose:
-            print("Creating a new microscope object with the following properties:")
             print(
-                "Quantities preceded by a star (*) can be changed using optional arguments at call."
-            )
-            print(
-                "-------------------------------------------------------------------------"
-            )
-            print(f"*Accelerating voltage              E: [V]        {self.E:.4g}")
-            print(f"*Spherical Aberration             Cs: [nm]       {self.Cs:.4g}")
-            print(f"*Chromatic Aberration             Cc: [nm]       {self.Cc:.4g}")
-            print(
-                f"*Beam Coherence              theta_c: [rad]      {self.theta_c:.4g}"
-            )
-            print(f"*2-fold astigmatism               Ca: [nm]       {self.Ca:.4g}")
-            print(f"*2-fold astigmatism angle      phi_a: [rad]      {self.phi_a:.4g}")
-            print(
-                f"*defocus spread              def_spr: [nm]       {self.def_spr:.4g}"
-            )
-            print(f"Electron wavelength           lambda: [nm]       {self.lam:.4g}")
-            print(f"Relativistic factor            gamma: [-]        {self.gamma:.4g}")
-            print(f"Interaction constant           sigma: [1/V/nm]   {self.sigma:.4g}")
-            print(
-                "-------------------------------------------------------------------------"
+                """
+            Creating a new microscope object with the following properties:
+            Quantities preceded by a star (*) can be changed using optional arguments at call.
+            ------------------------------------------------------------------
+            *Accelerating voltage               E: [V]    {self.E: 4.4g}
+            *Spherical Aberration             Cs: [nm]    {self.Cs: 4.4g}
+            *Chromatic Aberration             Cc: [nm]    {self.Cc: 4.4g}
+            *Beam Coherence             theta_c: [rad]    {self.theta_c: 4.4g}
+            *2-fold astigmatism               Ca: [nm]    {self.Ca: 4.4g}
+            *2-fold astigmatism angle     phi_a: [rad]    {self.phi_a: 4.4g}
+            *defocus spread              def_spr: [nm]    {self.def_spr: 4.4g}
+            Electron wavelength           lambda: [nm]    {self.lam: 4.4g}
+            Relativistic factor             gamma: [-]    {self.gamma: 4.4g}
+            Interaction constant       sigma: [1/V/nm]    {self.sigma: 4.4g}
+            ------------------------------------------------------------------
+            """
             )
 
     def getSchDef(self):

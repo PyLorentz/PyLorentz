@@ -7,6 +7,7 @@ dependencies:
   - hyperspy=1.5.2
   - h5py=2.10.0
   - ipykernel
+  - ipympl
   - ipyparallel
   - ipython
   - ipython_genutils
