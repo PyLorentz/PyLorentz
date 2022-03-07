@@ -270,7 +270,7 @@ class Microscope(object):
         """
 
         # Get Chiq and then compute BackPropTF
-        chiq = getChiQ(qq, del_px)
+        chiq = self.getChiQ(qq, del_px)
         backprop_tf = np.cos(chiq) + 1j * np.sin(chiq)
 
         # Convolve with ImgWave
