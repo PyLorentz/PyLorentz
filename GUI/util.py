@@ -25,7 +25,6 @@ import hyperspy.api as hs
 
 # Set TkAgg to show if using a drawing computer so vector image gets displayed
 import matplotlib
-
 matplotlib.use("agg")
 from matplotlib import cm as mpl_cm, pyplot as plt
 import numpy as np
@@ -552,6 +551,7 @@ def load_image(
         return None, None, None
 
 
+
 def array_resize(array: "np.ndarray", new_size: Tuple[int, int]) -> "np.ndarray":
     """Resize numpy arrays.
     Args:
@@ -808,21 +808,12 @@ def slice_im(
     return new_image
 
 
-def add_vectors(
-    window: sg.Window,
-    mag_x: "np.ndarray",
-    mag_y: "np.ndarray",
-    color_np_array: "np.ndarray",
-    color: bool,
-    hsv: bool,
-    arrows: int,
-    length: float,
-    width: float,
-    graph_size: Tuple[int, int],
-    pad_info: Tuple[Any, Any],
-    GUI_handle: bool = True,
-    save: Optional[bool] = None,
-) -> Optional["bytes"]:
+def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
+                hsv: bool, arrows: int, length: float, width: float,
+                graph_size: Tuple[int, int], pad_info: Tuple[Any, Any],
+                GUI_handle: bool = True,
+                save: Optional[bool] = None) -> Optional['bytes']:
+
     """Add a vector plot for the magnetic saturation images to be shown in the GUI.
     Args:
         window: The main GUI window.
@@ -888,7 +879,7 @@ def add_vectors(
         data = array_resize(data, graph_size)
 
         # This has the final shape of the graph
-        plt.close("all")
+        plt.close('all')
 
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
@@ -995,14 +986,15 @@ def erase_marks(
             graph.DeleteFigure(line)
 
 
-def create_mask(
-    img: "np.ndarray", mask_coords: Tuple[int], bmp: bool = False
-) -> "np.ndarray":
+
+def create_mask(img: 'np.ndarray', mask_coords: Tuple[int],
+                bmp: bool = False) -> 'np.ndarray':
     """Create a mask image utilizing corner coordinates and a fill color.
     Args:
         img: The numpy array of the image data.
         mask_coords: The tuple of the corner coordinates of the mask.
         bmp: If a bmp is chosen, create file with 255 color. Else use 1 for fill.
+
     Returns:
         img: The return mask image numpy array.
     """
