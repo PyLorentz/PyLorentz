@@ -1,8 +1,6 @@
 """Utility functions for GUI.
-
 Contains miscellaneous utility functions that help with GUI event handling,
 image handling, and certain file handling for alignment.
-
 AUTHOR:
 Timothy Cote, ANL, Fall 2019.
 """
@@ -23,18 +21,16 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import gui_styling
 
 # Third-Party Imports
-import skimage
 import hyperspy.api as hs
 
 # Set TkAgg to show if using a drawing computer so vector image gets displayed
 import matplotlib
 
 matplotlib.use("agg")
-
 from matplotlib import cm as mpl_cm, pyplot as plt
-
 import numpy as np
 from numpy import array, zeros, flipud, uint8 as np_uint8
+from skimage import transform, draw
 import PySimpleGUI as sg
 
 # Local imports
@@ -49,7 +45,6 @@ class Struct(object):
     """The data structure responsible saving GUI info, image info, and
     reconstruction info. Attributes are built in PyLorentz 'init'
     functions.
-
     This is the most useful class for the GUI and event handler.
     It contains information for each tab and keeps tracks of files, transformations,
     threads, subprocesses, etc.
@@ -60,11 +55,9 @@ class Struct(object):
 
 class FileObject(object):
     """An object for holding the file data.
-
     FileObjects hold information for .fls data or other files that may or may not be images.
     For more information on how to organize images the directory and load the data, as
     well as how to setup the .fls file please refer to the README or GUI manual.
-
     Attributes:
         path: String of the path name to file.
         shortname: The shortened name of the file,
@@ -73,7 +66,6 @@ class FileObject(object):
 
     def __init__(self, path: str) -> None:
         """Initialize file object.
-
         Args:
             path: The path to the file object.
         """
@@ -92,10 +84,8 @@ class FileObject(object):
 class FileImage(FileObject):
     """The Image Class contains data about an individual image.
     This data is encoded into bytes for the TK Canvas.
-
     For more information on how to organize images the directory and load the data, as
     well as how to setup the .fls file please refer to the README.
-
     Attributes:
         path: String of the path name to file.
         shortname: The shortened name of the file,
@@ -118,7 +108,6 @@ class FileImage(FileObject):
         float_array: Optional["np.ndarray"] = None,
     ) -> None:
         """Initialize the FileImage Object.
-
         Args:
             uint8_data: Dictionary of uint8 data of image.
             flt_data: Dictionary of float data of image.
@@ -142,7 +131,6 @@ class Stack(FileImage):
     """The Stack Class contains data about an image stack.
     This data is encoded into bytes for the TK Canvas. It
     is a subclass of the Image Class.
-
     Attributes:
         path: String of the full path of the stack.
         shortname: The shortened name of the stack,
@@ -162,7 +150,6 @@ class Stack(FileImage):
         self, uint8_data: Dict, flt_data: Dict, size: Tuple[int, int, int], path: str
     ):
         """Initialize the Stack Object.
-
         Args:
             uint8_data: Dictionary of uint8 data of stack. Each
                 slice is a key for an ndarray.
@@ -190,14 +177,11 @@ class Stack(FileImage):
 # ============================================================= #
 def join(strings: List[str], sep: str = "") -> str:
     """Method joins strings with a specific separator.
-
     Strings are joined with the separator and if the string contains
     double backslashes, it replaces them with a forward slash.
-
     Args:
         strings: A list of strings to join.
         sep: The character to separate the string joining.
-
     Returns:
         final_string: The concatenated string.
     """
@@ -209,10 +193,8 @@ def join(strings: List[str], sep: str = "") -> str:
 
 def represents_float(s: str) -> bool:
     """Returns value evaluating if a string is a float.
-
     Args:
         s: A string to check if it wil be a float.
-
     Returns:
         True if it converts to float, False otherwise.
     """
@@ -226,10 +208,8 @@ def represents_float(s: str) -> bool:
 
 def represents_int_above_0(s: str) -> bool:
     """Returns value evaluating if a string is an integer > 0.
-
     Args:
         s: A string to check if it wil be a float.
-
     Returns:
         True if it converts to float, False otherwise.
     """
@@ -256,15 +236,12 @@ Check_Setup = Tuple[
 
 def flatten_order_list(my_list: List[List]) -> List:
     """Flattens and orders a list of 3 lists into a single list.
-
     Flattens and orders 2D list of lists of items:
         [[b , a], [c, d], [e, f]]
     into a 1D list of items:
         [a, b, c, d, e, f]
-
     Args:
         my_list: A 2D list of list of items.
-
     Returns:
         flat_list: A 1D flattened/ordered list of items.
     """
@@ -277,27 +254,21 @@ def flatten_order_list(my_list: List[List]) -> List:
 
 def pull_image_files(fls_file: str, check_align: bool = False) -> List[List[str]]:
     """Use .fls file to return ordered images for alignment.
-
     Initially it will read in .fls data, pull the number of files
     from the first line, and then locate the in-focus image. Then
     it separates the overfocus and underfocus images.
-
     If the check alignment is set, the returned images are the infocus image,
     and the nearest under-focused/over-focused on either side of the
     infocus image. Otherwise all image files are returned. The files are
     ordered from
-
-
                     [
                     [smallest underfocus,  ... , largest underfocus]
                     [infocus]
                     [smallest overfocus, ... , largest overfocus]
                     ]
-
     Args:
         fls_file: The filename for the fls file.
         check_align: Option for full alignment or parameter test.
-
     Returns:
         filenames: 2D list of under/in/over-focus images.
     """
@@ -333,16 +304,13 @@ def grab_fls_data(
     fls1: str, fls2: str, tfs_value: str, fls_value: str, check_sift: bool
 ) -> Tuple[List[str], List[str]]:
     """Grab image data from .fls file.
-
     Given the FLS files for the flip/unflip/single images,
     return the image filenames depending on the fls_value and
     through-focal-series (tfs) value.
-
     Examples:
         - 1 FLS, Unflip/FLip -> files1 : populated, files2 : populated
         - 1 FLS, Single      -> files1 : populated, files2 : empty
         - 2 FLS, Unflip/FLip -> files1 : populated, files2 : populated
-
     Args:
         fls1: Filename for 1st FLS file.
         fls2: Filename for 2nd FLS file.
@@ -350,7 +318,6 @@ def grab_fls_data(
             Single or Unflip/Flip.
         fls_value: String of number of FLS files used.
         check_sift: Option to check sift alignment.
-
     Returns:
         Tuple of image filenames for scenarios above
             - files1: List of image filenames
@@ -381,13 +348,11 @@ def read_fls(
     check_sift: bool = False,
 ) -> Tuple[List[str], List[str]]:
     """Read image files from .fls files and returns their paths.
-
     The images are read from the FLS files and the files are returned
     depending on the through-focal series value and the fls value. Once
     image filenames are pulled from the FLS file, they are joined to
     the paths (directories) the images are stored in. Those resulting
     full path names are returned in files1 and files2.
-
     Args:
         path1: The first unflip/flip/single path/directory. Optional
         path2: The first unflip/flip/single path/directory. Optional
@@ -397,7 +362,6 @@ def read_fls(
         fls_value: The FLS option.
                 Options: One, Two
         check_sift: Option for checking SIFT alignment.
-
     Returns:
         (files1, files2): A tuple of the lists of image paths corresponding
             to path1 and path2.
@@ -440,7 +404,6 @@ def check_setup(
     prefix: str = "",
 ) -> Check_Setup:
     """Check to see all images filenames in .fls exist in datafolder.
-
     Args:
         datafolder: Datafolder path.
         tfs_value: The through-focal series option.
@@ -449,7 +412,6 @@ def check_setup(
                 Options: One, Two
         fls_files: A list of the FLS filenames.
         prefix: The prefix to prepend for print statements in GUI.
-
     Returns:
         vals: Will return images filenames and paths to those files
             and their parent directories if all images pulled from FLS exist.
@@ -512,11 +474,9 @@ def load_image(
     Optional[Tuple[int, int, int]],
 ]:
     """Loads an image file.
-
     Load an image file if it is a stack, dm3, dm4, or bitmap. As of now,
     Fiji doesn't allow easy loading of dm4's so be warned that alignment
     for dm4 files probably won't work.
-
     Args:
         img_path: Full path to the location of the image.
         graph_size: The size of the graph in (x, y) coords.
@@ -524,7 +484,6 @@ def load_image(
         stack: Boolean value if the image is a stack. Default is False.
         prefix: The prefix value for the print statements to the GUI log.
             Default is True.
-
     Returns:
         tuple: Tuple containing three items:
             - uint8_data: The uint8 data dictionary with image/stack slice key
@@ -595,20 +554,14 @@ def load_image(
 
 def array_resize(array: "np.ndarray", new_size: Tuple[int, int]) -> "np.ndarray":
     """Resize numpy arrays.
-
     Args:
         array: Full path to the location of the image.
         new_size: The new size of array in (x, y) coords, generally size of display.
-
     Returns:
         resized_array: The resized numpy array.
     """
 
-    nsize_yx = [new_size[1], new_size[0]]
-    resized_array = skimage.transform.resize(
-        array, nsize_yx, order=1, preserve_range=True
-    )  # order=1 ->  bilinear
-    resized_array = resized_array.astype(array.dtype)
+    resized_array = transform.resize(array, new_size)
     return resized_array
 
 
@@ -622,17 +575,14 @@ def convert_float_unint8(
     Dict[int, "np.ndarray[np.uint8]"], Dict[int, "np.ndarray[np.float64, np.float32]"]
 ]:
     """Convert float image data to uint8 data, scaling for view in display.
-
     Images need to be converted to uint8 data for future processing and
     loading into the GUI window.
-
     Args:
         float_array: Ndarray dtype float of a single slice of image data.
         graph_size: The size of the graph in (x, y) coords.
         uint8_data: The dictionary that stores the uint8 image data.
         float_data: The dictionary that stores the scaled float image data.
         z: The slice key for the uint8 and float dictionaries.
-
     Returns:
         uint8_data: The uint8 data dictionary with image/stack slice key
                     and value of uint8 dtype ndarray.
@@ -672,17 +622,14 @@ def apply_rot_transl(
 ) -> Image.Image:
     """Apply any rotations and translations to an image array. Takes an array of data
     and converts it to PIL
-
     Images need to be converted to uint8 data for future processing and
     loading into the GUI window.
-
     Args:
         data: The ndarray of the image data.
         d_theta: The angle with which to rotate the image data.
         d_x: The x-translation to move the image data.
         d_y: The y-translation to move the image data.
         h_flip: Boolean value of whether to flip the image horizontally.
-
     Returns:
         rgba_img: The PIL rgba image of the image data.
     """
@@ -727,11 +674,9 @@ def make_rgba(
     color: Optional[bool] = None,
 ) -> Image.Image:
     """Create an rgba image from numpy ndarray data of an image.
-
     Rgba images need to be created from uint8 data so that they can be converted to
     bytes for display in the graph. Additionally a colormap may need to be applied along
     with alpha values to show overlaying images.
-
     Args:
         data: The ndarray of the image data. Can be float or uint8.
         adjust: Boolean value whether transformations need to be applied to the image.
@@ -763,19 +708,19 @@ def make_rgba(
         rgba_img = apply_rot_transl(data, d_theta, d_x, d_y, h_flip)
     else:
         # Convert to PIL Image
-        rgba_img = Image.fromarray(data).convert("RGBA")
+        try:
+            rgba_img = Image.fromarray(data).convert("RGBA")
+        except:
+            rgba_img = Image.fromarray((data * 255).astype(np.uint8))
     return rgba_img
 
 
 def convert_to_bytes(img: Image.Image) -> bytes:
     """Converts a PIL image to bytes.
-
     The byte 'ppm' type is used to directly insert image data into the GUI window. Thus the
     PIL images need to be converted to this type.
-
     Args:
         img: The PIL representation of the image data.
-
     Returns:
         byte_img: The byte representation of the image data.
     """
@@ -793,16 +738,13 @@ def adjust_image(
     graph_size: Tuple[int, int],
 ) -> Tuple["bytes", Image.Image]:
     """Apply transformations to an image given by some float data.
-
     Apply rotations, translations, and/or flipping of image. Generally used for stack slices.
-
     Args:
         data: Float data of image1 in an ndarray.
         transform: Tuple of the rotation, x-translation, y-translation, and
             horizontal flip to apply to the image.
         image_size: The image size in (x, y) size.
         graph_size: The graph size in (x, y) size.
-
     Returns:
         return_img: The byte image for the data.
         rgba_image: The PIL rgba image of the data.
@@ -831,7 +773,6 @@ def vis_1_im(image: FileImage, layer: int = 0) -> bytes:
     """Visualize one image in the GUI canvas. Takes a
     FileImage Object and converts uint8 data into byte data the Tk
     canvas can use.
-
     Args:
         image: The image object that holds data and path info about
             the image.
@@ -852,11 +793,9 @@ def slice_im(
     image: "np.ndarray", slice_size: Tuple[int, int, int, int]
 ) -> "np.ndarray":
     """Slice an image
-
     Args:
         image: ndarray of image data.
         slice_size: The bounds of the image slice in (y_start, x_start, y_end, x_end) coords.
-
     Returns:
         new_image: An ndarray of the sliced image. Can be 3 or 2 dimensions
     """
@@ -885,7 +824,6 @@ def add_vectors(
     save: Optional[bool] = None,
 ) -> Optional["bytes"]:
     """Add a vector plot for the magnetic saturation images to be shown in the GUI.
-
     Args:
         window: The main GUI window.
         mag_x: The x-component of the magnetic induction.
@@ -901,7 +839,6 @@ def add_vectors(
         GUI_handle: The handle to pass to TIE_helper.show_2D() signalling whether to use GUI
             or matplotlib. This defaults to True for the GUI.
         save: The value to determine saving of the vectorized image.
-
     Returns:
         Optional: The byte image for the vectorized data.
     """
@@ -929,7 +866,7 @@ def add_vectors(
         ax.xaxis.set_major_locator(matplotlib.ticker.NullLocator())
         ax.yaxis.set_major_locator(matplotlib.ticker.NullLocator())
 
-        # Resize with CV, and return byte image suitable for Graph
+        # Resize and return byte image suitable for Graph
         fig.canvas.draw()
         data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
         data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
@@ -951,10 +888,11 @@ def add_vectors(
         data = array_resize(data, graph_size)
 
         # This has the final shape of the graph
+        plt.close("all")
+
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
 
-        plt.close("all")
         return return_img
     else:
         plt.close("all")
@@ -965,13 +903,11 @@ def apply_crop_to_stack(
     coords: Tuple[int, int, int, int], graph_size: Tuple[int, int], stack: Stack, i: int
 ) -> Tuple["bytes", Image.Image]:
     """When an ROI mask is selected in the GUI, apply that ROI mask to a slices of image/stack.
-
     Args:
         coords: The tuple of the corners of the square ROI.
         graph_size: The tuple of the graph size (x, y).
         stack: Stack image object representing the loaded stack.
         i: The slice value of the stack to apply the crop to.
-
     Returns:
         display_img: The byte image for the data.
         rgba_masked_image: The PIL rgba image of the data.
@@ -980,7 +916,7 @@ def apply_crop_to_stack(
     # Create mask image (np mask)
     mask = zeros(graph_size, np.uint8)
     coords = [[coords[i][0], coords[i][1]] for i in range(len(coords))]
-    mask = create_mask(mask, coords, 1)
+    mask = create_mask(mask, coords, False)
     mask = flipud(mask)
 
     # Create transformed image (PIL)
@@ -1002,7 +938,6 @@ def draw_mask_points(
     winfo: Struct, graph: sg.Graph, current_tab: str, double_click: bool = False
 ) -> None:
     """Draw mask markers to appear on graph.
-
     Args:
         winfo: Struct object that holds all GUI information.
         graph: The selected PSG graph to draw mask points on.
@@ -1010,7 +945,6 @@ def draw_mask_points(
             is on in the GUI
         double_click: Double-click value for terminating the mask drawing.
             Only necessary for bUnwarpJ masks.
-
     Returns:
         None
     """
@@ -1041,14 +975,12 @@ def erase_marks(
     winfo: Struct, graph: sg.Graph, current_tab: str, full_erase: bool = False
 ) -> None:
     """Erase markers off graph. Delete stored markers if full_erase enabled.
-
     Args:
         winfo: Struct object that holds all GUI information.
         graph: The selected PSG graph to draw mask points on.
         current_tab: String denoting the current tab the graph
             is on in the GUI
         full_erase: Value for deleting the figures from the graph.
-
     Returns:
         None
     """
@@ -1064,32 +996,32 @@ def erase_marks(
 
 
 def create_mask(
-    img: "np.ndarray", mask_coords: Tuple[int, int, int, int], color: str
+    img: "np.ndarray", mask_coords: Tuple[int], bmp: bool = False
 ) -> "np.ndarray":
     """Create a mask image utilizing corner coordinates and a fill color.
-
     Args:
         img: The numpy array of the image data.
         mask_coords: The tuple of the corner coordinates of the mask.
-        color: String denoting the color to fill in the background of the mask.
-
+        bmp: If a bmp is chosen, create file with 255 color. Else use 1 for fill.
     Returns:
         img: The return mask image numpy array.
     """
 
-    pts = array(mask_coords)
-    rr, cc = skimage.draw.polygon(pts[:, 1], pts[:, 0])
-    img[rr, cc] = color
-    return img
+    mask_coords = np.asarray(mask_coords)
+    rr, cc = draw.polygon(mask_coords[:, 1], mask_coords[:, 0], img.shape)
+    mask_img = np.zeros(img.shape, dtype=np.uint8)
+    if bmp:
+        mask_img[rr, cc] = 255
+    else:
+        mask_img[rr, cc] = 1
+    return mask_img
 
 
 def draw_square_mask(winfo: Struct, graph: sg.Graph) -> None:
     """Create the square mask for the REC graph.
-
     Args:
         winfo: Struct object that holds all GUI information.
         graph: The selected PSG graph to draw mask points on.
-
     Returns:
         None
     """
