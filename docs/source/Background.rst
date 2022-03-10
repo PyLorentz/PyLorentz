@@ -4,6 +4,14 @@ References
 
 .. _LTEM_background:
 
+Linear Superposition Method
+---------------
+
+For details regarding the linear superposition method of calculating the electron phase shift through a magnetic sample, please see our `paper <https://doi.org/10.1103/PhysRevApplied.15.044025>`_:  
+
+        McCray, A. R. C., Cote, T., Li, Y., Petford-Long, A. K. & Phatak, C. Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron 
+        Microscopy. Phys. Rev. Appl. 15, 044025 (2021).
+
 LTEM References
 ---------------
 
