@@ -100,7 +100,7 @@ However if you have just one stack (no flip stack) then your data should be in a
                    full_align.tif  
                    
 ## References
-[1] 1. McCray, A. R. C., Cote, T., Li, Y., Petford-Long, A. K. & Phatak, C. Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron Microscopy. Phys. Rev. Appl. 15, 044025 (2021).   
+[1] McCray, A. R. C., Cote, T., Li, Y., Petford-Long, A. K. & Phatak, C. Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron Microscopy. Phys. Rev. Appl. 15, 044025 (2021).   
 [2] Humphrey, E., Phatak, C., Petford-Long, A. K. & De Graef, M. Separation of electrostatic and magnetic phase shifts using a modified transport-of-intensity equation. Ultramicroscopy 139, 5–12 (2014).   
 [3] Chess, J. J. et al. Streamlined approach to mapping the magnetic induction of skyrmionic materials. Ultramicroscopy 177, 78–83 (2018).   
 [4] Volkov, V. V, Zhu, Y. & Graef, M. De. A New Symmetrized Solution for Phase Retrieval using the TI. Micron 33, 411–416 (2002).
