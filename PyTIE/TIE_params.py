@@ -235,11 +235,11 @@ class TIE_params(object):
 
         if type(imstack[0]) == hyperspy._signals.signal2d.Signal2D:
             for sig in imstack:
-                im_mask = np.where(sig.data <= threshold, 0, 1)
+                im_mask = np.where(np.abs(sig.data) <= threshold, 0, 1)
                 mask *= im_mask
         else:  # assume they're images
             for im in imstack:
-                im_mask = np.where(im <= threshold, 0, 1)
+                im_mask = np.where(np.abs(im) <= threshold, 0, 1)
                 mask *= im_mask
 
         # shrink mask slightly
