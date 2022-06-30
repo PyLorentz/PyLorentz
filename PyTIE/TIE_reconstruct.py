@@ -100,7 +100,7 @@ def TIE(
         'bbt'      Magnitude of integrated magnetic induction
         'phase_b'  Magnetic phase shift (radians)
         'phase_e'  Electrostatic phase shift (if using flip stack) (radians)
-        'dIdZ_m'   Intensity derivative for calculating phase_b
+        'dIdZ_b'   Intensity derivative for calculating phase_b
         'dIdZ_e'   Intensity derivative for calculating phase_e (if using flip stack)
         'color_b'  RGB image of magnetization
         'inf_im'   In-focus image
@@ -112,7 +112,7 @@ def TIE(
         "bbt": None,
         "phase_e": None,
         "phase_b": None,
-        "dIdZ_m": None,
+        "dIdZ_b": None,
         "dIdZ_e": None,
         "color_b": None,
         "inf_im": None,
@@ -231,14 +231,14 @@ def TIE(
         if ptie.flip:
             vprint("Computing the flip stack longitudinal derivative.")
             flip_deriv = polyfit_deriv(flip_stack, defval, v)
-            dIdZ_m = (unflip_deriv - flip_deriv) / 2
+            dIdZ_b = (unflip_deriv - flip_deriv) / 2
             dIdZ_e = (unflip_deriv + flip_deriv) / 2
         else:
-            dIdZ_m = unflip_deriv
+            dIdZ_b = unflip_deriv
 
     else:  # three point derivative, default.
         if ptie.flip:
-            dIdZ_m = (
+            dIdZ_b = (
                 1
                 / 2
                 * (scaled_tifs[3] - scaled_tifs[0] - (scaled_tifs[4] - scaled_tifs[1]))
@@ -249,14 +249,14 @@ def TIE(
                 * (scaled_tifs[3] - scaled_tifs[0] + (scaled_tifs[4] - scaled_tifs[1]))
             )
         else:
-            dIdZ_m = scaled_tifs[2] - scaled_tifs[0]
+            dIdZ_b = scaled_tifs[2] - scaled_tifs[0]
 
     # Set derivatives to have 0 total "energy"
-    dIdZ_m *= mask
-    totm = np.sum(dIdZ_m) / np.sum(mask)
-    dIdZ_m -= totm
-    dIdZ_m *= mask
-    results["dIdZ_m"] = dIdZ_m
+    dIdZ_b *= mask
+    totm = np.sum(dIdZ_b) / np.sum(mask)
+    dIdZ_b -= totm
+    dIdZ_b *= mask
+    results["dIdZ_b"] = dIdZ_b
 
     if ptie.flip:
         dIdZ_e *= mask
@@ -276,7 +276,7 @@ def TIE(
 
     ### Now run for B,
     resultsB = phase_reconstruct(
-        ptie, inf_im, dIdZ_m, pscope, defval, sym=sym, long_deriv=long_deriv
+        ptie, inf_im, dIdZ_b, pscope, defval, sym=sym, long_deriv=long_deriv
     )
     results["byt"] = resultsB["ind_y"]
     results["bxt"] = resultsB["ind_x"]
