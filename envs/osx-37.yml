@@ -4,23 +4,22 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - hyperspy=1.5.2
-  - h5py=2.10.0
-  - ipykernel
-  - ipympl
-  - ipyparallel
+  - hyperspy=1.7.1
+  - h5py
+  - ipykernel 
+  - ipyparallel 
   - ipython
-  - ipython_genutils
+  - ipython_genutils 
   - ipywidgets
   - jupyter
   - jupyterlab
-  - matplotlib=3.2.1
+  - matplotlib=3.5.2 
   - mdf_forge
   - numpy
   - numba
-  - python=3.7.1
-  - pysimplegui=4.28.0
-  - scikit-image=0.15.0
+  - python=3.10
+  - pysimplegui=4.60.1
+  - scikit-image=0.19.3
   - scipy
-  - tk=8.6.8
-  - tifffile
+  - tk=8.6.10
+

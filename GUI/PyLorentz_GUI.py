@@ -1098,7 +1098,7 @@ def rec_get_listbox_ind_from_key(key_list: List[str]) -> List[int]:
             ind = 7
         elif key == 'dIdZ_e':
             ind = 8
-        elif key == 'dIdZ_m':
+        elif key == 'dIdZ_b':
             ind = 9
         elif key == 'inf_im':
             ind = 10
@@ -2163,7 +2163,7 @@ def run_reconstruct_tab(winfo: Struct, window: sg.Window,
             image_key = 'phase_e'
             im_name = 'Electrostatic Phase Shift (radians)'
         elif image_choice == 'Mag. Deriv.':
-            image_key = 'dIdZ_m'
+            image_key = 'dIdZ_b'
             im_name = 'Intensity Deriv. for Mag. Phase'
         elif image_choice == 'Electr. Deriv.':
             image_key = 'dIdZ_e'
@@ -2659,7 +2659,7 @@ def save_window_values(save_win: sg.Window, num_paths: int, event: str,
                     if ev3 == 'Exit' or ev3 is None or ev3 in ['fc_win_submit', 'fc_win_close']:
                         file_choices = [0]
                         item_list = ['color_b', 'byt', 'bxt',
-                                     'bbt', 'dIdZ_e', 'dIdZ_m', 'inf_im',
+                                     'bbt', 'dIdZ_e', 'dIdZ_b', 'inf_im',
                                      'phase_e', 'phase_b', 'arrow_colormap',
                                      'bw_arrow_colormap']
                         for key in item_list:
