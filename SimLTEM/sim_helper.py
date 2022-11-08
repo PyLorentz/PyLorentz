@@ -1106,8 +1106,8 @@ def show_sims(phi, im_un, im_in, im_ov, title=None, save=None):
     ax11.imshow(phi, cmap="gray", origin="upper", vmax=vmax, vmin=vmin)
     plt.axis("off")
     plt.title("Phase")
-    vmax = np.max(im_un) + 0.05
-    vmin = np.min(im_un) - 0.05
+    vmax = np.max([im_un, im_in, im_ov])
+    vmin = np.min([im_un, im_in, im_ov])
     ax = fig.add_subplot(142)
     ax.imshow(im_un, cmap="gray", origin="upper", vmax=vmax, vmin=vmin)
     plt.axis("off")

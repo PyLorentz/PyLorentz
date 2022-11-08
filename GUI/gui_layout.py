@@ -350,7 +350,7 @@ def save_window_ly(event: str, image_dir: str,
     if event == '__REC_Save_TIE__':
         im_type = 'Reconstructed Images'
         orientations = ['recon_params.txt', 'color_b.tiff', 'byt.tiff', 'bxt.tiff',
-                        'bbt.tiff', 'dIdZ_e.tiff', 'dIdZ_m.tiff', 'inf_im.tiff',
+                        'bbt.tiff', 'dIdZ_e.tiff', 'dIdZ_b.tiff', 'inf_im.tiff',
                         'phase_e.tiff', 'phase_b.tiff', 'arrow_colormap.png',
                         'bw_arrow_colormap.png']
         file_paths = ['images']
@@ -437,12 +437,12 @@ def file_choice_ly(tfs: str) -> List[List[Any]]:
 
     if tfs == 'Unflip/Flip':
         orientations = ['color_b', 'byt', 'bxt',
-                        'bbt', 'dIdZ_e', 'dIdZ_m', 'inf_im',
+                        'bbt', 'dIdZ_e', 'dIdZ_b', 'inf_im',
                         'phase_e', 'phase_b', 'arrow_colormap',
                         'bw_arrow_colormap']
     elif tfs == 'Single':
         orientations = ['color_b', 'byt', 'bxt',
-                        'bbt', 'dIdZ_m', 'inf_im',
+                        'bbt', 'dIdZ_b', 'inf_im',
                         'phase_b', 'arrow_colormap',
                         'bw_arrow_colormap']
     file_choice_window = []
