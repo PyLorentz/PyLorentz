@@ -101,7 +101,7 @@ def home_tab(style: WindowStyle, DEFAULTS: Dict) -> Tab:
 
     title = '''PyLorentz Phase Reconstruction'''
     version = '''Version 1.2.0'''
-    authors = '''Authors: Tim Cote, Arthur McCray, CD Phatak'''
+    authors = '''Authors: Arthur McCray, Tim Cote, CD Phatak'''
     readme = '''PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are two primary features and functions:
 
 * PyTIE – Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE).

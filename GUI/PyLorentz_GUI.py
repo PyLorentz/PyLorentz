@@ -219,8 +219,8 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.last_browser_color = None
     keys = element_keys()
     winfo.keys = keys
-    winfo.invis_graph = window.FindElement("__invisible_graph__")
-    winfo.output_invis_graph = output_window.FindElement("__output_invis_graph__")
+    winfo.invis_graph = window["__invisible_graph__"]
+    winfo.output_invis_graph = output_window["__output_invis_graph__"]
     winfo.tabnames = ["Home", "Phase Reconstruction"]
     winfo.pages = "pages_tabgroup"
     winfo.current_tab = "home_tab"
