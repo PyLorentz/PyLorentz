@@ -37,7 +37,7 @@ If you use PyLorentz, please cite our [paper](https://doi.org/10.1103/PhysRevApp
 
 ### GUI
 * TIE reconstruction through a graphical user interface (gui) 
-* Additional features include improved region selection and easily images before saving. 
+* Additional features include improved region selection and image saving. 
 
 ## Getting started
 With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo directly, fork the project, or download the files directly in a .zip. 
