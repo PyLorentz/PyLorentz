@@ -18,7 +18,7 @@ from scipy import ndimage
 from ipywidgets import interact
 import hyperspy  # just for checking type in show_stack.
 from copy import deepcopy
-from TIE_params import TIE_params
+from PyLorentz.PyTIE.TIE_params import TIE_params
 import textwrap
 import os
 
@@ -434,7 +434,7 @@ def dist(ny, nx, shift=False):
     ly = (np.arange(ny) - ny / 2) / ny
     lx = (np.arange(nx) - nx / 2) / nx
     [X, Y] = np.meshgrid(lx, ly)
-    q = np.sqrt(X ** 2 + Y ** 2)
+    q = np.sqrt(X**2 + Y**2)
     if not shift:
         q = np.fft.ifftshift(q)
     return q

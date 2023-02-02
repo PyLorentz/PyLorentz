@@ -12,7 +12,7 @@ import numpy as np
 from matplotlib import colors
 import textwrap
 import sys
-from TIE_helper import dist
+from PyLorentz.PyTIE.TIE_helper import dist
 
 
 def color_im(Bx, By, Bz=None, rad=None, hsvwheel=True, background="black"):
@@ -45,7 +45,7 @@ def color_im(Bx, By, Bz=None, rad=None, hsvwheel=True, background="black"):
         rad = Bx.shape[0] // 16
         rad = max(rad, 16)
 
-    bmag = np.sqrt(Bx ** 2 + By ** 2)
+    bmag = np.sqrt(Bx**2 + By**2)
 
     if rad > 0:
         pad = 10  # padding between edge of image and color-wheel
@@ -89,7 +89,7 @@ def color_im(Bx, By, Bz=None, rad=None, hsvwheel=True, background="black"):
 
         else:
             z_wheel = True
-            theta = np.arctan2(Bz, np.sqrt(Bx ** 2 + By ** 2))
+            theta = np.arctan2(Bz, np.sqrt(Bx**2 + By**2))
             value = np.where(theta < 0, np.cos(2 * theta) / 2 + 1 / 2, 1)
             # value = np.where(theta<0, 1-1/(1+np.exp(10*theta*2/np.pi+5)), 1)#sigmoid
             sat = np.where(theta > 0, np.cos(2 * theta) / 2 + 1 / 2, 1)
@@ -113,7 +113,7 @@ def color_im(Bx, By, Bz=None, rad=None, hsvwheel=True, background="black"):
     else:  # four-fold color wheel
         bmag = np.where(bmag != 0, bmag, 1.0001)
         cang = Bx / bmag  # cosine of the angle
-        sang = np.sqrt(1 - cang ** 2)  # and sin
+        sang = np.sqrt(1 - cang**2)  # and sin
 
         # define the 4 color quadrants
         q1 = ((Bx >= 0) * (By <= 0)).astype(int)
@@ -174,7 +174,7 @@ def colorwheel_HSV(rad, background, z=False, **kwargs):
     # hue maps to angle
     h_col = (th + np.pi) / 2 / np.pi
     # saturation maps to radius
-    rr = np.sqrt(X ** 2 + Y ** 2)
+    rr = np.sqrt(X**2 + Y**2)
     msk = np.zeros(rr.shape)
     msk[np.where(rr <= rad)] = 1.0
     # mask and normalize
@@ -225,7 +225,7 @@ def colorwheel_RGB(rad):
     circ = np.where(tr > rad, 0, 1)
 
     # magnitude of RGB values (equiv to value in HSV)
-    bmag = np.sqrt((grad_x ** 2 + grad_y ** 2))
+    bmag = np.sqrt((grad_x**2 + grad_y**2))
 
     # remove 0 to divide, make other grad distributions
     bmag = np.where(bmag != 0, bmag, 1)

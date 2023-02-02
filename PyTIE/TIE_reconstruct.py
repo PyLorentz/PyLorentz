@@ -18,13 +18,14 @@ from pathlib import Path
 import numpy as np
 import scipy
 import tifffile
-from skimage import io
 
-from colorwheel import color_im
-from longitudinal_deriv import polyfit_deriv
-from microscopes import Microscope
-from TIE_helper import dist, scale_stack, select_tifs, show_im
-from TIE_params import TIE_params
+# from skimage import io
+
+from PyLorentz.PyTIE.colorwheel import color_im
+from PyLorentz.PyTIE.longitudinal_deriv import polyfit_deriv
+from PyLorentz.PyTIE.microscopes import Microscope
+from PyLorentz.PyTIE.TIE_helper import dist, scale_stack, select_tifs, show_im
+from PyLorentz.PyTIE.TIE_params import TIE_params
 
 
 def TIE(
@@ -160,10 +161,10 @@ def TIE(
     q[0, 0] = 1
     if qc is not None and qc is not False:
         vprint("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
-        qi = q ** 2 / (q ** 2 + (qc * ptie.scale) ** 2) ** 2  # qc in 1/pix
+        qi = q**2 / (q**2 + (qc * ptie.scale) ** 2) ** 2  # qc in 1/pix
     else:  # normal Laplacian method
         vprint("Reconstructing with normal Laplacian method")
-        qi = 1 / q ** 2
+        qi = 1 / q**2
     qi[0, 0] = 0
     ptie.qi = qi  # saves the freq dist
 
@@ -461,10 +462,10 @@ def SITIE(
     q[0, 0] = 1
     if qc is not None and qc is not False:  # add Tikhonov filter
         print("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
-        qi = q ** 2 / (q ** 2 + (qc * ptie.scale) ** 2) ** 2  # put qc in 1/pix
+        qi = q**2 / (q**2 + (qc * ptie.scale) ** 2) ** 2  # put qc in 1/pix
     else:  # normal laplacian method
         print("Reconstructing with normal Laplacian method")
-        qi = 1 / q ** 2
+        qi = 1 / q**2
     qi[0, 0] = 0
     ptie.qi = qi  # saves the freq dist
 
@@ -551,7 +552,7 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
     # applying 2/3 qc cutoff mask (see de Graef 2003)
     gy, gx = np.ogrid[-y // 2 : y // 2, -x // 2 : x // 2]
     rad = y / 3
-    qc_mask = gy ** 2 + gx ** 2 <= rad ** 2
+    qc_mask = gy**2 + gx**2 <= rad**2
     qc_mask = np.fft.ifftshift(qc_mask)
     fft1 *= qc_mask
 
@@ -591,7 +592,7 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
 
     ### getting magnetic induction
     grad_y, grad_x = np.gradient(results["phase"])
-    pre_B = scipy.constants.hbar / (scipy.constants.e * ptie.scale) * 10 ** 18  # T*nm^2
+    pre_B = scipy.constants.hbar / (scipy.constants.e * ptie.scale) * 10**18  # T*nm^2
     results["ind_x"] = pre_B * grad_y
     results["ind_y"] = -1 * pre_B * grad_x
     return results

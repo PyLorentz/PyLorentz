@@ -1,0 +1,15 @@
+name: PyLorentz
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy=1.23
+  - numba
+  - hyperspy
+  - pysimplegui
+  - mdf_forge
+  - jupyter
+  - jupyterlab
+  - ipympl
+prefix: /home/amccray/miniconda3/envs/PyLorentz
