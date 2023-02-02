@@ -48,7 +48,7 @@ extensions = [
 
 autodoc_mock_imports = [
     "dask",
-    "hyperspy",
+    "ncempy",
     "skimage",
     "colormap",
     "numpy",

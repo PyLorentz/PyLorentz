@@ -7,21 +7,25 @@ displaying images and stacks.
 Author: Arthur McCray, ANL, Summer 2019.
 """
 
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import numpy as np
-import hyperspy.api as hs
-import sys
-from skimage import io
-from scipy.ndimage.filters import median_filter
-from scipy import ndimage
-from ipywidgets import interact
-import hyperspy  # just for checking type in show_stack.
-from copy import deepcopy
-from PyLorentz.PyTIE.TIE_params import TIE_params
-import textwrap
 import os
 
+import sys
+import textwrap
+
+from copy import deepcopy
+from pathlib import Path
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+from ipywidgets import interact
+from ncempy.io import dm
+from scipy import ndimage
+from scipy.ndimage import median_filter
+from skimage import io
+from tifffile import TiffFile
+
+from PyLorentz.PyTIE.TIE_params import TIE_params
 
 # ============================================================= #
 #      Functions used for loading and passing the TIE data      #
@@ -63,7 +67,6 @@ def load_data(
           other parameters.
 
     """
-
     unflip_files = []
     flip_files = []
 
@@ -78,8 +81,7 @@ def load_data(
     elif os.path.isfile(os.path.join(path, "tfs", fls_file)) and not flip:
         fls_full = os.path.join(path, "tfs", fls_file)
     else:
-        print("fls file could not be found.")
-        sys.exit(1)
+        raise FileNotFoundError("fls file could not be found.")
 
     if flip_fls_file is None:  # one fls file given
         fls = []
@@ -136,57 +138,40 @@ def load_data(
         for line in flip_fls[1 : num_files + 1]:
             flip_files.append(os.path.join(path, "flip", line))
 
-    # Actually load the data using hyperspy
-    imstack = hs.load(unflip_files)
-    if flip:
-        flipstack = hs.load(flip_files)
-    else:
-        flipstack = []
+    # will have to modify ptie to get take scale as input,
+    # and will no longer be holding signal2Ds but just images
 
-    # convert scale dimensions to nm
-    for sig in imstack + flipstack:
-        sig.axes_manager.convert_units(units=["nm", "nm"])
+    f_inf = unflip_files[num_files // 2]
+    _, scale = read_image(f_inf)
 
-    if unflip_files[0][-4:] != ".dm3" and unflip_files[0][-4:] != ".dm4":
-        # if not dm3's then they generally don't have the title metadata.
-        for sig in imstack + flipstack:
-            sig.metadata.General.title = sig.metadata.General.original_filename
-
-    # load the aligned tifs and update the dm3 data to match
-    # The data from the dm3's will be replaced with the aligned image data.
     try:
-        al_tifs = io.imread(os.path.join(path, al_file))
+        al_stack, _ = read_image(os.path.join(path, al_file))
     except FileNotFoundError as e:
         print("Incorrect aligned stack filename given.")
         raise e
 
+    # quick median filter to remove hotpixels, kinda slow
+    print("filtering takes a few seconds")
+    al_stack = median_filter(al_stack, size=(1, filtersize, filtersize))
+
     if flip:
-        tot_files = 2 * num_files
+        f_inf_flip = flip_files[num_files // 2]
+        _, scale_flip = read_image(f_inf_flip)
+        if round(scale, 3) != round(scale_flip, 3):
+            print("Scale of the two infocus images are different.")
+            print(f"Scale of unflip image: {scale:.4f} nm/pix")
+            print(f"Scale of flip image: {scale_flip:.4f} nm/pix")
+            print("Proceeding with scale from unflip image.")
+            print("If this is incorrect, change value with >>ptie.scale = XX #nm/pixel")
+
+        imstack = al_stack[:num_files]
+        flipstack = al_stack[num_files:]
     else:
-        tot_files = num_files
+        imstack = al_stack
+        flipstack = []
 
-    for i in range(tot_files):
-        # pull slices from correct axis, assumes fewer slices than images are tall
-        if al_tifs.shape[0] < al_tifs.shape[2]:
-            im = al_tifs[i]
-        elif al_tifs.shape[0] > al_tifs.shape[2]:
-            im = al_tifs[:, :, i]
-        else:
-            print("Bad stack\n Or maybe the second axis is slice axis?")
-            print("Loading failed.\n")
-            sys.exit(1)
-
-        # then median filter to remove "hot pixels"
-        im = median_filter(im, size=filtersize)
-
-        # and assign to appropriate stack
-        if i < num_files:
-            print("loading unflip:", unflip_files[i])
-            imstack[i].data = im
-        else:
-            j = i - num_files
-            print("loading flip:", flip_files[j])
-            flipstack[j].data = im
+    # show_im(imstack[num_files // 2])
+    # show_im(flipstack[num_files // 2])
 
     # read the defocus values
     defvals = fls[-(num_files // 2) :]
@@ -194,9 +179,83 @@ def load_data(
     defvals = [float(i) for i in defvals]  # defocus values +/-
 
     # Create a TIE_params object
-    ptie = TIE_params(imstack, flipstack, defvals, flip, path)
+    ptie = TIE_params(imstack, flipstack, defvals, scale, flip, path)
     print("Data loaded successfully.")
     return (imstack, flipstack, ptie)
+
+
+def read_image(f):
+    """Uses Tifffile or ncempy.io load an image and read the scale if there is one.
+
+    Args:
+        f (str): file to read
+
+    Raises:
+        NotImplementedError: If unknown scale type is given, or Tif series is given.
+        RuntimeError: If uknown file type is given, or number of pages in tif is wrong
+
+    Returns:
+        tuple:  (image, scale), image given as 2D or 3D numpy array, and scale given in
+                nm/pixel if scale is found, or None.
+    """
+    f = Path(f)
+    if f.suffix in [".tif", ".tiff"]:
+        with TiffFile(f, mode="r") as tif:
+            if tif.imagej_metadata is not None and "unit" in tif.imagej_metadata:
+                res = tif.pages[0].tags["XResolution"].value
+                scale = res[1] / res[0]  # to nm/pixel
+                if tif.imagej_metadata["unit"] == "nm":
+                    pass
+                elif tif.imagej_metadata["unit"] in ["um", "µm"]:
+                    scale *= 1e3
+                elif tif.imagej_metadata["unit"] == "mm":
+                    scale *= 1e6
+                else:
+                    raise NotImplementedError(
+                        f'Found unknown scale unit of: {tif.imagej_metadata["unit"]}'
+                    )
+            else:
+                scale = None
+
+            if len(tif.series) != 1:
+                raise NotImplementedError(
+                    "Not sure how to deal with multi-series stack"
+                )
+            if len(tif.pages) > 1:  # load as stack
+                out_im = []
+                for page in tif.pages:
+                    out_im.append(page.asarray())
+                out_im = np.array(out_im)
+            elif len(tif.pages) == 1:  # single image
+                out_im = tif.pages[0].asarray()
+            else:
+                raise RuntimeError(
+                    f"Found an unexpected number of pages: {len(tif.pages)}"
+                )
+
+    elif f.suffix in [".dm3", ".dm4", ".dm5"]:
+        with dm.fileDM(f) as im:
+            im = im.getDataset(0)
+            assert im["pixelUnit"][0] == im["pixelUnit"][1]
+            assert im["pixelSize"][0] == im["pixelSize"][1]
+
+            if im["pixelUnit"][0] == "nm":
+                scale = im["pixelSize"][0]
+            elif im["pixelUnit"][0] == "µm":
+                scale = im["pixelSize"][0] * 1000
+            else:
+                print("unknown scale type (just need to add it)")
+                raise NotImplementedError
+            out_im = im["data"]
+
+    else:
+        print(
+            "If a proper image file is given, then\n"
+            "likely just need to implement with ncempy.read or something."
+        )
+        raise RuntimeError(f"Unknown filetype given: {f.suffix}")
+
+    return out_im, scale
 
 
 def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersize=3):
@@ -557,7 +616,13 @@ def show_im(
     return
 
 
-def show_stack(images, ptie=None, origin="upper", title=False):
+def show_stack(
+    images,
+    ptie=None,
+    origin="upper",
+    titles=None,
+    titletext="",
+):
     """Shows a stack of dm3s or np images with a slider to navigate slice axis.
 
     Uses ipywidgets.interact to allow user to view multiple images on the same
@@ -576,17 +641,7 @@ def show_stack(images, ptie=None, origin="upper", title=False):
     Returns:
         None
     """
-    sig = False
-    if type(images[0]) == hyperspy._signals.signal2d.Signal2D:
-        sig = True
-        imstack = []
-        titles = []
-        for signal2D in images:
-            imstack.append(signal2D.data)
-            titles.append(signal2D.metadata.General.title)
-        images = np.array(imstack)
-    else:
-        images = np.array(images)
+    images = np.array(images)
 
     if ptie is None:
         t, b = 0, images[0].shape[0]
@@ -610,11 +665,8 @@ def show_stack(images, ptie=None, origin="upper", title=False):
 
     def view_image(i=0):
         _im = plt.imshow(images[i], cmap="gray", interpolation="nearest", origin=origin)
-        if title:
-            if sig:
-                plt.title("Image title: {:}".format(titles[i]))
-            else:
-                plt.title("Stack[{:}]".format(i))
+        if titles is not None:
+            plt.title(f"{titletext} {titles[i]}")
 
     interact(view_image, i=(0, N - 1))
     return

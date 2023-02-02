@@ -10,8 +10,9 @@ Arthur McCray, ANL, Summer 2019
 
 import numpy as np
 from scipy import constants, ndimage
-import hyperspy  # just to check signal type
-import hyperspy.api as hs
+
+# import hyperspy  # just to check signal type
+# import hyperspy.api as hs
 import textwrap
 
 
@@ -70,6 +71,7 @@ class TIE_params(object):
         imstack=None,
         flipstack=[],
         defvals=None,
+        scale=None,
         flip=None,
         data_loc=None,
         no_mask=False,
@@ -94,10 +96,11 @@ class TIE_params(object):
                 pass
         self.imstack = imstack
         self.flipstack = flipstack
+        self.shape = np.shape(imstack)[1:]
         if type(defvals) is not list and type(defvals) is not np.ndarray:
             self.defvals = [defvals]
         else:
-            self.defvals = defvals  # array of the defocus steps.
+            self.defvals = np.array(defvals)  # array of the defocus steps.
 
         self.num_files = len(self.imstack)
         if self.num_files == 1:
@@ -105,48 +108,44 @@ class TIE_params(object):
         else:
             assert self.num_files == 2 * len(self.defvals) + 1  # confirm they match
 
-        if type(imstack[0]) != hyperspy._signals.signal2d.Signal2D:
-            # images loaded are tifs, conver to dm3s
-            nimstack = []
-            for arr in imstack:
-                nimstack.append(hs.signals.Signal2D(arr))
-            self.imstack = nimstack
-            if list(flipstack):
-                nflipimstack = []
-                for arr in flipstack:
-                    nflipimstack.append(hs.signals.Signal2D(arr))
-                self.flipstack = nflipimstack
-            vprint(
-                "Data not given in hyperspy signal objects. You likely need to set ptie.scale (nm/pix)."
-            )
+        # if type(imstack[0]) != hyperspy._signals.signal2d.Signal2D:
+        #     # images loaded are tifs, conver to dm3s
+        #     nimstack = []
+        #     for arr in imstack:
+        #         nimstack.append(hs.signals.Signal2D(arr))
+        #     self.imstack = nimstack
+        #     if list(flipstack):
+        #         nflipimstack = []
+        #         for arr in flipstack:
+        #             nflipimstack.append(hs.signals.Signal2D(arr))
+        #         self.flipstack = nflipimstack
+        #     vprint(
+        #         "Data not given in hyperspy signal objects. You likely need to set ptie.scale (nm/pix)."
+        #     )
 
-        infocus = self.imstack[self.num_files // 2]  # unflip infocus dm3
-        self.axes = infocus.axes_manager  # dm3 axes manager
-        self.shape = (
-            self.axes.shape[1],
-            self.axes.shape[0],
-        )  # to be consistent with np
-        scale_y = self.axes[0].scale  # pixel size (nm/pix)
-        scale_x = self.axes[1].scale
-        assert scale_y == scale_x
-        self.scale = scale_y
-        scale_units = self.axes[0].units
-        for sig in (
-            self.imstack + self.flipstack
-        ):  # just to make sure they all have same scale
-            sig.axes_manager[0].units = scale_units
-            sig.axes_manager[1].units = scale_units
-            sig.axes_manager[0].scale = self.scale
-            sig.axes_manager[1].scale = self.scale
-        self.rotation, self.x_transl, self.y_transl = (
-            0,
-            0,
-            0,
-        )  # The rotation/translation to apply to images.
+        self.scale = scale  # nm/pixel
+        vprint(f"Setting scale: {self.scale:.4f} nm/pix\n")
 
-        vprint(
-            "Given scale: {:.4f} nm/pix\n".format(self.imstack[0].axes_manager[0].scale)
-        )
+        # self.axes = infocus.axes_manager  # dm3 axes manager
+        # self.shape = (
+        #     self.axes.shape[1],
+        #     self.axes.shape[0],
+        # )  # to be consistent with np
+        # scale_y = self.axes[0].scale  # pixel size (nm/pix)
+        # scale_x = self.axes[1].scale
+        # assert scale_y == scale_x
+        # self.scale = scale_y
+        # scale_units = self.axes[0].units
+        # for sig in (
+        #     self.imstack + self.flipstack
+        # ):  # just to make sure they all have same scale
+        #     sig.axes_manager[0].units = scale_units
+        #     sig.axes_manager[1].units = scale_units
+        #     sig.axes_manager[0].scale = self.scale
+        #     sig.axes_manager[1].scale = self.scale
+
+        # The rotation/translation to apply to images.
+        self.rotation, self.x_transl, self.y_transl = (0, 0, 0)
 
         if flip is not None:
             self.flip = flip
@@ -162,22 +161,23 @@ class TIE_params(object):
         else:
             self.data_loc = "./"
 
+        infocus = self.imstack[self.num_files // 2]  # unflip infocus dm3
         if flip:
             assert len(self.imstack) == len(self.flipstack)
             flip_infocus = self.flipstack[self.num_files // 2]
-            self.infocus = (infocus.data + flip_infocus.data) / 2
+            self.infocus = (infocus + flip_infocus) / 2
             # An averaged infocus image between the flip/unflip stack.
         else:
-            self.infocus = np.copy(infocus.data)
+            self.infocus = np.copy(infocus)
 
         self.qi = np.zeros(self.shape)  # will be inverse Laplacian array
-        # Default to central square for ROI
-        self.roi = hs.roi.RectangularROI(
-            left=self.shape[1] // 4 * self.scale,
-            right=3 * self.shape[1] // 4 * self.scale,
-            top=self.shape[0] // 4 * self.scale,
-            bottom=3 * self.shape[0] // 4 * self.scale,
-        )
+        # Default to central square for ROI # not sure if still necessary tbd
+        self.roi = {
+            "left": self.shape[1] // 4 * self.scale,
+            "right": 3 * self.shape[1] // 4 * self.scale,
+            "top": self.shape[0] // 4 * self.scale,
+            "bottom": 3 * self.shape[0] // 4 * self.scale,
+        }
         # Default to full image for crop, (remember: bottom > top, right > left)
         self.crop = {
             "top": 0,
@@ -203,7 +203,7 @@ class TIE_params(object):
         Returns:
             float: Numerical prefactor
         """
-        return -1 * self.scale ** 2 / (16 * np.pi ** 3 * pscope.lam * def_step)
+        return -1 * self.scale**2 / (16 * np.pi**3 * pscope.lam * def_step)
 
     def make_mask(self, imstack=None, threshold=0):
         """Sets self.mask to be a binary bounding mask from imstack and flipstack.
@@ -229,18 +229,13 @@ class TIE_params(object):
             self.mask = np.ones(self.shape)
             return
         if imstack is None:
-            imstack = self.imstack + self.flipstack
-        shape = np.shape(imstack[0].data)
+            imstack = np.concatenate([self.imstack, self.flipstack])
+        shape = np.shape(imstack[0])
         mask = np.ones(shape)
 
-        if type(imstack[0]) == hyperspy._signals.signal2d.Signal2D:
-            for sig in imstack:
-                im_mask = np.where(np.abs(sig.data) <= threshold, 0, 1)
-                mask *= im_mask
-        else:  # assume they're images
-            for im in imstack:
-                im_mask = np.where(np.abs(im) <= threshold, 0, 1)
-                mask *= im_mask
+        for im in imstack:
+            im_mask = np.where(np.abs(im) <= threshold, 0, 1)
+            mask *= im_mask
 
         # shrink mask slightly
         its = int(min(15, self.shape[0] // 250, self.shape[1] // 250))
