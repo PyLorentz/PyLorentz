@@ -46,8 +46,8 @@ class TIE_params(object):
             infocus image. Contains useful information such as scale if loaded
             from dm3.
         shape (tuple): Shape of original image data (y, x)
-        scale (float): Scale of images (nm/pixel). Taken from the dm3 metadata
-            or set with the ``set_scale()`` method.
+        scale (float): Scale of images (nm/pixel). Taken from the dm3/tif metadata
+            or set manually.
         rotation (float, int): The rotation to apply to the image before reconstruction in deg.
         x_transl (int): The x_translation to apply to the image before reconstruction in pix.
         y_transl (int): The y_translation to apply to the image before reconstruction in pix.
@@ -141,9 +141,9 @@ class TIE_params(object):
         # Default to full image for crop, (remember: bottom > top, right > left)
         self.crop = {
             "top": 0,
-            "bottom": self.shape[0]-1,
+            "bottom": self.shape[0] - 1,
             "left": 0,
-            "right": self.shape[1]-1,
+            "right": self.shape[1] - 1,
         }
         if no_mask:
             self.mask = np.ones(self.shape)
@@ -253,7 +253,6 @@ class TIE_params(object):
     #     roi2D = roi.interactive(display_sig, color="blue")
     #     self.roi = roi
 
-
     def select_ROI(self, infocus=True):
         # needs to take list as input so it can add them
         fig, ax = plt.subplots()
@@ -266,9 +265,12 @@ class TIE_params(object):
         dy, dx = image.shape
 
         # points = np.array([[-1, -1], [-1, -1]])  # [[y1, x1], [y2, x2]]
-        points = np.array([[self.crop["top"], self.crop["left"]],
-                           [self.crop["bottom"], self.crop["right"]]])  # [[y1, x1], [y2, x2]]
-
+        points = np.array(
+            [
+                [self.crop["top"], self.crop["left"]],
+                [self.crop["bottom"], self.crop["right"]],
+            ]
+        )  # [[y1, x1], [y2, x2]]
 
         click_pad = 100
 
@@ -277,7 +279,7 @@ class TIE_params(object):
                 self.scat = None
                 self.rect = Rectangle((0, 0), 1, 1, fc="none", ec="red")
                 ax.add_patch(self.rect)
-                if np.all(points>=0):
+                if np.all(points >= 0):
                     self.plotrect(points)
                     self.plot(points)
 
@@ -290,8 +292,8 @@ class TIE_params(object):
 
             def plotrect(self, points):
                 (y0, x0), (y1, x1) = points
-                self.rect.set_width(x1-x0)
-                self.rect.set_height(y1-y0)
+                self.rect.set_width(x1 - x0)
+                self.rect.set_height(y1 - y0)
                 self.rect.set_xy((x0, y0))
                 ax.figure.canvas.draw()
 
@@ -303,13 +305,13 @@ class TIE_params(object):
             # make it move closer point not second one always
             if event.button is MouseButton.RIGHT:
                 x, y = event.xdata, event.ydata
-                if np.any(points[0] < 0): # draw point0
+                if np.any(points[0] < 0):  # draw point0
                     points[0, 0] = y
                     points[0, 1] = x
-                elif np.any(points[1] < 0): # draw point1
+                elif np.any(points[1] < 0):  # draw point1
                     points[1, 0] = y
                     points[1, 1] = x
-                else: # redraw closer point
+                else:  # redraw closer point
                     dist0 = get_dist(points[0], [y, x])
                     dist1 = get_dist(points[1], [y, x])
                     if dist0 < dist1:  # change point0
@@ -324,17 +326,21 @@ class TIE_params(object):
 
         def on_key_press(event):
             if event.key == "escape":
-                if np.all(points>0):
+                if np.all(points > 0):
                     print(f"saving ROI")
                     print(f"ptie.crop = [[y1, x1], [y2, x2]]\n{points}")
                     plt.disconnect(binding_id)
                     plt.disconnect(binding_id2)
-                    self.crop["top"] = points[0,0]
-                    self.crop["left"] = points[0,1]
-                    self.crop["bottom"] = points[1,0]
-                    self.crop["right"] = points[1,1]
-                    print(f"Final image dimensions (hxw): {points[1,0]-points[0,0]}x{points[1,1]-points[0,1]}")
-                    print("Cropping can be returned to the full image by running ptie.reset_crop()")
+                    self.crop["top"] = points[0, 0]
+                    self.crop["left"] = points[0, 1]
+                    self.crop["bottom"] = points[1, 0]
+                    self.crop["right"] = points[1, 1]
+                    print(
+                        f"Final image dimensions (hxw): {points[1,0]-points[0,0]}x{points[1,1]-points[0,1]}"
+                    )
+                    print(
+                        "Cropping can be returned to the full image by running ptie.reset_crop()"
+                    )
                 else:
                     print("One or more points are not well defined.")
                     self.reset_crop()
@@ -440,32 +446,6 @@ class TIE_params(object):
         self.crop["right"] = self.shape[1] - 1
         self.crop["top"] = 0
         self.crop["bottom"] = self.shape[0] - 1
-
-    def set_scale(self, scale):
-        """Change the scale of the images (nm/pix) in the relevant places.
-
-        Args:
-            scale (float): Scale of images in nm/pixel
-
-        Returns:
-            None
-        """
-        self.axes[0].scale = scale
-        self.axes[1].scale = scale
-        for sig in self.imstack + self.flipstack:
-            sig.axes_manager[0].units = "nm"
-            sig.axes_manager[1].units = "nm"
-            sig.axes_manager[0].scale = scale
-            sig.axes_manager[1].scale = scale
-
-        self.scale = scale
-        self.roi = hs.roi.RectangularROI(
-            left=self.shape[1] // 4 * self.scale,
-            right=3 * self.shape[1] // 4 * self.scale,
-            top=self.shape[0] // 4 * self.scale,
-            bottom=3 * self.shape[0] // 4 * self.scale,
-        )
-        return
 
 
 def get_dist(pos1, pos2):
