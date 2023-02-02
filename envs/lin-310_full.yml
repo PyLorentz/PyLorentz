@@ -1,4 +1,4 @@
-name: PyLorentzNew
+name: PyLorentz
 channels:
   - conda-forge
   - defaults
