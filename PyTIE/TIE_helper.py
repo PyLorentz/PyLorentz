@@ -24,6 +24,8 @@ from scipy import ndimage
 from scipy.ndimage import median_filter
 from skimage import io
 from tifffile import TiffFile
+from PyLorentz.PyTIE.colorwheel import color_im
+
 
 from PyLorentz.PyTIE.TIE_params import TIE_params
 
@@ -439,12 +441,10 @@ def select_tifs(i, ptie, long_deriv=False):
 
     """
     if long_deriv:
-        recon_tifs = []
-        for sig in ptie.imstack:
-            recon_tifs.append(sig.data)
         if ptie.flip:
-            for sig in ptie.flipstack:
-                recon_tifs.append(sig.data)
+            recon_tifs = np.concatenate([ptie.imstack, ptie.flipstack])
+        else:
+            recon_tifs = ptie.imstack
 
     else:
         if i < 0:
@@ -456,18 +456,18 @@ def select_tifs(i, ptie, long_deriv=False):
         flipstack = ptie.flipstack
         if ptie.flip:
             recon_tifs = [
-                imstack[under].data,  # +-
-                flipstack[under].data,  # --
-                (imstack[num_files // 2].data + flipstack[num_files // 2].data)
+                imstack[under],  # +-
+                flipstack[under],  # --
+                (imstack[num_files // 2] + flipstack[num_files // 2])
                 / 2,  # infocus
-                imstack[over].data,  # ++
-                flipstack[over].data,  # -+
+                imstack[over],  # ++
+                flipstack[over],  # -+
             ]
         else:
             recon_tifs = [
-                imstack[under].data,  # +-
-                imstack[num_files // 2].data,  # 0
-                imstack[over].data,  # ++
+                imstack[under],  # +-
+                imstack[num_files // 2],  # 0
+                imstack[over],  # ++
             ]
     try:
         recon_tifs = deepcopy(recon_tifs)
@@ -676,11 +676,11 @@ def show_2D(
     mag_x,
     mag_y,
     mag_z=None,
-    a=15,
+    a=0,
     l=None,
     w=None,
     title=None,
-    color=False,
+    color=True,
     hsv=True,
     origin="upper",
     save=None,
@@ -728,7 +728,8 @@ def show_2D(
         if mag_z is not None:
             mag_z = np.sum(mag_z, axis=0)
 
-    a = ((mag_x.shape[0] - 1) // a) + 1
+    if a > 0:
+        a = ((mag_x.shape[0] - 1) // a) + 1
 
     dimy, dimx = mag_x.shape
     X = np.arange(0, dimx, 1)
@@ -757,7 +758,6 @@ def show_2D(
 
     if color:
         if not GUI_handle or save is not None:
-            from colorwheel import color_im
 
             im = ax.matshow(
                 color_im(mag_x, mag_y, mag_z, hsvwheel=hsv, rad=rad),
@@ -784,20 +784,21 @@ def show_2D(
             ax.yaxis.set_major_locator(mpl.ticker.NullLocator())
             plt.axis("off")
 
-    ashift = (dimx - 1) % a // 2
-    q = ax.quiver(
-        X[ashift::a],
-        Y[ashift::a],
-        U[ashift::a, ashift::a],
-        V[ashift::a, ashift::a],
-        units="xy",
-        scale=l,
-        scale_units="xy",
-        width=w,
-        angles="xy",
-        pivot="mid",
-        color=arrow_color,
-    )
+    if a > 0:
+        ashift = (dimx - 1) % a // 2
+        q = ax.quiver(
+            X[ashift::a],
+            Y[ashift::a],
+            U[ashift::a, ashift::a],
+            V[ashift::a, ashift::a],
+            units="xy",
+            scale=l,
+            scale_units="xy",
+            width=w,
+            angles="xy",
+            pivot="mid",
+            color=arrow_color,
+        )
 
     if not color:
         if not GUI_handle:

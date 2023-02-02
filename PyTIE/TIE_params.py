@@ -9,11 +9,12 @@ Arthur McCray, ANL, Summer 2019
 """
 
 import numpy as np
-from scipy import constants, ndimage
-
-# import hyperspy  # just to check signal type
-# import hyperspy.api as hs
+from scipy import ndimage
+from matplotlib.backend_bases import MouseButton
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 import textwrap
+import time
 
 
 class TIE_params(object):
@@ -107,42 +108,8 @@ class TIE_params(object):
             assert len(self.defvals) == 1
         else:
             assert self.num_files == 2 * len(self.defvals) + 1  # confirm they match
-
-        # if type(imstack[0]) != hyperspy._signals.signal2d.Signal2D:
-        #     # images loaded are tifs, conver to dm3s
-        #     nimstack = []
-        #     for arr in imstack:
-        #         nimstack.append(hs.signals.Signal2D(arr))
-        #     self.imstack = nimstack
-        #     if list(flipstack):
-        #         nflipimstack = []
-        #         for arr in flipstack:
-        #             nflipimstack.append(hs.signals.Signal2D(arr))
-        #         self.flipstack = nflipimstack
-        #     vprint(
-        #         "Data not given in hyperspy signal objects. You likely need to set ptie.scale (nm/pix)."
-        #     )
-
         self.scale = scale  # nm/pixel
         vprint(f"Setting scale: {self.scale:.4f} nm/pix\n")
-
-        # self.axes = infocus.axes_manager  # dm3 axes manager
-        # self.shape = (
-        #     self.axes.shape[1],
-        #     self.axes.shape[0],
-        # )  # to be consistent with np
-        # scale_y = self.axes[0].scale  # pixel size (nm/pix)
-        # scale_x = self.axes[1].scale
-        # assert scale_y == scale_x
-        # self.scale = scale_y
-        # scale_units = self.axes[0].units
-        # for sig in (
-        #     self.imstack + self.flipstack
-        # ):  # just to make sure they all have same scale
-        #     sig.axes_manager[0].units = scale_units
-        #     sig.axes_manager[1].units = scale_units
-        #     sig.axes_manager[0].scale = self.scale
-        #     sig.axes_manager[1].scale = self.scale
 
         # The rotation/translation to apply to images.
         self.rotation, self.x_transl, self.y_transl = (0, 0, 0)
@@ -171,19 +138,12 @@ class TIE_params(object):
             self.infocus = np.copy(infocus)
 
         self.qi = np.zeros(self.shape)  # will be inverse Laplacian array
-        # Default to central square for ROI # not sure if still necessary tbd
-        self.roi = {
-            "left": self.shape[1] // 4 * self.scale,
-            "right": 3 * self.shape[1] // 4 * self.scale,
-            "top": self.shape[0] // 4 * self.scale,
-            "bottom": 3 * self.shape[0] // 4 * self.scale,
-        }
         # Default to full image for crop, (remember: bottom > top, right > left)
         self.crop = {
             "top": 0,
-            "bottom": self.shape[0],
+            "bottom": self.shape[0]-1,
             "left": 0,
-            "right": self.shape[1],
+            "right": self.shape[1]-1,
         }
         if no_mask:
             self.mask = np.ones(self.shape)
@@ -248,119 +208,238 @@ class TIE_params(object):
         self.infocus *= mask
         return
 
-    def select_region(self, infocus=True):
-        """Interactively crop imstack to smaller size.
+    # def select_region(self, infocus=True):
+    #     """Interactively crop imstack to smaller size.
 
-        This method sets self.roi to be the region (square or otherwise) as
-        selected by the user. Default is central quarter of image.
+    #     This method sets self.roi to be the region (square or otherwise) as
+    #     selected by the user. Default is central quarter of image.
 
-        Args:
-            infocus (bool): If True, will display the infocus image for
-                selecting a sub-region. If False, will display a defocused image
-                this is useful for datasets which have no in-focus contrast).
+    #     Args:
+    #         infocus (bool): If True, will display the infocus image for
+    #             selecting a sub-region. If False, will display a defocused image
+    #             this is useful for datasets which have no in-focus contrast).
 
-        Returns:
-            None
-        """
-        if infocus:
-            display_sig = self.imstack[self.num_files // 2].deepcopy()
-        else:
-            display_sig = self.imstack[0].deepcopy()
+    #     Returns:
+    #         None
+    #     """
+    #     if infocus:
+    #         display_sig = self.imstack[self.num_files // 2].deepcopy()
+    #     else:
+    #         display_sig = self.imstack[0].deepcopy()
 
-        if self.rotation != 0 or self.x_transl != 0 or self.y_transl != 0:
-            rotate, x_shift, y_shift = self.rotation, self.x_transl, self.y_transl
-            display_sig.data = ndimage.rotate(
-                display_sig.data, rotate, reshape=False, order=0
-            )
-            display_sig.data = ndimage.shift(
-                display_sig.data, (-y_shift, x_shift), order=0
-            )
+    #     if self.rotation != 0 or self.x_transl != 0 or self.y_transl != 0:
+    #         rotate, x_shift, y_shift = self.rotation, self.x_transl, self.y_transl
+    #         display_sig.data = ndimage.rotate(
+    #             display_sig.data, rotate, reshape=False, order=0
+    #         )
+    #         display_sig.data = ndimage.shift(
+    #             display_sig.data, (-y_shift, x_shift), order=0
+    #         )
 
-        dimy, dimx = self.shape
-        scale = self.scale
+    #     dimy, dimx = self.shape
+    #     scale = self.scale
 
-        # reset roi to central square
-        roi = hs.roi.RectangularROI(
-            left=dimx // 4 * scale,
-            right=3 * dimx // 4 * scale,
-            top=dimy // 4 * scale,
-            bottom=3 * dimy // 4 * scale,
-        )
+    #     # reset roi to central square
+    #     roi = hs.roi.RectangularROI(
+    #         left=dimx // 4 * scale,
+    #         right=3 * dimx // 4 * scale,
+    #         top=dimy // 4 * scale,
+    #         bottom=3 * dimy // 4 * scale,
+    #     )
 
-        # roi = hs.roi.RectangularROI(left=  59, right=3*dimx//4*scale,
-        #                     top= 59, bottom=3*dimy//4*scale)
-        display_sig.plot()
-        roi2D = roi.interactive(display_sig, color="blue")
-        self.roi = roi
+    #     # roi = hs.roi.RectangularROI(left=  59, right=3*dimx//4*scale,
+    #     #                     top= 59, bottom=3*dimy//4*scale)
+    #     display_sig.plot()
+    #     roi2D = roi.interactive(display_sig, color="blue")
+    #     self.roi = roi
 
-    def crop_ims(self):
-        """Sets self.crop in pixels as region to be reconstructed.
 
-        Converts self.roi (in units of nm) to pixels and asks for user input if
-        this an acceptable shape.
-
-        Input options:
-
-            - "y": sets self.crop
-            - "n": does not set self.crop
-            - "reset": sets self.crop to be full image size. (This is the default
-              initialized value.)
-
-        Crops the full dm3 + flip_dm3 stack to the specified shape as defined by
-        roi (hyperspy region of interest). Adjusts other axes accordingly.
-        """
-        if self.roi is None:
-            print("No region previously selected, defaulting to central square.")
-            dimy, dimx = self.shape
-            scale = self.scale
-            self.roi = hs.roi.RectangularROI(
-                left=dimx // 4 * scale,
-                right=3 * dimx // 4 * scale,
-                top=dimy // 4 * scale,
-                bottom=3 * dimy // 4 * scale,
-            )
-
-        left = int(self.roi.left / self.scale)
-        right = int(self.roi.right / self.scale)
-        top = int(self.roi.top / self.scale)
-        bottom = int(self.roi.bottom / self.scale)
-
-        print("The new images will be cropped (in pixels)")
-        print(f"left: {left} , right: {right} , top: {top} , bottom: {bottom}")
-        print(f"New dimensions will be: ({bottom-top}, {right-left})")
-        print()
-
-        proceed = input(
-            """Does this work? (y/n):\nOr you can reset to the original full images (reset):\n"""
-        )
-        while proceed != "y":
-            if proceed == "n":
-                print("Okay, change the region and run this again.")
-                return
-            elif proceed == "reset":
-                self.crop["left"] = 0
-                self.crop["right"] = self.shape[1]
-                self.crop["top"] = 0
-                self.crop["bottom"] = self.shape[0]
-                print("The region has been returned to the full image.")
-                return
-            else:
-                proceed = input("Please respond with 'y' , 'n' , or 'reset'.\n")
-
-        self.crop["left"] = left
-        self.crop["right"] = right
-        self.crop["top"] = top
-        self.crop["bottom"] = bottom
-
+    def select_ROI(self, infocus=True):
+        # needs to take list as input so it can add them
+        fig, ax = plt.subplots()
         print(
-            textwrap.dedent(
-                f"""
-            Your images are now shape: ({bottom-top}, {right-left})
-            Changes can continue to be made by moving/updating the region,
-            but you have to run this again for them to take affect.\n"""
-            )
+            "right click to add or move points, 'd' to delete when hovering over a point, 'esc' to exit. "
         )
-        return
+
+        image = self.infocus if infocus else self.imstack[0]
+        ax.matshow(image, cmap="gray")
+        dy, dx = image.shape
+
+        # points = np.array([[-1, -1], [-1, -1]])  # [[y1, x1], [y2, x2]]
+        points = np.array([[self.crop["top"], self.crop["left"]],
+                           [self.crop["bottom"], self.crop["right"]]])  # [[y1, x1], [y2, x2]]
+
+
+        click_pad = 100
+
+        class plotter:
+            def __init__(self, points):
+                self.scat = None
+                self.rect = Rectangle((0, 0), 1, 1, fc="none", ec="red")
+                ax.add_patch(self.rect)
+                if np.all(points>=0):
+                    self.plotrect(points)
+                    self.plot(points)
+
+            def plot(self, points):
+                if self.scat is not None:
+                    self.clear()
+                ypoints = points[:, 0][points[:, 0] >= 0]
+                xpoints = points[:, 1][points[:, 1] >= 0]
+                self.scat = ax.scatter(xpoints, ypoints, c="r")
+
+            def plotrect(self, points):
+                (y0, x0), (y1, x1) = points
+                self.rect.set_width(x1-x0)
+                self.rect.set_height(y1-y0)
+                self.rect.set_xy((x0, y0))
+                ax.figure.canvas.draw()
+
+            def clear(self):
+                self.scat.remove()
+                self.scat = None
+
+        def on_click(event):
+            # make it move closer point not second one always
+            if event.button is MouseButton.RIGHT:
+                x, y = event.xdata, event.ydata
+                if np.any(points[0] < 0): # draw point0
+                    points[0, 0] = y
+                    points[0, 1] = x
+                elif np.any(points[1] < 0): # draw point1
+                    points[1, 0] = y
+                    points[1, 1] = x
+                else: # redraw closer point
+                    dist0 = get_dist(points[0], [y, x])
+                    dist1 = get_dist(points[1], [y, x])
+                    if dist0 < dist1:  # change point0
+                        points[0, 0] = y
+                        points[0, 1] = x
+                    else:
+                        points[1, 0] = y
+                        points[1, 1] = x
+                p.plot(points)
+                if np.all(points >= 0):
+                    p.plotrect(points)
+
+        def on_key_press(event):
+            if event.key == "escape":
+                if np.all(points>0):
+                    print(f"saving ROI")
+                    print(f"ptie.crop = [[y1, x1], [y2, x2]]\n{points}")
+                    plt.disconnect(binding_id)
+                    plt.disconnect(binding_id2)
+                    self.crop["top"] = points[0,0]
+                    self.crop["left"] = points[0,1]
+                    self.crop["bottom"] = points[1,0]
+                    self.crop["right"] = points[1,1]
+                    print(f"Final image dimensions (hxw): {points[1,0]-points[0,0]}x{points[1,1]-points[0,1]}")
+                    print("Cropping can be returned to the full image by running ptie.reset_crop()")
+                else:
+                    print("One or more points are not well defined.")
+                    self.reset_crop()
+                plt.close(fig)
+                return
+
+            elif event.key == "d":
+                x, y = event.xdata, event.ydata
+                dist0 = get_dist(points[0], [y, x])
+                dist1 = get_dist(points[1], [y, x])
+                if dist0 < dist1:  # delete point0
+                    if dist0 < click_pad:
+                        points[0, 0] = -1
+                        points[0, 1] = -1
+                else:
+                    if dist1 < click_pad:
+                        points[1, 0] = -1
+                        points[1, 1] = -1
+                p.plot(points)
+
+            # elif event.key == "c":
+            #     p.clear()
+
+        def on_move(event):
+            if np.any(points < 0):  # only drawing if not all points not placed
+                if event.xdata is not None and event.ydata is not None:
+                    if 0 < event.xdata < dx and 0 < event.ydata < dy:
+                        if np.all(points[0] > 0):
+                            y0, x0 = points[0]
+                        elif np.all(points[1] > 0):
+                            y0, x0 = points[1]
+                        else:
+                            return
+
+                        x1 = event.xdata
+                        y1 = event.ydata
+                        p.plotrect([[y0, x0], [y1, x1]])
+
+        p = plotter(points)
+        binding_id = plt.connect("button_press_event", on_click)
+        binding_id2 = plt.connect("motion_notify_event", on_move)
+        plt.connect("key_press_event", on_key_press)
+        plt.show()
+
+    # def crop_ims(self):
+    #     """Sets self.crop in pixels as region to be reconstructed.
+
+    #     Converts self.roi (in units of nm) to pixels and asks for user input if
+    #     this an acceptable shape.
+    #     Keeping in two steps seperate from select_ROI() because jupyter notebooks
+    #     don't display the interactive features nicely otherwise.
+
+    #     Input options:
+
+    #         - "y": sets self.crop
+    #         - "n": does not set self.crop
+    #         - "reset": sets self.crop to be full image size. (This is the default
+    #           initialized value.)
+
+    #     Crops the full dm3 + flip_dm3 stack to the specified shape as defined by
+    #     roi (hyperspy region of interest). Adjusts other axes accordingly.
+    #     """
+
+    #     if self.roi is None:
+    #         print("No region previously selected, defaulting to central square.")
+    #         self.roi = [[self.shape[0] // 4, self.shape[1] // 4],
+    #                     [3 * self.shape[0] // 4, 3 * self.shape[1] // 4]]
+
+    #     (top, left), (bottom, right) = self.roi
+
+    #     print("The new images will be cropped (in pixels)")
+    #     print(f"left: {left} , right: {right} , top: {top} , bottom: {bottom}")
+    #     print(f"New dimensions will be: ({bottom-top}, {right-left})")
+    #     print()
+
+    #     proceed = input(
+    #         """Does this work? (y/n):\nOr you can reset to the original full images (reset):\n"""
+    #     )
+    #     while proceed != "y":
+    #         if proceed == "n":
+    #             print("Okay, change the region and run this again.")
+    #             return
+    #         elif proceed == "reset":
+    #             self.crop["left"] = 0
+    #             self.crop["right"] = self.shape[1]
+    #             self.crop["top"] = 0
+    #             self.crop["bottom"] = self.shape[0]
+    #             print("The region has been returned to the full image.")
+    #             return
+    #         else:
+    #             proceed = input("Please respond with 'y' , 'n' , or 'reset'.\n")
+
+    #     self.crop["left"] = left
+    #     self.crop["right"] = right
+    #     self.crop["top"] = top
+    #     self.crop["bottom"] = bottom
+
+    #     return
+
+    def reset_crop(self):
+        print("Resetting ROI to full image.")
+        self.crop["left"] = 0
+        self.crop["right"] = self.shape[1] - 1
+        self.crop["top"] = 0
+        self.crop["bottom"] = self.shape[0] - 1
 
     def set_scale(self, scale):
         """Change the scale of the images (nm/pix) in the relevant places.
@@ -387,6 +466,12 @@ class TIE_params(object):
             bottom=3 * self.shape[0] // 4 * self.scale,
         )
         return
+
+
+def get_dist(pos1, pos2):
+    """Distance between two 2D points"""
+    squared = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
+    return np.sqrt(squared)
 
 
 ### End ###

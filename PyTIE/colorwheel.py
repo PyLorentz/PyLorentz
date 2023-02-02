@@ -12,7 +12,6 @@ import numpy as np
 from matplotlib import colors
 import textwrap
 import sys
-from PyLorentz.PyTIE.TIE_helper import dist
 
 
 def color_im(Bx, By, Bz=None, rad=None, hsvwheel=True, background="black"):
@@ -259,3 +258,26 @@ def colorwheel_RGB(rad):
     cwheel[rad, rad] = [0, 0, 0]
     cwheel = np.array(cwheel / np.max(cwheel))
     return cwheel
+
+
+def dist(ny, nx, shift=False):
+    """Creates a frequency array for Fourier processing.
+
+    Args:
+        ny (int): Height of array
+        nx (int): Width of array
+        shift (bool): Whether to center the frequency spectrum.
+
+            - False: (default) smallest values are at the corners.
+            - True: smallest values at center of array.
+
+    Returns:
+        ``ndarray``: Numpy array of shape (ny, nx).
+    """
+    ly = (np.arange(ny) - ny / 2) / ny
+    lx = (np.arange(nx) - nx / 2) / nx
+    [X, Y] = np.meshgrid(lx, ly)
+    q = np.sqrt(X**2 + Y**2)
+    if not shift:
+        q = np.fft.ifftshift(q)
+    return q
