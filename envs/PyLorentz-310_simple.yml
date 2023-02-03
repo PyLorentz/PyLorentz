@@ -6,7 +6,7 @@ dependencies:
   - python=3.10
   - numba=0.56.4
   - numpy=1.23
-  - pysimplegui
+  - pysimplegui=4.60.4
   - ipympl
   - jupyter
   - mdf_forge
