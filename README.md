@@ -9,6 +9,21 @@ For full documentation please check out our documentation pages: [![Documentatio
 
 If you use PyLorentz, please cite our [paper](https://doi.org/10.1103/PhysRevApplied.15.044025) [1] and this PyLorentz code: [![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
 
+@article{PhysRevApplied.15.044025,  
+  title = {Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron Microscopy},  
+  author = {McCray, Arthur R.C. and Cote, Timothy and Li, Yue and Petford-Long, Amanda K. and Phatak, Charudatta},  
+  journal = {Phys. Rev. Appl.},  
+  volume = {15},  
+  issue = {4},  
+  pages = {044025},  
+  numpages = {12},  
+  year = {2021},  
+  month = {Apr},  
+  publisher = {American Physical Society},  
+  doi = {10.1103/PhysRevApplied.15.044025},  
+  url = {https://link.aps.org/doi/10.1103/PhysRevApplied.15.044025}  
+}  
+
 
 ## Features
 ### PyTIE 
