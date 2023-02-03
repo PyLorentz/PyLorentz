@@ -29,10 +29,9 @@ class TIE_params(object):
     TIE_template.ipynb notebook.
 
     Attributes:
-        imstack (list): A list of hyperspy Signal2D objects, one per image in
+        imstack (list): A list of numpy arrays, one per image in
             the through focus series (tfs).
-        flipstack (list): A list of hyperspy Signal2D objects for the flip tfs
-            if there is one.
+        flipstack (list): A list of numpy arrays for the flip tfs if there is one.
         defvals (list): List of defocus values in nm from least to most defocus.
             This assumes a symmetric defocus over/under, so expects 2 values for
             a 5 image tfs.
@@ -42,9 +41,6 @@ class TIE_params(object):
         data_loc (str): String for location of data folder.
         no_mask (bool): Eliminates mask (generally used with simulated data).
         num_files (int): Equiv to len(self.imstack)
-        axes (``hyperspy.signal2D.axes_manager``): Hyperspy axes_manager from unflip
-            infocus image. Contains useful information such as scale if loaded
-            from dm3.
         shape (tuple): Shape of original image data (y, x)
         scale (float): Scale of images (nm/pixel). Taken from the dm3/tif metadata
             or set manually.
@@ -55,14 +51,8 @@ class TIE_params(object):
             stacks. If no flip stack, just unflip infocus image.
         qi (2D array): 2D inverse frequency array, possibly modified with
             Tikhonov filter.
-        roi (``hyperspy.roi.RectangularROI``): hyperspy region-of-interest object.
-            Initialized to central quarter of image, but changes interactively
-            with self.select_region() method. Values for the roi are in nm, and
-            continue to change as the interactive region is adjusted.
-        crop (tuple): Region of interest in pixels used to select the are to be
-            reconstructed. self.roi is converted from nm to pixels with the
-            self.crop_ims() method, and does not change as the roi is
-            adjusted. Initialized to full image.
+        crop (dict): Region of interest in pixels used to select the are to be
+            reconstructed. Initialized to full image.
         mask (2D array): Binary mask made form all the images. 1 where all images have
             nonzero data, 0 where any do not. Made by self.make_mask()
     """
@@ -387,61 +377,6 @@ class TIE_params(object):
         binding_id2 = plt.connect("motion_notify_event", on_move)
         plt.connect("key_press_event", on_key_press)
         plt.show()
-
-    # def crop_ims(self):
-    #     """Sets self.crop in pixels as region to be reconstructed.
-
-    #     Converts self.roi (in units of nm) to pixels and asks for user input if
-    #     this an acceptable shape.
-    #     Keeping in two steps seperate from select_ROI() because jupyter notebooks
-    #     don't display the interactive features nicely otherwise.
-
-    #     Input options:
-
-    #         - "y": sets self.crop
-    #         - "n": does not set self.crop
-    #         - "reset": sets self.crop to be full image size. (This is the default
-    #           initialized value.)
-
-    #     Crops the full dm3 + flip_dm3 stack to the specified shape as defined by
-    #     roi (hyperspy region of interest). Adjusts other axes accordingly.
-    #     """
-
-    #     if self.roi is None:
-    #         print("No region previously selected, defaulting to central square.")
-    #         self.roi = [[self.shape[0] // 4, self.shape[1] // 4],
-    #                     [3 * self.shape[0] // 4, 3 * self.shape[1] // 4]]
-
-    #     (top, left), (bottom, right) = self.roi
-
-    #     print("The new images will be cropped (in pixels)")
-    #     print(f"left: {left} , right: {right} , top: {top} , bottom: {bottom}")
-    #     print(f"New dimensions will be: ({bottom-top}, {right-left})")
-    #     print()
-
-    #     proceed = input(
-    #         """Does this work? (y/n):\nOr you can reset to the original full images (reset):\n"""
-    #     )
-    #     while proceed != "y":
-    #         if proceed == "n":
-    #             print("Okay, change the region and run this again.")
-    #             return
-    #         elif proceed == "reset":
-    #             self.crop["left"] = 0
-    #             self.crop["right"] = self.shape[1]
-    #             self.crop["top"] = 0
-    #             self.crop["bottom"] = self.shape[0]
-    #             print("The region has been returned to the full image.")
-    #             return
-    #         else:
-    #             proceed = input("Please respond with 'y' , 'n' , or 'reset'.\n")
-
-    #     self.crop["left"] = left
-    #     self.crop["right"] = right
-    #     self.crop["top"] = top
-    #     self.crop["bottom"] = bottom
-
-    #     return
 
     def reset_crop(self):
         print("Resetting ROI to full image.")

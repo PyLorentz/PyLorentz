@@ -10,6 +10,7 @@ Author: Arthur McCray, ANL, Summer 2019.
 import os
 
 import sys
+sys.path.append('../../')
 import textwrap
 
 from copy import deepcopy
@@ -26,7 +27,6 @@ from skimage import io
 from tifffile import TiffFile
 from PyLorentz.PyTIE.colorwheel import color_im
 
-
 from PyLorentz.PyTIE.TIE_params import TIE_params
 
 # ============================================================= #
@@ -37,7 +37,7 @@ from PyLorentz.PyTIE.TIE_params import TIE_params
 def load_data(
     path=None, fls_file="", al_file="", flip=None, flip_fls_file=None, filtersize=3
 ):
-    """Load files in a directory (from a .fls file) using hyperspy.
+    """Load files in a directory (from a .fls file) using ncempy.
 
     For more information on how to organize the directory and load the data, as
     well as how to setup the .fls file please refer to the README or the
@@ -62,9 +62,8 @@ def load_data(
     Returns:
         list: List of length 3, containing the following items:
 
-        - imstack: array of hyperspy signal2D objects (one per image)
-        - flipstack: array of hyperspy signal2D objects, empty array if
-          flip == False
+        - imstack: list of numpy arrays
+        - flipstack: list of numpy arrays, empty list if flip == False
         - ptie: TIE_params object holding a reference to the imstack and many
           other parameters.
 
@@ -139,9 +138,6 @@ def load_data(
             unflip_files.append(os.path.join(path, "unflip", line))
         for line in flip_fls[1 : num_files + 1]:
             flip_files.append(os.path.join(path, "flip", line))
-
-    # will have to modify ptie to get take scale as input,
-    # and will no longer be holding signal2Ds but just images
 
     f_inf = unflip_files[num_files // 2]
     _, scale = read_image(f_inf)
@@ -261,7 +257,7 @@ def read_image(f):
 
 
 def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersize=3):
-    """Load files in a directory (from a .fls file) using hyperspy.
+    """Load files in a directory (from a .fls file) using ncempy.
 
     For more information on how to organize the directory and load the data, as
     well as how to setup the .fls file please refer to the README or the
@@ -286,9 +282,8 @@ def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersi
     Returns:
         list: List of length 3, containing the following items:
 
-        - imstack: array of hyperspy signal2D objects (one per image)
-        - flipstack: array of hyperspy signal2D objects, empty array if
-          flip == False
+        - imstack: list of numpy arrays
+        - flipstack: list of numpy arrays, empty array if flip == False
         - ptie: TIE_params object holding a reference to the imstack and many
           other parameters.
 
@@ -327,7 +322,6 @@ def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersi
                 Proceeding anyways, will only load unflip stack (if it doesnt break).\n"""
                 )
             )
-
         u_files = []
         f_files = []
         with open(fls_file1) as file:
@@ -345,69 +339,42 @@ def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersi
         for line in f_files[1 : num_files + 1]:
             flip_files.append(os.path.join(path, "flip", line))
 
-    # Actually load the data using hyperspy
-    imstack = hs.load(unflip_files)
-    if not single:
-        flipstack = hs.load(flip_files)
-    else:
-        flipstack = []
+    flip = not single
+    f_inf = unflip_files[num_files // 2]
+    _, scale = read_image(f_inf)
 
-    # convert scale dimensions to nm
-    for sig in imstack + flipstack:
-        sig.axes_manager.convert_units(units=["nm", "nm"])
-
-    if unflip_files[0][-4:] != ".dm3" and unflip_files[0][-4:] != ".dm4":
-        # if not dm3's then they generally don't have the title metadata.
-        for sig in imstack + flipstack:
-            sig.metadata.General.title = sig.metadata.General.original_filename
-
-    # load the aligned tifs and update the dm3 data to match
-    # The data from the dm3's will be replaced with the aligned image data.
     try:
-        al_tifs = io.imread(al_file)
+        al_stack, _ = read_image(os.path.join(path, al_file))
     except FileNotFoundError as e:
         print("Incorrect aligned stack filename given.")
         raise e
 
-    if not single:
-        tot_files = 2 * num_files
+    # quick median filter to remove hotpixels, kinda slow
+    print("filtering takes a few seconds")
+    al_stack = median_filter(al_stack, size=(1, filtersize, filtersize))
+
+    if flip:
+        f_inf_flip = flip_files[num_files // 2]
+        _, scale_flip = read_image(f_inf_flip)
+        if round(scale, 3) != round(scale_flip, 3):
+            print("Scale of the two infocus images are different.")
+            print(f"Scale of unflip image: {scale:.4f} nm/pix")
+            print(f"Scale of flip image: {scale_flip:.4f} nm/pix")
+            print("Proceeding with scale from unflip image.")
+            print("If this is incorrect, change value with >>ptie.scale = XX #nm/pixel")
+
+        imstack = al_stack[:num_files]
+        flipstack = al_stack[num_files:]
     else:
-        tot_files = num_files
-
-    for i in range(tot_files):
-        # pull slices from correct axis, assumes fewer slices than images are tall
-        if al_tifs.shape[0] < al_tifs.shape[2]:
-            im = al_tifs[i]
-        elif al_tifs.shape[0] > al_tifs.shape[2]:
-            im = al_tifs[:, :, i]
-        else:
-            print("Bad stack\n Or maybe the second axis is slice axis?")
-            print("Loading failed.\n")
-            sys.exit(1)
-
-        # then median filter to remove "hot pixels"
-        im = median_filter(im, size=filtersize)
-
-        # and assign to appropriate stack
-        if i < num_files:
-            print("loading unflip:", unflip_files[i])
-            imstack[i].data = im
-        else:
-            j = i - num_files
-            print("loading flip:", flip_files[j])
-            flipstack[j].data = im
+        imstack = al_stack
+        flipstack = []
 
     # read the defocus values
     defvals = u_files[-(num_files // 2) :]
     assert num_files == 2 * len(defvals) + 1
     defvals = [float(i) for i in defvals]  # defocus values +/-
 
-    # Create a TIE_params object
-    if single:
-        single = None
-    else:
-        single = True
-    ptie = TIE_params(imstack, flipstack, defvals, single, path)
+    ptie = TIE_params(imstack, flipstack, defvals, scale, flip, path)
     print("Data loaded successfully.")
     return (imstack, flipstack, ptie)
 
