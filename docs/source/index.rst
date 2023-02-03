@@ -4,7 +4,7 @@ PyLorentz
 
 - PyTIE -- Reconstructing the magnetic induction from LTEM images using the Transport of Intensity Equation (TIE)
 - SimLTEM -- Simulating phase shift and LTEM images from a given magnetization 
-- GUI/Align -- Aligning raw LTEM images so they can be reconstructed and providing a GUI for PyTIE
+- GUI -- GUI alternative to Jupyter Notebook for PyTIE
 
 
 .. toctree::
