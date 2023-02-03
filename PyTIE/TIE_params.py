@@ -201,6 +201,14 @@ class TIE_params(object):
 
 
     def select_ROI(self, infocus=True):
+        """Select a rectangular region of interest (ROI) and assign it to ptie.crop
+
+        Args:
+            infocus (bool, optional): Whether to select a region from the infocus image.
+            For some datasets the infocus image will have no contrast, and therefore set
+            infocus=False to select a region from the most underfocused image.
+            Defaults to True.
+        """
         # needs to take list as input so it can add them
         fig, ax = plt.subplots()
         print(
@@ -335,6 +343,8 @@ class TIE_params(object):
         plt.show()
 
     def reset_crop(self):
+        """Reset the ptie.crop() region to the full image.
+        """
         print("Resetting ROI to full image.")
         self.crop["left"] = 0
         self.crop["right"] = self.shape[1]
@@ -343,7 +353,15 @@ class TIE_params(object):
 
 
 def get_dist(pos1, pos2):
-    """Distance between two 2D points"""
+    """Distance between two 2D points
+
+    Args:
+        pos1 (list): [y1, x1] point 1
+        pos2 (list): [y2, x2] point 2
+
+    Returns:
+        float: Euclidean distance between the two points
+    """
     squared = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
     return np.sqrt(squared)
 
