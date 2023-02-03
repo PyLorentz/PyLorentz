@@ -118,8 +118,6 @@ def TIE(
         "color_b": None,
         "inf_im": None,
     }
-    print("hi there")
-
     # turning off the print function if v=0
     vprint = print if v >= 1 else lambda *a, **k: None
     if long_deriv:
@@ -532,7 +530,6 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
         'phase'    Phase shift (radians)
         =========  ==============
     """
-    print("in phase reconstruct ")
     results = {}
     # actual image dimensions regardless of symmetrize
     dim_y = infocus.shape[0]
@@ -547,10 +544,6 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
     else:
         y = dim_y
         x = dim_x
-
-    show_im(infocus, 'infocus')
-    show_im(dIdZ, 'dIdZ')
-
 
     # Fourier transform of longitudinal derivatives
     fft1 = np.fft.fft2(dIdZ)

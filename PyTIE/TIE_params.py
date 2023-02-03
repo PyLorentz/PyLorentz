@@ -141,9 +141,9 @@ class TIE_params(object):
         # Default to full image for crop, (remember: bottom > top, right > left)
         self.crop = {
             "top": 0,
-            "bottom": self.shape[0] - 1,
+            "bottom": self.shape[0],
             "left": 0,
-            "right": self.shape[1] - 1,
+            "right": self.shape[1],
         }
         if no_mask:
             self.mask = np.ones(self.shape)
@@ -270,7 +270,7 @@ class TIE_params(object):
                 [self.crop["top"], self.crop["left"]],
                 [self.crop["bottom"], self.crop["right"]],
             ]
-        )  # [[y1, x1], [y2, x2]]
+        )
 
         click_pad = 100
 
@@ -284,10 +284,13 @@ class TIE_params(object):
                     self.plot(points)
 
             def plot(self, points):
+                # moving point left/up by 1 if > 0 to prevent plotting outside of window
                 if self.scat is not None:
                     self.clear()
                 ypoints = points[:, 0][points[:, 0] >= 0]
                 xpoints = points[:, 1][points[:, 1] >= 0]
+                xpoints = np.where(xpoints == dx, xpoints - 1, xpoints)
+                ypoints = np.where(ypoints == dy, ypoints - 1, ypoints)
                 self.scat = ax.scatter(xpoints, ypoints, c="r")
 
             def plotrect(self, points):
@@ -443,9 +446,9 @@ class TIE_params(object):
     def reset_crop(self):
         print("Resetting ROI to full image.")
         self.crop["left"] = 0
-        self.crop["right"] = self.shape[1] - 1
+        self.crop["right"] = self.shape[1]
         self.crop["top"] = 0
-        self.crop["bottom"] = self.shape[0] - 1
+        self.crop["bottom"] = self.shape[0]
 
 
 def get_dist(pos1, pos2):
