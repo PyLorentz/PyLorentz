@@ -321,15 +321,15 @@ class TIE_params(object):
             if event.key == "escape":
                 if np.all(points > 0):
                     print(f"saving ROI")
-                    print(f"ptie.crop = [[y1, x1], [y2, x2]]\n{points}")
                     plt.disconnect(binding_id)
                     plt.disconnect(binding_id2)
                     self.crop["top"] = points[0, 0]
                     self.crop["left"] = points[0, 1]
                     self.crop["bottom"] = points[1, 0]
                     self.crop["right"] = points[1, 1]
+                    print(f"ptie.crop: {self.crop}")
                     print(
-                        f"Final image dimensions (hxw): {points[1,0]-points[0,0]}x{points[1,1]-points[0,1]}"
+                        f"Final image dimensions (h x w): {points[1,0]-points[0,0]} x {points[1,1]-points[0,1]}"
                     )
                     print(
                         "Cropping can be returned to the full image by running ptie.reset_crop()"
