@@ -68,7 +68,8 @@ class TIE_params(object):
         no_mask=False,
         v=1,
     ):
-        """Constructs TIE_params object. imstack, defvals must be specified at minimum.
+        """Constructs TIE_params object. imstack, defvals, and scale (nm/pixel) must be
+        specified at a minimum.
 
         Flipstack, flip, no_mask, and v are optional arguments.
         v (int): Verbosity.
@@ -198,50 +199,6 @@ class TIE_params(object):
         self.infocus *= mask
         return
 
-    # def select_region(self, infocus=True):
-    #     """Interactively crop imstack to smaller size.
-
-    #     This method sets self.roi to be the region (square or otherwise) as
-    #     selected by the user. Default is central quarter of image.
-
-    #     Args:
-    #         infocus (bool): If True, will display the infocus image for
-    #             selecting a sub-region. If False, will display a defocused image
-    #             this is useful for datasets which have no in-focus contrast).
-
-    #     Returns:
-    #         None
-    #     """
-    #     if infocus:
-    #         display_sig = self.imstack[self.num_files // 2].deepcopy()
-    #     else:
-    #         display_sig = self.imstack[0].deepcopy()
-
-    #     if self.rotation != 0 or self.x_transl != 0 or self.y_transl != 0:
-    #         rotate, x_shift, y_shift = self.rotation, self.x_transl, self.y_transl
-    #         display_sig.data = ndimage.rotate(
-    #             display_sig.data, rotate, reshape=False, order=0
-    #         )
-    #         display_sig.data = ndimage.shift(
-    #             display_sig.data, (-y_shift, x_shift), order=0
-    #         )
-
-    #     dimy, dimx = self.shape
-    #     scale = self.scale
-
-    #     # reset roi to central square
-    #     roi = hs.roi.RectangularROI(
-    #         left=dimx // 4 * scale,
-    #         right=3 * dimx // 4 * scale,
-    #         top=dimy // 4 * scale,
-    #         bottom=3 * dimy // 4 * scale,
-    #     )
-
-    #     # roi = hs.roi.RectangularROI(left=  59, right=3*dimx//4*scale,
-    #     #                     top= 59, bottom=3*dimy//4*scale)
-    #     display_sig.plot()
-    #     roi2D = roi.interactive(display_sig, color="blue")
-    #     self.roi = roi
 
     def select_ROI(self, infocus=True):
         # needs to take list as input so it can add them
@@ -263,7 +220,6 @@ class TIE_params(object):
         )
 
         click_pad = 100
-
         class plotter:
             def __init__(self, points):
                 self.scat = None

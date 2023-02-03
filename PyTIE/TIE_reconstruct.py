@@ -19,8 +19,7 @@ import numpy as np
 import scipy
 import tifffile
 
-# from skimage import io
-
+sys.path.append("../../")
 from PyLorentz.PyTIE.colorwheel import color_im
 from PyLorentz.PyTIE.longitudinal_deriv import polyfit_deriv
 from PyLorentz.PyTIE.microscopes import Microscope

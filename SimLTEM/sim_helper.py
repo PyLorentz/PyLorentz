@@ -27,7 +27,6 @@ import os
 from .comp_phase import mansPhi, linsupPhi
 from PyLorentz.PyTIE.microscopes import Microscope
 
-# from TIE_helper import *
 import textwrap
 from itertools import takewhile
 import io
@@ -36,7 +35,6 @@ from skimage import io as skio
 from PyLorentz.PyTIE.TIE_params import TIE_params
 from PyLorentz.PyTIE.TIE_helper import dist, show_im
 from scipy.ndimage import rotate, gaussian_filter
-import tifffile
 
 
 # ================================================================= #
