@@ -6,7 +6,6 @@ The following modules contain the code that makes a graphical user interface (GU
    :maxdepth: 4
 
    PyLorentz_GUI
-   align
    gui_layout
    gui_styling
    util
