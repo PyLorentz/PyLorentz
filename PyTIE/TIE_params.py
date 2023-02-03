@@ -205,9 +205,9 @@ class TIE_params(object):
 
         Args:
             infocus (bool, optional): Whether to select a region from the infocus image.
-            For some datasets the infocus image will have no contrast, and therefore set
-            infocus=False to select a region from the most underfocused image.
-            Defaults to True.
+                For some datasets the infocus image will have no contrast, and therefore set
+                infocus=False to select a region from the most underfocused image.
+                Defaults to True.
         """
         # needs to take list as input so it can add them
         fig, ax = plt.subplots()
