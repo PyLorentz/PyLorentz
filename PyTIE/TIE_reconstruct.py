@@ -121,7 +121,7 @@ def TIE(
     vprint = print if v >= 1 else lambda *a, **k: None
     if long_deriv:
         unders = list(reversed([-1 * ii for ii in ptie.defvals]))
-        defval = unders + [0] + ptie.defvals
+        defval = np.concatenate([unders, [0], ptie.defvals])
         if ptie.flip:
             vprint(
                 "Aligning with complete longitudinal derivatives:\n",
@@ -181,8 +181,6 @@ def TIE(
     else:
         mask = mask[top:bottom, left:right]
 
-    # crop images and apply mask
-    # mask = ptie.mask[top:bottom, left:right]
     for ii in range(len(tifs)):
         tifs[ii] = tifs[ii][top:bottom, left:right]
         tifs[ii] *= mask

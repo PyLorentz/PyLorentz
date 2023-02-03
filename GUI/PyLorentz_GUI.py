@@ -1342,7 +1342,7 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
     ptie = winfo.rec_ptie
     microscope = winfo.rec_microscope
     def_val = float(window['__REC_Def_Combo__'].Get())
-    def_ind = ptie.defvals.index(def_val)
+    def_ind = np.argwhere(ptie.defvals == def_val)[0,0]
     dataname = 'example'
     hsv = window['__REC_Colorwheel__'].get() == 'HSV'
     save = False

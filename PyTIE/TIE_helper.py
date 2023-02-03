@@ -408,10 +408,13 @@ def select_tifs(i, ptie, long_deriv=False):
 
     """
     if long_deriv:
-        if ptie.flip:
-            recon_tifs = np.concatenate([ptie.imstack, ptie.flipstack])
+        if ptie.flip: # list of numpy arrays is expected.
+            # TIE_reconstruct expects list of numpy arrays, TODO update all of PyLorentz
+            # to expect only numpy arrays and no lists. Primarily lists used because
+            # allows changing size/cropping each numpy array in place in list
+            recon_tifs = [i for i in ptie.imstack] + [j for j in ptie.flipstack]
         else:
-            recon_tifs = ptie.imstack
+            recon_tifs = [i for i in ptie.imstack]
 
     else:
         if i < 0:
