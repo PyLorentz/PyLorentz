@@ -312,9 +312,6 @@ def SITIE(
     defval=None,
     scale=1,
     E=200e3,
-    ptie=None,
-    i=-1,
-    flipstack=False,
     pscope=None,
     data_loc="",
     dataname="",
@@ -365,10 +362,6 @@ def SITIE(
         qc (float/str): (`optional`) The Tikhonov frequency to use as filter [1/nm].
             Default None. If you use a Tikhonov filter the resulting
             phase shift and induction is no longer quantitative.
-        norm (bool): (`optional`) Normalizes the input image to [0,1]. This can
-            preserve consistent outputs between images that have the same
-            contrast patterns but different scales and ranges, but will also
-            make the reconstruction non-quantitative.
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
@@ -412,44 +405,15 @@ def SITIE(
     # turning off the print function if v=0
     vprint = print if v >= 1 else lambda *a, **k: None
 
-    if image is not None and defval is not None:
-        vprint(
-            f"Running with given image, defval = {defval:g}nm, and scale = {scale:.3g}nm/pixel"
-        )
-        ptie = TIE_params(imstack=[image], defvals=[defval], data_loc=data_loc, v=0)
-        ptie.set_scale(scale)
-        dim_y, dim_x = image.shape
-        if pscope is None:
-            pscope = Microscope(E=E)
-    else:
-        # selecting the right defocus value for the image
-        if i >= ptie.num_files:
-            print("i given outside range.")
-            sys.exit(1)
-        else:
-            if ptie.num_files > 1:
-                unders = list(reversed([-1 * i for i in ptie.defvals]))
-                defvals = unders + [0] + ptie.defvals
-                defval = defvals[i]
-            else:
-                defval = ptie.defvals[0]
-            vprint(f"SITIE defocus: {defval:g} nm")
-
-        right, left = ptie.crop["right"], ptie.crop["left"]
-        bottom, top = ptie.crop["bottom"], ptie.crop["top"]
-        dim_y = bottom - top
-        dim_x = right - left
-        vprint(f"Reconstructing with ptie image {i} and defval {defval}")
-
-        if flipstack:
-            print("Reconstructing with single flipped image.")
-            image = ptie.flipstack[i].data[top:bottom, left:right]
-        else:
-            image = ptie.imstack[i].data[top:bottom, left:right]
-
-    if norm:  # this can mess up quantitative results
-        cp = np.copy(image)
-        image = (cp - cp.min()) / np.max(cp - cp.min())  # normalize image [0,1]
+    vprint(
+        f"Running with given image, defval = {defval:g}nm, and scale = {scale:.3g}nm/pixel"
+    )
+    ptie = TIE_params(
+        imstack=[image], defvals=[defval], scale=scale, data_loc=data_loc, v=0
+    )
+    dim_y, dim_x = image.shape
+    if pscope is None:
+        pscope = Microscope(E=E)
 
     if sym:
         print("Reconstructing with symmetrized image.")

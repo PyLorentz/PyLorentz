@@ -458,8 +458,7 @@ def select_tifs(i, ptie, long_deriv=False):
             recon_tifs = [
                 imstack[under],  # +-
                 flipstack[under],  # --
-                (imstack[num_files // 2] + flipstack[num_files // 2])
-                / 2,  # infocus
+                (imstack[num_files // 2] + flipstack[num_files // 2]) / 2,  # infocus
                 imstack[over],  # ++
                 flipstack[over],  # -+
             ]
@@ -802,16 +801,16 @@ def show_2D(
 
     if not color:
         if not GUI_handle:
-            qk = ax.quiverkey(
-                q,
-                X=0.95,
-                Y=0.98,
-                U=1,
-                label=r"$Msat$",
-                labelpos="S",
-                coordinates="axes",
-            )
-            qk.text.set_backgroundcolor("w")
+            # qk = ax.quiverkey(
+            #     q,
+            #     X=0.95,
+            #     Y=0.98,
+            #     U=1,
+            #     label=r"$Msat$",
+            #     labelpos="S",
+            #     coordinates="axes",
+            # )
+            # qk.text.set_backgroundcolor("w")
             if origin == "upper":
                 ax.invert_yaxis()
 
