@@ -151,7 +151,7 @@ def init_rec(winfo: Struct, window: sg.Window, mask_reset: bool = True,
 
     # Declare transformation timers and related variables
     if arrow_reset:
-        winfo.rec_past_arrow_transform = (15, 1, 1, 'On')
+        winfo.rec_past_arrow_transform = (100, 1, 1, 'On')
 
     # Image selection
     winfo.rec_last_image_choice = None
