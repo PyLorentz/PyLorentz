@@ -118,6 +118,7 @@ def TIE(
         "color_b": None,
         "inf_im": None,
     }
+    print("hi there")
 
     # turning off the print function if v=0
     vprint = print if v >= 1 else lambda *a, **k: None
@@ -157,9 +158,9 @@ def TIE(
         dim_x *= 2
 
     # make the inverse laplacian, uses python implementation of IDL dist funct
-    q = dist(dim_y, dim_x)
+    q = dist(dim_y, dim_x, shift=False)
     q[0, 0] = 1
-    if qc is not None and qc is not False:
+    if qc is not None and qc is not False and qc > 0:
         vprint("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
         qi = q**2 / (q**2 + (qc * ptie.scale) ** 2) ** 2  # qc in 1/pix
     else:  # normal Laplacian method
@@ -531,6 +532,7 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
         'phase'    Phase shift (radians)
         =========  ==============
     """
+    print("in phase reconstruct ")
     results = {}
     # actual image dimensions regardless of symmetrize
     dim_y = infocus.shape[0]
@@ -545,6 +547,10 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
     else:
         y = dim_y
         x = dim_x
+
+    show_im(infocus, 'infocus')
+    show_im(dIdZ, 'dIdZ')
+
 
     # Fourier transform of longitudinal derivatives
     fft1 = np.fft.fft2(dIdZ)
