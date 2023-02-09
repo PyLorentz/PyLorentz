@@ -7,21 +7,27 @@ displaying images and stacks.
 Author: Arthur McCray, ANL, Summer 2019.
 """
 
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import numpy as np
-import hyperspy.api as hs
-import sys
-from skimage import io
-from scipy.ndimage.filters import median_filter
-from scipy import ndimage
-from ipywidgets import interact
-import hyperspy  # just for checking type in show_stack.
-from copy import deepcopy
-from TIE_params import TIE_params
-import textwrap
 import os
 
+import sys
+sys.path.append('../../')
+import textwrap
+
+from copy import deepcopy
+from pathlib import Path
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+from ipywidgets import interact
+from ncempy.io import dm
+from scipy import ndimage
+from scipy.ndimage import median_filter
+from skimage import io
+from tifffile import TiffFile
+from PyLorentz.PyTIE.colorwheel import color_im
+
+from PyLorentz.PyTIE.TIE_params import TIE_params
 
 # ============================================================= #
 #      Functions used for loading and passing the TIE data      #
@@ -31,7 +37,7 @@ import os
 def load_data(
     path=None, fls_file="", al_file="", flip=None, flip_fls_file=None, filtersize=3
 ):
-    """Load files in a directory (from a .fls file) using hyperspy.
+    """Load files in a directory (from a .fls file) using ncempy.
 
     For more information on how to organize the directory and load the data, as
     well as how to setup the .fls file please refer to the README or the
@@ -56,14 +62,12 @@ def load_data(
     Returns:
         list: List of length 3, containing the following items:
 
-        - imstack: array of hyperspy signal2D objects (one per image)
-        - flipstack: array of hyperspy signal2D objects, empty array if
-          flip == False
+        - imstack: list of numpy arrays
+        - flipstack: list of numpy arrays, empty list if flip == False
         - ptie: TIE_params object holding a reference to the imstack and many
           other parameters.
 
     """
-
     unflip_files = []
     flip_files = []
 
@@ -78,8 +82,7 @@ def load_data(
     elif os.path.isfile(os.path.join(path, "tfs", fls_file)) and not flip:
         fls_full = os.path.join(path, "tfs", fls_file)
     else:
-        print("fls file could not be found.")
-        sys.exit(1)
+        raise FileNotFoundError("fls file could not be found.")
 
     if flip_fls_file is None:  # one fls file given
         fls = []
@@ -136,57 +139,37 @@ def load_data(
         for line in flip_fls[1 : num_files + 1]:
             flip_files.append(os.path.join(path, "flip", line))
 
-    # Actually load the data using hyperspy
-    imstack = hs.load(unflip_files)
-    if flip:
-        flipstack = hs.load(flip_files)
-    else:
-        flipstack = []
+    f_inf = unflip_files[num_files // 2]
+    _, scale = read_image(f_inf)
 
-    # convert scale dimensions to nm
-    for sig in imstack + flipstack:
-        sig.axes_manager.convert_units(units=["nm", "nm"])
-
-    if unflip_files[0][-4:] != ".dm3" and unflip_files[0][-4:] != ".dm4":
-        # if not dm3's then they generally don't have the title metadata.
-        for sig in imstack + flipstack:
-            sig.metadata.General.title = sig.metadata.General.original_filename
-
-    # load the aligned tifs and update the dm3 data to match
-    # The data from the dm3's will be replaced with the aligned image data.
     try:
-        al_tifs = io.imread(os.path.join(path, al_file))
+        al_stack, _ = read_image(os.path.join(path, al_file))
     except FileNotFoundError as e:
         print("Incorrect aligned stack filename given.")
         raise e
 
+    # quick median filter to remove hotpixels, kinda slow
+    print("filtering takes a few seconds")
+    al_stack = median_filter(al_stack, size=(1, filtersize, filtersize))
+
     if flip:
-        tot_files = 2 * num_files
+        f_inf_flip = flip_files[num_files // 2]
+        _, scale_flip = read_image(f_inf_flip)
+        if round(scale, 3) != round(scale_flip, 3):
+            print("Scale of the two infocus images are different.")
+            print(f"Scale of unflip image: {scale:.4f} nm/pix")
+            print(f"Scale of flip image: {scale_flip:.4f} nm/pix")
+            print("Proceeding with scale from unflip image.")
+            print("If this is incorrect, change value with >>ptie.scale = XX #nm/pixel")
+
+        imstack = al_stack[:num_files]
+        flipstack = al_stack[num_files:]
     else:
-        tot_files = num_files
+        imstack = al_stack
+        flipstack = []
 
-    for i in range(tot_files):
-        # pull slices from correct axis, assumes fewer slices than images are tall
-        if al_tifs.shape[0] < al_tifs.shape[2]:
-            im = al_tifs[i]
-        elif al_tifs.shape[0] > al_tifs.shape[2]:
-            im = al_tifs[:, :, i]
-        else:
-            print("Bad stack\n Or maybe the second axis is slice axis?")
-            print("Loading failed.\n")
-            sys.exit(1)
-
-        # then median filter to remove "hot pixels"
-        im = median_filter(im, size=filtersize)
-
-        # and assign to appropriate stack
-        if i < num_files:
-            print("loading unflip:", unflip_files[i])
-            imstack[i].data = im
-        else:
-            j = i - num_files
-            print("loading flip:", flip_files[j])
-            flipstack[j].data = im
+    # show_im(imstack[num_files // 2])
+    # show_im(flipstack[num_files // 2])
 
     # read the defocus values
     defvals = fls[-(num_files // 2) :]
@@ -194,13 +177,87 @@ def load_data(
     defvals = [float(i) for i in defvals]  # defocus values +/-
 
     # Create a TIE_params object
-    ptie = TIE_params(imstack, flipstack, defvals, flip, path)
+    ptie = TIE_params(imstack, flipstack, defvals, scale, flip, path)
     print("Data loaded successfully.")
     return (imstack, flipstack, ptie)
 
 
+def read_image(f):
+    """Uses Tifffile or ncempy.io load an image and read the scale if there is one.
+
+    Args:
+        f (str): file to read
+
+    Raises:
+        NotImplementedError: If unknown scale type is given, or Tif series is given.
+        RuntimeError: If uknown file type is given, or number of pages in tif is wrong
+
+    Returns:
+        tuple:  (image, scale), image given as 2D or 3D numpy array, and scale given in
+                nm/pixel if scale is found, or None.
+    """
+    f = Path(f)
+    if f.suffix in [".tif", ".tiff"]:
+        with TiffFile(f, mode="r") as tif:
+            if tif.imagej_metadata is not None and "unit" in tif.imagej_metadata:
+                res = tif.pages[0].tags["XResolution"].value
+                scale = res[1] / res[0]  # to nm/pixel
+                if tif.imagej_metadata["unit"] == "nm":
+                    pass
+                elif tif.imagej_metadata["unit"] in ["um", "µm"]:
+                    scale *= 1e3
+                elif tif.imagej_metadata["unit"] == "mm":
+                    scale *= 1e6
+                else:
+                    raise NotImplementedError(
+                        f'Found unknown scale unit of: {tif.imagej_metadata["unit"]}'
+                    )
+            else:
+                scale = None
+
+            if len(tif.series) != 1:
+                raise NotImplementedError(
+                    "Not sure how to deal with multi-series stack"
+                )
+            if len(tif.pages) > 1:  # load as stack
+                out_im = []
+                for page in tif.pages:
+                    out_im.append(page.asarray())
+                out_im = np.array(out_im)
+            elif len(tif.pages) == 1:  # single image
+                out_im = tif.pages[0].asarray()
+            else:
+                raise RuntimeError(
+                    f"Found an unexpected number of pages: {len(tif.pages)}"
+                )
+
+    elif f.suffix in [".dm3", ".dm4", ".dm5"]:
+        with dm.fileDM(f) as im:
+            im = im.getDataset(0)
+            assert im["pixelUnit"][0] == im["pixelUnit"][1]
+            assert im["pixelSize"][0] == im["pixelSize"][1]
+
+            if im["pixelUnit"][0] == "nm":
+                scale = im["pixelSize"][0]
+            elif im["pixelUnit"][0] == "µm":
+                scale = im["pixelSize"][0] * 1000
+            else:
+                print("unknown scale type (just need to add it)")
+                raise NotImplementedError
+            out_im = im["data"]
+
+    else:
+        print(
+            "If a proper image file is given, then\n"
+            "likely just need to implement with ncempy.read or something."
+        )
+        raise RuntimeError(f"Unknown filetype given: {f.suffix}")
+
+    return out_im, scale
+
+
 def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersize=3):
-    """Load files in a directory (from a .fls file) using hyperspy.
+    """Load files in a directory (from a .fls file) using ncempy.
 
     For more information on how to organize the directory and load the data, as
     well as how to setup the .fls file please refer to the README or the
@@ -225,9 +282,8 @@ def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersi
     Returns:
         list: List of length 3, containing the following items:
 
-        - imstack: array of hyperspy signal2D objects (one per image)
-        - flipstack: array of hyperspy signal2D objects, empty array if
-          flip == False
+        - imstack: list of numpy arrays
+        - flipstack: list of numpy arrays, empty array if flip == False
         - ptie: TIE_params object holding a reference to the imstack and many
           other parameters.
 
@@ -266,7 +322,6 @@ def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersi
                 Proceeding anyways, will only load unflip stack (if it doesnt break).\n"""
                 )
             )
-
         u_files = []
         f_files = []
         with open(fls_file1) as file:
@@ -284,69 +339,42 @@ def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersi
         for line in f_files[1 : num_files + 1]:
             flip_files.append(os.path.join(path, "flip", line))
 
-    # Actually load the data using hyperspy
-    imstack = hs.load(unflip_files)
-    if not single:
-        flipstack = hs.load(flip_files)
-    else:
-        flipstack = []
+    flip = not single
+    f_inf = unflip_files[num_files // 2]
+    _, scale = read_image(f_inf)
 
-    # convert scale dimensions to nm
-    for sig in imstack + flipstack:
-        sig.axes_manager.convert_units(units=["nm", "nm"])
-
-    if unflip_files[0][-4:] != ".dm3" and unflip_files[0][-4:] != ".dm4":
-        # if not dm3's then they generally don't have the title metadata.
-        for sig in imstack + flipstack:
-            sig.metadata.General.title = sig.metadata.General.original_filename
-
-    # load the aligned tifs and update the dm3 data to match
-    # The data from the dm3's will be replaced with the aligned image data.
     try:
-        al_tifs = io.imread(al_file)
+        al_stack, _ = read_image(os.path.join(path, al_file))
     except FileNotFoundError as e:
         print("Incorrect aligned stack filename given.")
         raise e
 
-    if not single:
-        tot_files = 2 * num_files
+    # quick median filter to remove hotpixels, kinda slow
+    print("filtering takes a few seconds")
+    al_stack = median_filter(al_stack, size=(1, filtersize, filtersize))
+
+    if flip:
+        f_inf_flip = flip_files[num_files // 2]
+        _, scale_flip = read_image(f_inf_flip)
+        if round(scale, 3) != round(scale_flip, 3):
+            print("Scale of the two infocus images are different.")
+            print(f"Scale of unflip image: {scale:.4f} nm/pix")
+            print(f"Scale of flip image: {scale_flip:.4f} nm/pix")
+            print("Proceeding with scale from unflip image.")
+            print("If this is incorrect, change value with >>ptie.scale = XX #nm/pixel")
+
+        imstack = al_stack[:num_files]
+        flipstack = al_stack[num_files:]
     else:
-        tot_files = num_files
-
-    for i in range(tot_files):
-        # pull slices from correct axis, assumes fewer slices than images are tall
-        if al_tifs.shape[0] < al_tifs.shape[2]:
-            im = al_tifs[i]
-        elif al_tifs.shape[0] > al_tifs.shape[2]:
-            im = al_tifs[:, :, i]
-        else:
-            print("Bad stack\n Or maybe the second axis is slice axis?")
-            print("Loading failed.\n")
-            sys.exit(1)
-
-        # then median filter to remove "hot pixels"
-        im = median_filter(im, size=filtersize)
-
-        # and assign to appropriate stack
-        if i < num_files:
-            print("loading unflip:", unflip_files[i])
-            imstack[i].data = im
-        else:
-            j = i - num_files
-            print("loading flip:", flip_files[j])
-            flipstack[j].data = im
+        imstack = al_stack
+        flipstack = []
 
     # read the defocus values
     defvals = u_files[-(num_files // 2) :]
     assert num_files == 2 * len(defvals) + 1
     defvals = [float(i) for i in defvals]  # defocus values +/-
 
-    # Create a TIE_params object
-    if single:
-        single = None
-    else:
-        single = True
-    ptie = TIE_params(imstack, flipstack, defvals, single, path)
+    ptie = TIE_params(imstack, flipstack, defvals, scale, flip, path)
     print("Data loaded successfully.")
     return (imstack, flipstack, ptie)
 
@@ -380,12 +408,13 @@ def select_tifs(i, ptie, long_deriv=False):
 
     """
     if long_deriv:
-        recon_tifs = []
-        for sig in ptie.imstack:
-            recon_tifs.append(sig.data)
-        if ptie.flip:
-            for sig in ptie.flipstack:
-                recon_tifs.append(sig.data)
+        if ptie.flip: # list of numpy arrays is expected.
+            # TIE_reconstruct expects list of numpy arrays, TODO update all of PyLorentz
+            # to expect only numpy arrays and no lists. Primarily lists used because
+            # allows changing size/cropping each numpy array in place in list
+            recon_tifs = [i for i in ptie.imstack] + [j for j in ptie.flipstack]
+        else:
+            recon_tifs = [i for i in ptie.imstack]
 
     else:
         if i < 0:
@@ -397,18 +426,17 @@ def select_tifs(i, ptie, long_deriv=False):
         flipstack = ptie.flipstack
         if ptie.flip:
             recon_tifs = [
-                imstack[under].data,  # +-
-                flipstack[under].data,  # --
-                (imstack[num_files // 2].data + flipstack[num_files // 2].data)
-                / 2,  # infocus
-                imstack[over].data,  # ++
-                flipstack[over].data,  # -+
+                imstack[under],  # +-
+                flipstack[under],  # --
+                (imstack[num_files // 2] + flipstack[num_files // 2]) / 2,  # infocus
+                imstack[over],  # ++
+                flipstack[over],  # -+
             ]
         else:
             recon_tifs = [
-                imstack[under].data,  # +-
-                imstack[num_files // 2].data,  # 0
-                imstack[over].data,  # ++
+                imstack[under],  # +-
+                imstack[num_files // 2],  # 0
+                imstack[over],  # ++
             ]
     try:
         recon_tifs = deepcopy(recon_tifs)
@@ -434,7 +462,7 @@ def dist(ny, nx, shift=False):
     ly = (np.arange(ny) - ny / 2) / ny
     lx = (np.arange(nx) - nx / 2) / nx
     [X, Y] = np.meshgrid(lx, ly)
-    q = np.sqrt(X ** 2 + Y ** 2)
+    q = np.sqrt(X**2 + Y**2)
     if not shift:
         q = np.fft.ifftshift(q)
     return q
@@ -557,7 +585,13 @@ def show_im(
     return
 
 
-def show_stack(images, ptie=None, origin="upper", title=False):
+def show_stack(
+    images,
+    ptie=None,
+    origin="upper",
+    titles=None,
+    titletext="",
+):
     """Shows a stack of dm3s or np images with a slider to navigate slice axis.
 
     Uses ipywidgets.interact to allow user to view multiple images on the same
@@ -576,17 +610,7 @@ def show_stack(images, ptie=None, origin="upper", title=False):
     Returns:
         None
     """
-    sig = False
-    if type(images[0]) == hyperspy._signals.signal2d.Signal2D:
-        sig = True
-        imstack = []
-        titles = []
-        for signal2D in images:
-            imstack.append(signal2D.data)
-            titles.append(signal2D.metadata.General.title)
-        images = np.array(imstack)
-    else:
-        images = np.array(images)
+    images = np.array(images)
 
     if ptie is None:
         t, b = 0, images[0].shape[0]
@@ -610,11 +634,8 @@ def show_stack(images, ptie=None, origin="upper", title=False):
 
     def view_image(i=0):
         _im = plt.imshow(images[i], cmap="gray", interpolation="nearest", origin=origin)
-        if title:
-            if sig:
-                plt.title("Image title: {:}".format(titles[i]))
-            else:
-                plt.title("Stack[{:}]".format(i))
+        if titles is not None:
+            plt.title(f"{titletext} {titles[i]}")
 
     interact(view_image, i=(0, N - 1))
     return
@@ -624,11 +645,11 @@ def show_2D(
     mag_x,
     mag_y,
     mag_z=None,
-    a=15,
+    a=0,
     l=None,
     w=None,
     title=None,
-    color=False,
+    color=True,
     hsv=True,
     origin="upper",
     save=None,
@@ -676,7 +697,8 @@ def show_2D(
         if mag_z is not None:
             mag_z = np.sum(mag_z, axis=0)
 
-    a = ((mag_x.shape[0] - 1) // a) + 1
+    if a > 0:
+        a = ((mag_x.shape[0] - 1) // a) + 1
 
     dimy, dimx = mag_x.shape
     X = np.arange(0, dimx, 1)
@@ -705,7 +727,6 @@ def show_2D(
 
     if color:
         if not GUI_handle or save is not None:
-            from colorwheel import color_im
 
             im = ax.matshow(
                 color_im(mag_x, mag_y, mag_z, hsvwheel=hsv, rad=rad),
@@ -732,33 +753,34 @@ def show_2D(
             ax.yaxis.set_major_locator(mpl.ticker.NullLocator())
             plt.axis("off")
 
-    ashift = (dimx - 1) % a // 2
-    q = ax.quiver(
-        X[ashift::a],
-        Y[ashift::a],
-        U[ashift::a, ashift::a],
-        V[ashift::a, ashift::a],
-        units="xy",
-        scale=l,
-        scale_units="xy",
-        width=w,
-        angles="xy",
-        pivot="mid",
-        color=arrow_color,
-    )
+    if a > 0:
+        ashift = (dimx - 1) % a // 2
+        q = ax.quiver(
+            X[ashift::a],
+            Y[ashift::a],
+            U[ashift::a, ashift::a],
+            V[ashift::a, ashift::a],
+            units="xy",
+            scale=l,
+            scale_units="xy",
+            width=w,
+            angles="xy",
+            pivot="mid",
+            color=arrow_color,
+        )
 
     if not color:
         if not GUI_handle:
-            qk = ax.quiverkey(
-                q,
-                X=0.95,
-                Y=0.98,
-                U=1,
-                label=r"$Msat$",
-                labelpos="S",
-                coordinates="axes",
-            )
-            qk.text.set_backgroundcolor("w")
+            # qk = ax.quiverkey(
+            #     q,
+            #     X=0.95,
+            #     Y=0.98,
+            #     U=1,
+            #     label=r"$Msat$",
+            #     labelpos="S",
+            #     coordinates="axes",
+            # )
+            # qk.text.set_backgroundcolor("w")
             if origin == "upper":
                 ax.invert_yaxis()
 

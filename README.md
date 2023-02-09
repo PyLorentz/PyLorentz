@@ -9,6 +9,21 @@ For full documentation please check out our documentation pages: [![Documentatio
 
 If you use PyLorentz, please cite our [paper](https://doi.org/10.1103/PhysRevApplied.15.044025) [1] and this PyLorentz code: [![DOI](https://zenodo.org/badge/263821805.svg)](https://zenodo.org/badge/latestdoi/263821805)
 
+@article{PhysRevApplied.15.044025,  
+  title = {Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron Microscopy},  
+  author = {McCray, Arthur R.C. and Cote, Timothy and Li, Yue and Petford-Long, Amanda K. and Phatak, Charudatta},  
+  journal = {Phys. Rev. Appl.},  
+  volume = {15},  
+  issue = {4},  
+  pages = {044025},  
+  numpages = {12},  
+  year = {2021},  
+  month = {Apr},  
+  publisher = {American Physical Society},  
+  doi = {10.1103/PhysRevApplied.15.044025},  
+  url = {https://link.aps.org/doi/10.1103/PhysRevApplied.15.044025}  
+}  
+
 
 ## Features
 ### PyTIE 
@@ -40,7 +55,7 @@ If you use PyLorentz, please cite our [paper](https://doi.org/10.1103/PhysRevApp
 * Additional features include improved region selection and image saving. 
 
 ## Getting started
-With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo directly, fork the project, or download the files directly in a .zip. 
+With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo, fork the project, or download the files directly in a .zip. 
 
 
 Several standard packages are required which can be installed with conda or pip. Environment.yml files are included in the /envs/ folder. Select the appropriate file for your system and create the environment from a command line with 

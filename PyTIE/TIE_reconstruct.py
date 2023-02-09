@@ -18,13 +18,13 @@ from pathlib import Path
 import numpy as np
 import scipy
 import tifffile
-from skimage import io
 
-from colorwheel import color_im
-from longitudinal_deriv import polyfit_deriv
-from microscopes import Microscope
-from TIE_helper import dist, scale_stack, select_tifs, show_im
-from TIE_params import TIE_params
+sys.path.append("../../")
+from PyLorentz.PyTIE.colorwheel import color_im
+from PyLorentz.PyTIE.longitudinal_deriv import polyfit_deriv
+from PyLorentz.PyTIE.microscopes import Microscope
+from PyLorentz.PyTIE.TIE_helper import dist, scale_stack, select_tifs, show_im
+from PyLorentz.PyTIE.TIE_params import TIE_params
 
 
 def TIE(
@@ -117,12 +117,11 @@ def TIE(
         "color_b": None,
         "inf_im": None,
     }
-
     # turning off the print function if v=0
     vprint = print if v >= 1 else lambda *a, **k: None
     if long_deriv:
         unders = list(reversed([-1 * ii for ii in ptie.defvals]))
-        defval = unders + [0] + ptie.defvals
+        defval = np.concatenate([unders, [0], ptie.defvals])
         if ptie.flip:
             vprint(
                 "Aligning with complete longitudinal derivatives:\n",
@@ -156,14 +155,14 @@ def TIE(
         dim_x *= 2
 
     # make the inverse laplacian, uses python implementation of IDL dist funct
-    q = dist(dim_y, dim_x)
+    q = dist(dim_y, dim_x, shift=False)
     q[0, 0] = 1
-    if qc is not None and qc is not False:
+    if qc is not None and qc is not False and qc > 0:
         vprint("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
-        qi = q ** 2 / (q ** 2 + (qc * ptie.scale) ** 2) ** 2  # qc in 1/pix
+        qi = q**2 / (q**2 + (qc * ptie.scale) ** 2) ** 2  # qc in 1/pix
     else:  # normal Laplacian method
         vprint("Reconstructing with normal Laplacian method")
-        qi = 1 / q ** 2
+        qi = 1 / q**2
     qi[0, 0] = 0
     ptie.qi = qi  # saves the freq dist
 
@@ -182,8 +181,6 @@ def TIE(
     else:
         mask = mask[top:bottom, left:right]
 
-    # crop images and apply mask
-    # mask = ptie.mask[top:bottom, left:right]
     for ii in range(len(tifs)):
         tifs[ii] = tifs[ii][top:bottom, left:right]
         tifs[ii] *= mask
@@ -312,9 +309,6 @@ def SITIE(
     defval=None,
     scale=1,
     E=200e3,
-    ptie=None,
-    i=-1,
-    flipstack=False,
     pscope=None,
     data_loc="",
     dataname="",
@@ -365,10 +359,6 @@ def SITIE(
         qc (float/str): (`optional`) The Tikhonov frequency to use as filter [1/nm].
             Default None. If you use a Tikhonov filter the resulting
             phase shift and induction is no longer quantitative.
-        norm (bool): (`optional`) Normalizes the input image to [0,1]. This can
-            preserve consistent outputs between images that have the same
-            contrast patterns but different scales and ranges, but will also
-            make the reconstruction non-quantitative.
         save (bool/str): Whether you want to save the output.
 
             ===========  ============
@@ -412,44 +402,15 @@ def SITIE(
     # turning off the print function if v=0
     vprint = print if v >= 1 else lambda *a, **k: None
 
-    if image is not None and defval is not None:
-        vprint(
-            f"Running with given image, defval = {defval:g}nm, and scale = {scale:.3g}nm/pixel"
-        )
-        ptie = TIE_params(imstack=[image], defvals=[defval], data_loc=data_loc, v=0)
-        ptie.set_scale(scale)
-        dim_y, dim_x = image.shape
-        if pscope is None:
-            pscope = Microscope(E=E)
-    else:
-        # selecting the right defocus value for the image
-        if i >= ptie.num_files:
-            print("i given outside range.")
-            sys.exit(1)
-        else:
-            if ptie.num_files > 1:
-                unders = list(reversed([-1 * i for i in ptie.defvals]))
-                defvals = unders + [0] + ptie.defvals
-                defval = defvals[i]
-            else:
-                defval = ptie.defvals[0]
-            vprint(f"SITIE defocus: {defval:g} nm")
-
-        right, left = ptie.crop["right"], ptie.crop["left"]
-        bottom, top = ptie.crop["bottom"], ptie.crop["top"]
-        dim_y = bottom - top
-        dim_x = right - left
-        vprint(f"Reconstructing with ptie image {i} and defval {defval}")
-
-        if flipstack:
-            print("Reconstructing with single flipped image.")
-            image = ptie.flipstack[i].data[top:bottom, left:right]
-        else:
-            image = ptie.imstack[i].data[top:bottom, left:right]
-
-    if norm:  # this can mess up quantitative results
-        cp = np.copy(image)
-        image = (cp - cp.min()) / np.max(cp - cp.min())  # normalize image [0,1]
+    vprint(
+        f"Running with given image, defval = {defval:g}nm, and scale = {scale:.3g}nm/pixel"
+    )
+    ptie = TIE_params(
+        imstack=[image], defvals=[defval], scale=scale, data_loc=data_loc, v=0
+    )
+    dim_y, dim_x = image.shape
+    if pscope is None:
+        pscope = Microscope(E=E)
 
     if sym:
         print("Reconstructing with symmetrized image.")
@@ -461,10 +422,10 @@ def SITIE(
     q[0, 0] = 1
     if qc is not None and qc is not False:  # add Tikhonov filter
         print("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
-        qi = q ** 2 / (q ** 2 + (qc * ptie.scale) ** 2) ** 2  # put qc in 1/pix
+        qi = q**2 / (q**2 + (qc * ptie.scale) ** 2) ** 2  # put qc in 1/pix
     else:  # normal laplacian method
         print("Reconstructing with normal Laplacian method")
-        qi = 1 / q ** 2
+        qi = 1 / q**2
     qi[0, 0] = 0
     ptie.qi = qi  # saves the freq dist
 
@@ -551,7 +512,7 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
     # applying 2/3 qc cutoff mask (see de Graef 2003)
     gy, gx = np.ogrid[-y // 2 : y // 2, -x // 2 : x // 2]
     rad = y / 3
-    qc_mask = gy ** 2 + gx ** 2 <= rad ** 2
+    qc_mask = gy**2 + gx**2 <= rad**2
     qc_mask = np.fft.ifftshift(qc_mask)
     fft1 *= qc_mask
 
@@ -591,7 +552,7 @@ def phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=False, long_deriv
 
     ### getting magnetic induction
     grad_y, grad_x = np.gradient(results["phase"])
-    pre_B = scipy.constants.hbar / (scipy.constants.e * ptie.scale) * 10 ** 18  # T*nm^2
+    pre_B = scipy.constants.hbar / (scipy.constants.e * ptie.scale) * 10**18  # T*nm^2
     results["ind_x"] = pre_B * grad_y
     results["ind_y"] = -1 * pre_B * grad_x
     return results

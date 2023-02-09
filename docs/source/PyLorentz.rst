@@ -39,11 +39,10 @@ Features
 * Automate full tilt series for tomographic reconstruction of 3D magnetic samples. 
 * PyLorentz code is easily integrated into existing python work-flows. 
 
-**GUI/Align**
+**GUI**
 
 * TIE reconstruction through a graphical user interface (GUI) 
 * Additional features include improved region selection and easily images before saving. 
-* Image registration routines incorporated (via `FIJI <https://fiji.sc/>`_) for aligning experimental data. 
 
 .. _TIE_refs:
 
