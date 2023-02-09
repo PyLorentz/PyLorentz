@@ -7,34 +7,36 @@ Timothy Cote, ANL, Fall 2019.
 
 # Standard Library Imports
 from io import BytesIO
-import dask.array as da
-import os
 from os import path as os_path
 from warnings import catch_warnings, simplefilter
 
+import dask.array as da
+
 with catch_warnings() as w:
     simplefilter("ignore")
-from PIL import Image, ImageDraw
 import subprocess
-from sys import platform, path as sys_path
+from sys import path as sys_path
+from sys import platform
 from typing import Any, Dict, List, Optional, Tuple, Union
-import gui_styling
-
-# Third-Party Imports
-import hyperspy.api as hs
 
 # Set TkAgg to show if using a drawing computer so vector image gets displayed
 import matplotlib
-matplotlib.use("agg")
-from matplotlib import cm as mpl_cm, pyplot as plt
-import numpy as np
-from numpy import array, zeros, flipud, uint8 as np_uint8
-from skimage import transform, draw
-import PySimpleGUI as sg
+from PIL import Image, ImageDraw
 
-# Local imports
-sys_path.append("../PyTIE/")
-from TIE_helper import *
+matplotlib.use("agg")
+import numpy as np
+import PySimpleGUI as sg
+from matplotlib import cm as mpl_cm
+from matplotlib import pyplot as plt
+from numpy import array, flipud
+from numpy import uint8 as np_uint8
+from numpy import zeros
+from skimage import draw, transform
+
+# Local imports, probably a better way to do this...
+import sys
+sys.path.append('../../')
+from PyLorentz.PyTIE.TIE_helper import *
 
 
 # ----------------------------------- #
@@ -510,8 +512,7 @@ def load_image(
         # Load data into numpy arrays for processing in GUI.
         uint8_data, float_data = {}, {}
         z_size = 1
-        img = hs.load(img_path)
-        img_data = img.data
+        img_data, _img_scale = read_image(img_path)
         shape = img_data.shape
 
         # Differetiate between loading of stack and single image, raise an exception if
@@ -549,7 +550,6 @@ def load_image(
     except:
         print(f"{prefix}Error. File might be too big. Usually has to be <= 2GB", end="")
         return None, None, None
-
 
 
 def array_resize(array: "np.ndarray", new_size: Tuple[int, int]) -> "np.ndarray":
@@ -808,11 +808,20 @@ def slice_im(
     return new_image
 
 
-def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.ndarray', color: bool,
-                hsv: bool, arrows: int, length: float, width: float,
-                graph_size: Tuple[int, int], pad_info: Tuple[Any, Any],
-                GUI_handle: bool = True,
-                save: Optional[bool] = None) -> Optional['bytes']:
+def add_vectors(
+    mag_x: "np.ndarray",
+    mag_y: "np.ndarray",
+    color_np_array: "np.ndarray",
+    color: bool,
+    hsv: bool,
+    arrows: int,
+    length: float,
+    width: float,
+    graph_size: Tuple[int, int],
+    pad_info: Tuple[Any, Any],
+    GUI_handle: bool = True,
+    save: Optional[bool] = None,
+) -> Optional["bytes"]:
 
     """Add a vector plot for the magnetic saturation images to be shown in the GUI.
     Args:
@@ -879,7 +888,7 @@ def add_vectors(mag_x: 'np.ndarray', mag_y: 'np.ndarray', color_np_array: 'np.nd
         data = array_resize(data, graph_size)
 
         # This has the final shape of the graph
-        plt.close('all')
+        plt.close("all")
 
         rgba_image = make_rgba(data)
         return_img = convert_to_bytes(rgba_image)
@@ -986,9 +995,9 @@ def erase_marks(
             graph.DeleteFigure(line)
 
 
-
-def create_mask(img: 'np.ndarray', mask_coords: Tuple[int],
-                bmp: bool = False) -> 'np.ndarray':
+def create_mask(
+    img: "np.ndarray", mask_coords: Tuple[int], bmp: bool = False
+) -> "np.ndarray":
     """Create a mask image utilizing corner coordinates and a fill color.
     Args:
         img: The numpy array of the image data.

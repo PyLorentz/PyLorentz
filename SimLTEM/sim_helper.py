@@ -23,22 +23,18 @@ from matplotlib import colors
 from mpl_toolkits.mplot3d import Axes3D
 import sys as sys
 
-sys.path.append("../PyTIE/")
 import os
-from comp_phase import mansPhi, linsupPhi
-from microscopes import Microscope
-from skimage import io as skimage_io
+from .comp_phase import mansPhi, linsupPhi
+from PyLorentz.PyTIE.microscopes import Microscope
 
-# from TIE_helper import *
 import textwrap
 from itertools import takewhile
 import io
-from TIE_reconstruct import TIE
+from PyLorentz.PyTIE.TIE_reconstruct import TIE
 from skimage import io as skio
-from TIE_params import TIE_params
-from TIE_helper import dist, show_im
+from PyLorentz.PyTIE.TIE_params import TIE_params
+from PyLorentz.PyTIE.TIE_helper import dist, show_im
 from scipy.ndimage import rotate, gaussian_filter
-import tifffile
 
 
 # ================================================================= #
@@ -487,7 +483,7 @@ def load_ovf(file=None, sim="norm", B0=1e4, v=1):
         vprint("Not scaling datafile.")
     elif sim.lower() == "norm":
         data = data.reshape((zsize * ysize * xsize, 3))  # to iterate through vectors
-        row_sums = np.sqrt(np.sum(data ** 2, axis=1))
+        row_sums = np.sqrt(np.sum(data**2, axis=1))
         rs2 = np.where(row_sums == 0, 1, row_sums)
         data = data / rs2[:, np.newaxis]
         data = data.reshape((zsize, ysize, xsize, 3))
@@ -661,6 +657,7 @@ def reconstruct_ovf(
             for some situations.
 
     Returns:
+        tuple: (dict, TIE_params)
         dict: A dictionary of image arrays
 
         =============  =========================================================
@@ -839,23 +836,23 @@ def reconstruct_ovf(
             imstack=[im_un, im_in, im_ov],
             flipstack=[im_un_flip, im_in_flip, im_ov_flip],
             defvals=[defval],
+            scale=del_px,
             flip=True,
-            no_mask=True,
             data_loc=directory,
+            no_mask=True,
             v=0,
         )
-        ptie.set_scale(del_px)
     else:
         ptie = TIE_params(
             imstack=[im_un, im_in, im_ov],
             flipstack=[],
             defvals=[defval],
+            scale=del_px,
             flip=False,
-            no_mask=True,
             data_loc=directory,
+            no_mask=True,
             v=0,
         )
-        ptie.set_scale(del_px)
 
     results = TIE(
         i=0,
@@ -874,7 +871,7 @@ def reconstruct_ovf(
     results["mag_y"] = mag_y
     results["mag_z"] = mag_z
 
-    return results
+    return results, ptie
 
 
 def rot_thickness_map(thk_map_3D=None, theta_x=0, theta_y=0, zscale=None):
@@ -1189,7 +1186,7 @@ def Lillihook(dim, rad=None, Q=1, gamma=1.5708, P=1, show=False):
     x, y = np.meshgrid(a, b)
     x -= cx
     y -= cy
-    dist = np.sqrt(x ** 2 + y ** 2)
+    dist = np.sqrt(x**2 + y**2)
     zeros = np.where(dist == 0)
     dist[zeros] = 1
 
@@ -1197,10 +1194,10 @@ def Lillihook(dim, rad=None, Q=1, gamma=1.5708, P=1, show=False):
     re = np.real(np.exp(1j * gamma))
     im = np.imag(np.exp(1j * gamma))
 
-    mag_x = -np.sqrt(1 - f ** 2) * (
+    mag_x = -np.sqrt(1 - f**2) * (
         re * np.cos(Q * np.arctan2(y, x)) + im * np.sin(Q * np.arctan2(y, x))
     )
-    mag_y = -np.sqrt(1 - f ** 2) * (
+    mag_y = -np.sqrt(1 - f**2) * (
         -1 * im * np.cos(Q * np.arctan2(y, x)) + re * np.sin(Q * np.arctan2(y, x))
     )
 
@@ -1271,7 +1268,7 @@ def Bloch(dim, chirality="cw", pad=True, ir=0, show=False):
     x, y = np.meshgrid(a, b)
     x -= cx
     y -= cy
-    dist = np.sqrt(x ** 2 + y ** 2)
+    dist = np.sqrt(x**2 + y**2)
 
     mag_x = (
         -np.sin(np.arctan2(y, x))
@@ -1290,7 +1287,7 @@ def Bloch(dim, chirality="cw", pad=True, ir=0, show=False):
     mag_z[np.where(dist < ir)] = 1
     mag_z[np.where(dist > rad)] = -1
 
-    mag = np.sqrt(mag_x ** 2 + mag_y ** 2 + mag_z ** 2)
+    mag = np.sqrt(mag_x**2 + mag_y**2 + mag_z**2)
     mag_x /= mag
     mag_y /= mag
     mag_z /= mag
@@ -1375,7 +1372,7 @@ def Neel(dim, chirality="io", pad=True, ir=0, show=False):
     mag_z[np.where(zmask == 1)] = 1
     mag_z[np.where(zmask == -1)] = -1
 
-    mag = np.sqrt(mag_x ** 2 + mag_y ** 2 + mag_z ** 2)
+    mag = np.sqrt(mag_x**2 + mag_y**2 + mag_z**2)
     mag_x /= mag
     mag_y /= mag
     mag_z /= mag
@@ -1385,7 +1382,7 @@ def Neel(dim, chirality="io", pad=True, ir=0, show=False):
         mag_y *= -1
 
     if show:
-        show_im(np.sqrt(mag_x ** 2 + mag_y ** 2 + mag_z ** 2), "mag")
+        show_im(np.sqrt(mag_x**2 + mag_y**2 + mag_z**2), "mag")
         show_im(mag_x, "mag x")
         show_im(mag_y, "mag y")
         show_im(mag_z, "mag z")
@@ -1411,7 +1408,7 @@ def dist4(dim, norm=False):
         a = a / (2 * d2)
         b = b / (2 * d2)
     x, y = np.meshgrid(a, b)
-    quarter = np.sqrt(x ** 2 + y ** 2)
+    quarter = np.sqrt(x**2 + y**2)
     dist = np.zeros((dim, dim))
     dist[d2:, d2:] = quarter
     dist[d2:, :d2] = np.fliplr(quarter)

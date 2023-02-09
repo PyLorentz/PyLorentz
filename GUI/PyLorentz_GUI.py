@@ -32,14 +32,14 @@ matplotlib.use('agg')
 from matplotlib import colors
 
 # Local imports
-sys_path.append("../PyTIE/")
+sys_path.append("../../")
 
 from gui_layout import window_ly, file_choice_ly, save_window_ly, output_ly, element_keys
 from gui_styling import WindowStyle, get_icon
-from colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
-from microscopes import Microscope
-from TIE_helper import *
-from TIE_reconstruct import TIE, SITIE, save_results
+from PyLorentz.PyTIE.colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
+from PyLorentz.PyTIE.microscopes import Microscope
+from PyLorentz.PyTIE.TIE_helper import *
+from PyLorentz.PyTIE.TIE_reconstruct import TIE, SITIE, save_results
 from tkinter import INSERT as tk_insert
 import util
 from util import Struct, check_setup
@@ -151,7 +151,7 @@ def init_rec(winfo: Struct, window: sg.Window, mask_reset: bool = True,
 
     # Declare transformation timers and related variables
     if arrow_reset:
-        winfo.rec_past_arrow_transform = (15, 1, 1, 'On')
+        winfo.rec_past_arrow_transform = (100, 1, 1, 'On')
 
     # Image selection
     winfo.rec_last_image_choice = None
@@ -219,8 +219,8 @@ def init(winfo: Struct, window: sg.Window, output_window: sg.Window) -> None:
     winfo.last_browser_color = None
     keys = element_keys()
     winfo.keys = keys
-    winfo.invis_graph = window.FindElement("__invisible_graph__")
-    winfo.output_invis_graph = output_window.FindElement("__output_invis_graph__")
+    winfo.invis_graph = window["__invisible_graph__"]
+    winfo.output_invis_graph = output_window["__output_invis_graph__"]
     winfo.tabnames = ["Home", "Phase Reconstruction"]
     winfo.pages = "pages_tabgroup"
     winfo.current_tab = "home_tab"
@@ -618,7 +618,7 @@ def file_loading(winfo: Struct, window: sg.Window, filename: str, active_key: st
             try:
                 # Is file loading correctly?
                 warnings.filterwarnings('error')
-                # Load images and convert to uint8 using numpy and hyperspy,
+                # Load images and convert to uint8 using numpy and ncempy,
                 if active_key.startswith('__REC'):
                     graph_size_key, reset_key, fls_reset_key = ('__REC_Graph__', '__REC_Set_Img_Dir__', False)
                 graph_size = window[graph_size_key].get_size()
@@ -1273,6 +1273,7 @@ def ptie_init_thread(winfo: Struct, path: str, fls1_path: str, fls2_path: str,
             stack.byte_data[i], stack.rgba_data[i] = util.adjust_image(stack.flt_data[i], transform, stack.x_size,
                                                                          winfo.window['__REC_Graph__'].get_size()[0])
 
+
         # Change the appearance and values in the GUI
         metadata_change(winfo, winfo.window, [('__REC_Image__', f'{prefix}/{im_name}')])
         length_slider = len(string_vals)
@@ -1295,6 +1296,7 @@ def ptie_init_thread(winfo: Struct, path: str, fls1_path: str, fls2_path: str,
         selected = values[index[0]]
         if selected == 'Stack':
             redraw_graph(winfo.window['__REC_Graph__'], stack.byte_data[0])
+
 
         # Load all relevant PTIE data into winfo
         winfo.rec_defocus_slider_set = 0
@@ -1340,7 +1342,7 @@ def ptie_recon_thread(winfo: Struct, window: sg.Window, graph: sg.Graph,
     ptie = winfo.rec_ptie
     microscope = winfo.rec_microscope
     def_val = float(window['__REC_Def_Combo__'].Get())
-    def_ind = ptie.defvals.index(def_val)
+    def_ind = np.argwhere(ptie.defvals == def_val)[0,0]
     dataname = 'example'
     hsv = window['__REC_Colorwheel__'].get() == 'HSV'
     save = False
