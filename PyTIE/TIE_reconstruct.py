@@ -413,7 +413,7 @@ def SITIE(
         pscope = Microscope(E=E)
 
     if sym:
-        print("Reconstructing with symmetrized image.")
+        vprint("Reconstructing with symmetrized image.")
         dim_y *= 2
         dim_x *= 2
 
@@ -421,10 +421,10 @@ def SITIE(
     q = dist(dim_y, dim_x)
     q[0, 0] = 1
     if qc is not None and qc is not False:  # add Tikhonov filter
-        print("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
+        vprint("Reconstructing with Tikhonov value [1/nm]: {:}".format(qc))
         qi = q**2 / (q**2 + (qc * ptie.scale) ** 2) ** 2  # put qc in 1/pix
     else:  # normal laplacian method
-        print("Reconstructing with normal Laplacian method")
+        vprint("Reconstructing with normal Laplacian method")
         qi = 1 / q**2
     qi[0, 0] = 0
     ptie.qi = qi  # saves the freq dist
@@ -436,7 +436,7 @@ def SITIE(
     dIdZ -= np.sum(dIdZ) / np.size(infocus)
 
     ### Now calling the phase reconstruct in the normal way
-    print("Calling SITIE solver\n")
+    vprint("Calling SITIE solver\n")
     resultsB = phase_reconstruct(ptie, infocus, dIdZ, pscope, defval, sym=sym)
     results["byt"] = resultsB["ind_y"]
     results["bxt"] = resultsB["ind_x"]
@@ -456,7 +456,7 @@ def SITIE(
         save_results(
             defval, results, ptie, dataname, sym, qc, save, v, directory="SITIE"
         )
-    print("Phase reconstruction completed.")
+    vprint("Phase reconstruction completed.")
     return results
 
 
