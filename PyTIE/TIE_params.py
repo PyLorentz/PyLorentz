@@ -113,6 +113,7 @@ class TIE_params(object):
             self.flip = False
 
         if data_loc:
+            data_loc = str(data_loc)
             if not data_loc.endswith("/"):
                 data_loc += "/"
             self.data_loc = data_loc
