@@ -140,7 +140,12 @@ def load_data(
             flip_files.append(os.path.join(path, "flip", line))
 
     f_inf = unflip_files[num_files // 2]
-    _, scale = read_image(f_inf)
+    try:
+        _, scale = read_image(f_inf)
+    except FileNotFoundError as e:
+        print("Unflip infocus file not found.")
+        print(f"Please set scale manually with")
+        print(">>ptie.scale = XX #nm/pixel")
 
     try:
         al_stack, _ = read_image(os.path.join(path, al_file))
@@ -154,22 +159,29 @@ def load_data(
 
     if flip:
         f_inf_flip = flip_files[num_files // 2]
-        _, scale_flip = read_image(f_inf_flip)
-        if round(scale, 3) != round(scale_flip, 3):
-            print("Scale of the two infocus images are different.")
-            print(f"Scale of unflip image: {scale:.4f} nm/pix")
-            print(f"Scale of flip image: {scale_flip:.4f} nm/pix")
-            print("Proceeding with scale from unflip image.")
-            print("If this is incorrect, change value with >>ptie.scale = XX #nm/pixel")
-
+        try:
+            _, scale_flip = read_image(f_inf_flip)
+            if scale is not None:
+                if round(scale, 3) != round(scale_flip, 3):
+                    print("Scale of the two infocus images are different.")
+                    print(f"Scale of unflip image: {scale:.4f} nm/pix")
+                    print(f"Scale of flip image: {scale_flip:.4f} nm/pix")
+                    print("Proceeding with scale from unflip image.")
+                    print("If this is incorrect, change value with >>ptie.scale = XX #nm/pixel")
+        except FileNotFoundError as e:
+            print("Flip infocus file not found.")
+            print("If unflip file also not found, scale will not be set automatically.")
         imstack = al_stack[:num_files]
         flipstack = al_stack[num_files:]
     else:
         imstack = al_stack
         flipstack = []
 
-    # show_im(imstack[num_files // 2])
-    # show_im(flipstack[num_files // 2])
+    # necessary for filtered images where negative values occur???
+    for i in range(num_files):
+        imstack[i] -= imstack[i].min()
+        if flipstack:
+            flipstack[i] -= flipstack[i].min()
 
     # read the defocus values
     defvals = fls[-(num_files // 2) :]
@@ -204,7 +216,7 @@ def read_image(f):
                 scale = res[1] / res[0]  # to nm/pixel
                 if tif.imagej_metadata["unit"] == "nm":
                     pass
-                elif tif.imagej_metadata["unit"] in ["um", "µm"]:
+                elif tif.imagej_metadata["unit"] in ["um", "µm", "micron"]:
                     scale *= 1e3
                 elif tif.imagej_metadata["unit"] == "mm":
                     scale *= 1e6
@@ -239,11 +251,17 @@ def read_image(f):
 
             if im["pixelUnit"][0] == "nm":
                 scale = im["pixelSize"][0]
-            elif im["pixelUnit"][0] == "µm":
+            elif im["pixelUnit"][0] in ["um", "µm"]:
                 scale = im["pixelSize"][0] * 1000
+            elif im["pixelUnit"][0] == "mm":
+                scale = im["pixelSize"][0] * 1e6
             else:
-                print("unknown scale type (just need to add it)")
-                raise NotImplementedError
+                print(f'Found unknown scale unit of: {tif.imagej_metadata["unit"]}')
+                print("Setting scale = -1, please adjust this with ptie.scale = XX #nm/pixel")
+                scale = -1
+                # raise NotImplementedError(
+                #     f'Found unknown scale unit of: {tif.imagej_metadata["unit"]}'
+                # )
             out_im = im["data"]
 
     else:
@@ -348,6 +366,9 @@ def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersi
     except FileNotFoundError as e:
         print("Incorrect aligned stack filename given.")
         raise e
+
+    for ind in range(len(al_stack)):
+        al_stack[ind] -= al_stack[ind].min()
 
     # quick median filter to remove hotpixels, kinda slow
     print("filtering takes a few seconds")
