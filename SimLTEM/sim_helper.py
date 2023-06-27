@@ -685,7 +685,8 @@ def reconstruct_ovf(
     directory = os.path.abspath(directory)
     if savename is None:
         savename = os.path.splitext(filename)[0]
-
+    elif savename[0] == "/":
+        savename = savename[1:]
     if save < 1:
         save_path_tfs = None
         TIE_save = False

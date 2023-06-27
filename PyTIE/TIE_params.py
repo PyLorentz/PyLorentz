@@ -113,6 +113,7 @@ class TIE_params(object):
             self.flip = False
 
         if data_loc:
+            data_loc = str(data_loc)
             if not data_loc.endswith("/"):
                 data_loc += "/"
             self.data_loc = data_loc
@@ -180,7 +181,10 @@ class TIE_params(object):
             self.mask = np.ones(self.shape)
             return
         if imstack is None:
-            imstack = np.concatenate([self.imstack, self.flipstack])
+            if self.flipstack:
+                imstack = np.concatenate([self.imstack, self.flipstack])
+            else:
+                imstack = self.imstack
         shape = np.shape(imstack[0])
         mask = np.ones(shape)
 

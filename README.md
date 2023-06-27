@@ -55,7 +55,8 @@ If you use PyLorentz, please cite our [paper](https://doi.org/10.1103/PhysRevApp
 * Additional features include improved region selection and image saving. 
 
 ## Getting started
-With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo, fork the project, or download the files directly in a .zip. 
+With the exception of the gui, this code is intended to be run in Jupyter notebooks and several examples are provided. You can clone the repo, fork the project, or download the files directly in a .zip.  
+	__--Please note--__ that if you download a .zip, the directory will be named "PyLorentz_master", this must be renamed to just PyLorentz, or else imports will fail. We will hopefully package and upload PyLorentz to PyPI soon...
 
 
 Several standard packages are required which can be installed with conda or pip. Environment.yml files are included in the /envs/ folder. Select the appropriate file for your system and create the environment from a command line with 
