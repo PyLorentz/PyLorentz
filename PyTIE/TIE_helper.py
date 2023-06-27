@@ -177,6 +177,12 @@ def load_data(
         imstack = al_stack
         flipstack = []
 
+    # necessary for filtered images where negative values occur???
+    for i in range(num_files):
+        imstack[i] -= imstack[i].min()
+        if flipstack:
+            flipstack[i] -= flipstack[i].min()
+
     # read the defocus values
     defvals = fls[-(num_files // 2) :]
     assert num_files == 2 * len(defvals) + 1
@@ -210,7 +216,7 @@ def read_image(f):
                 scale = res[1] / res[0]  # to nm/pixel
                 if tif.imagej_metadata["unit"] == "nm":
                     pass
-                elif tif.imagej_metadata["unit"] in ["um", "µm"]:
+                elif tif.imagej_metadata["unit"] in ["um", "µm", "micron"]:
                     scale *= 1e3
                 elif tif.imagej_metadata["unit"] == "mm":
                     scale *= 1e6
@@ -360,6 +366,9 @@ def load_data_GUI(path, fls_file1, fls_file2, al_file="", single=False, filtersi
     except FileNotFoundError as e:
         print("Incorrect aligned stack filename given.")
         raise e
+
+    for ind in range(len(al_stack)):
+        al_stack[ind] -= al_stack[ind].min()
 
     # quick median filter to remove hotpixels, kinda slow
     print("filtering takes a few seconds")

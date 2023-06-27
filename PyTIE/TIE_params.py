@@ -181,7 +181,10 @@ class TIE_params(object):
             self.mask = np.ones(self.shape)
             return
         if imstack is None:
-            imstack = np.concatenate([self.imstack, self.flipstack])
+            if self.flipstack:
+                imstack = np.concatenate([self.imstack, self.flipstack])
+            else:
+                imstack = self.imstack
         shape = np.shape(imstack[0])
         mask = np.ones(shape)
 
