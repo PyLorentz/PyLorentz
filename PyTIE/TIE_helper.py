@@ -251,7 +251,7 @@ def read_image(f):
 
             if im["pixelUnit"][0] == "nm":
                 scale = im["pixelSize"][0]
-            elif im["pixelUnit"][0] in ["um", "µm"]:
+            elif im["pixelUnit"][0] in ["um", "µm", "micron"]:
                 scale = im["pixelSize"][0] * 1000
             elif im["pixelUnit"][0] == "mm":
                 scale = im["pixelSize"][0] * 1e6
