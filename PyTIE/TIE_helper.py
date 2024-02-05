@@ -25,7 +25,7 @@ from scipy import ndimage
 from scipy.ndimage import median_filter
 from skimage import io
 from tifffile import TiffFile
-from PyLorentz.PyTIE.colorwheel import color_im
+from PyLorentz.PyTIE.colorwheel import color_im, get_cmap
 
 from PyLorentz.PyTIE.TIE_params import TIE_params
 
@@ -180,7 +180,7 @@ def load_data(
     # necessary for filtered images where negative values occur???
     for i in range(num_files):
         imstack[i] -= imstack[i].min()
-        if flipstack:
+        if np.any(flipstack):
             flipstack[i] -= flipstack[i].min()
 
     # read the defocus values
@@ -671,7 +671,7 @@ def show_2D(
     w=None,
     title=None,
     color=True,
-    hsv=True,
+    cmap=None,
     origin="upper",
     save=None,
     GUI_handle=False,
@@ -748,14 +748,19 @@ def show_2D(
 
     if color:
         if not GUI_handle or save is not None:
+            cmap = get_cmap(cmap)
+            cim = color_im(
+                    mag_x,
+                    mag_y,
+                    mag_z,
+                    cmap=cmap,
+                    rad=rad,
+                )
+            im = ax.matshow(cim, cmap=cmap, origin=origin)
 
-            im = ax.matshow(
-                color_im(mag_x, mag_y, mag_z, hsvwheel=hsv, rad=rad),
-                cmap="gray",
-                origin=origin,
-            )
         else:
             im = ax.matshow(GUI_color_array, cmap="gray", origin=origin, aspect="equal")
+
         arrow_color = "white"
         plt.axis("off")
     else:

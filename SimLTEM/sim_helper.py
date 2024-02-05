@@ -35,6 +35,8 @@ from skimage import io as skio
 from PyLorentz.PyTIE.TIE_params import TIE_params
 from PyLorentz.PyTIE.TIE_helper import dist, show_im
 from scipy.ndimage import rotate, gaussian_filter
+import tifffile
+
 
 
 # ================================================================= #
@@ -178,14 +180,14 @@ def sim_images(
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         res = 1 / del_px
-        skio.imsave(
+        tifffile.imsave(
             os.path.join(save_path, f"{save_name}_align.tiff"),
             im_stack.astype("float32"),
             imagej=True,
             resolution=(res, res),
             metadata={"unit": "nm"},
         )
-        skio.imsave(
+        tifffile.imsave(
             os.path.join(save_path, f"{save_name}_phase.tiff"),
             Tphi.astype("float32"),
             imagej=True,

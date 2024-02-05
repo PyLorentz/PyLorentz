@@ -13,4 +13,5 @@ dependencies:
   - scikit-image
   - matplotlib
   - ncempy
+  - colorcet
 prefix: /home/amccray/miniconda3/envs/PyLorentzNew
