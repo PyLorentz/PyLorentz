@@ -1,3 +1,5 @@
+### Updates coming soon!
+  
 # PyLorentz
 PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions: 
 
