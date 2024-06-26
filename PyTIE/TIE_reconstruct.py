@@ -149,6 +149,7 @@ def TIE(
     dim_x = right - left
     tifs = np.array(select_tifs(i, ptie, long_deriv))
     tifs -= np.min(tifs) # no negative values, can arise from alignment or filtering
+    tifs = list(tifs) # needs to be list, hacky af but will be fixed in 2.0
 
     if sym:
         vprint("Reconstructing with symmetrized image.")
