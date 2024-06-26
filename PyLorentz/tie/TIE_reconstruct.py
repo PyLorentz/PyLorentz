@@ -148,7 +148,9 @@ def TIE(
     bottom, top = ptie.crop["bottom"], ptie.crop["top"]
     dim_y = bottom - top
     dim_x = right - left
-    tifs = select_tifs(i, ptie, long_deriv)
+    tifs = np.array(select_tifs(i, ptie, long_deriv))
+    tifs -= np.min(tifs) # no negative values, can arise from alignment or filtering
+    tifs = list(tifs) # needs to be list, hacky af but will be fixed in 2.0
 
     if sym:
         vprint("Reconstructing with symmetrized image.")
