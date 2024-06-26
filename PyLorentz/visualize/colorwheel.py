@@ -118,15 +118,15 @@ def get_cmap(cmap=None, **kwargs):
             shift += -np.pi / 2  # matching directions of legacy 4-fold
         elif cmap in ["purehsv", "legacyhsv"]:
             cmap = mpl.cm.get_cmap("hsv")
-            invert = kwargs.get("invert", True)
+            invert = not invert
             shift += np.pi / 2
         elif cmap in ["cet_c6", "c6", "6fold", "sixfold", "hsv", "default", ""]:
             cmap = cc.cm.CET_C6
-            invert = kwargs.get("invert", True)
+            invert = not invert
             shift += np.pi / 2
         elif cmap in ["c7", "cet_c7", "4fold", "fourfold", "4-fold", "colorwheel"]:
             cmap = cc.cm.CET_C7
-            invert = kwargs.get("invert", True)
+            invert = not invert
         elif cmap in ["cet_c8", "c8"]:
             cmap = cc.cm.CET_C8
         elif cmap in ["cet_c10", "c10", "isolum", "isoluminant", "iso"]:
@@ -143,8 +143,8 @@ def get_cmap(cmap=None, **kwargs):
     except NameError as e:
         print("Colorcet not installed, proceeding with hsv from mpl")
         cmap = mpl.cm.get_cmap("hsv")
-        invert = kwargs.get("invert", True)
-        shift += -np.pi / 2
+        invert = not invert
+        shift -= np.pi / 2
     if shift != 0:  # given as radian convert to [0,1]
         shift = shift % (2 * np.pi) / (2 * np.pi)
     if shift != 0 or invert:

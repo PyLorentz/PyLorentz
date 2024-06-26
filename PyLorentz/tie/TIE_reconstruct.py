@@ -19,12 +19,13 @@ import numpy as np
 import scipy
 import tifffile
 
-sys.path.append("../../")
-from PyLorentz.PyTIE.colorwheel import color_im
-from PyLorentz.PyTIE.longitudinal_deriv import polyfit_deriv
-from PyLorentz.PyTIE.microscopes import Microscope
-from PyLorentz.PyTIE.TIE_helper import dist, scale_stack, select_tifs, show_im
-from PyLorentz.PyTIE.TIE_params import TIE_params
+from PyLorentz.visualize.colorwheel import color_im
+from PyLorentz.TIE.longitudinal_deriv import polyfit_deriv
+from PyLorentz.utils.microscopes import Microscope
+from PyLorentz.utils.TIE_helper import scale_stack, select_tifs
+from PyLorentz.utils.utils import dist
+from PyLorentz.visualize import show_im
+from PyLorentz.TIE.TIE_params import TIE_params
 
 
 def TIE(

@@ -13,9 +13,7 @@ from scipy import ndimage
 from matplotlib.backend_bases import MouseButton
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-import textwrap
-import time
-
+from PyLorentz.utils.utils import get_dist
 
 class TIE_params(object):
     """An object for holding the data and parameters for the reconstruction.
@@ -354,20 +352,5 @@ class TIE_params(object):
         self.crop["right"] = self.shape[1]
         self.crop["top"] = 0
         self.crop["bottom"] = self.shape[0]
-
-
-def get_dist(pos1, pos2):
-    """Distance between two 2D points
-
-    Args:
-        pos1 (list): [y1, x1] point 1
-        pos2 (list): [y2, x2] point 2
-
-    Returns:
-        float: Euclidean distance between the two points
-    """
-    squared = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
-    return np.sqrt(squared)
-
 
 ### End ###

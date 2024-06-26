@@ -36,9 +36,9 @@ sys_path.append("../../")
 
 from gui_layout import window_ly, file_choice_ly, save_window_ly, output_ly, element_keys
 from gui_styling import WindowStyle, get_icon
-from PyLorentz.PyTIE.colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
-from PyLorentz.PyTIE.microscopes import Microscope
-from PyLorentz.PyTIE.TIE_helper import *
+from PyLorentz.visualize.colorwheel import colorwheel_HSV, colorwheel_RGB, color_im
+from PyLorentz.utils.microscopes import Microscope
+from PyLorentz.utils.TIE_helper import *
 from PyLorentz.PyTIE.TIE_reconstruct import TIE, SITIE, save_results
 from tkinter import INSERT as tk_insert
 import util

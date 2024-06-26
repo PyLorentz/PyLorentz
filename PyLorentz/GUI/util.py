@@ -36,7 +36,7 @@ from skimage import draw, transform
 # Local imports, probably a better way to do this...
 import sys
 sys.path.append('../../')
-from PyLorentz.PyTIE.TIE_helper import *
+from PyLorentz.utils.TIE_helper import *
 
 
 # ----------------------------------- #
