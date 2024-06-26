@@ -13,7 +13,9 @@ from scipy import ndimage
 from matplotlib.backend_bases import MouseButton
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from PyLorentz.utils.utils import get_dist
+import textwrap
+import time
+
 
 class TIE_params(object):
     """An object for holding the data and parameters for the reconstruction.
@@ -105,7 +107,7 @@ class TIE_params(object):
 
         if flip is not None:
             self.flip = flip
-        elif flipstack:
+        elif len(flipstack) > 0:
             self.flip = True
         else:
             self.flip = False
@@ -179,7 +181,7 @@ class TIE_params(object):
             self.mask = np.ones(self.shape)
             return
         if imstack is None:
-            if np.any(self.flipstack):
+            if len(self.flipstack) > 0:
                 imstack = np.concatenate([self.imstack, self.flipstack])
             else:
                 imstack = self.imstack
@@ -352,5 +354,20 @@ class TIE_params(object):
         self.crop["right"] = self.shape[1]
         self.crop["top"] = 0
         self.crop["bottom"] = self.shape[0]
+
+
+def get_dist(pos1, pos2):
+    """Distance between two 2D points
+
+    Args:
+        pos1 (list): [y1, x1] point 1
+        pos2 (list): [y2, x2] point 2
+
+    Returns:
+        float: Euclidean distance between the two points
+    """
+    squared = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
+    return np.sqrt(squared)
+
 
 ### End ###

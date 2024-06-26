@@ -160,7 +160,7 @@ def load_data(
     # necessary for filtered images where negative values occur???
     for i in range(num_files):
         imstack[i] -= imstack[i].min()
-        if np.any(flipstack):
+        if len(flipstack) > 0:
             flipstack[i] -= flipstack[i].min()
 
     # read the defocus values
