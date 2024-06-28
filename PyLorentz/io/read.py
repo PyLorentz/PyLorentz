@@ -15,7 +15,7 @@ import sys
 import json
 
 
-def read_image(f):
+def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
     """Uses Tifffile or ncempy.io load an image and read the scale if there is one.
 
     Args:
@@ -36,6 +36,8 @@ def read_image(f):
                 defocus_unit: str
     """
     f = Path(f)
+    if not f.exists():
+        raise FileNotFoundError(str(f.absolute()))
     metadata = {
         "filepath": str(f.absolute()),
         "filename": f.stem + "".join(f.suffixes),
@@ -46,7 +48,10 @@ def read_image(f):
         with TiffFile(f, mode="r") as tif:
             if tif.imagej_metadata is not None and "unit" in tif.imagej_metadata:
                 res = tif.pages[0].tags["XResolution"].value
-                scale = res[1] / res[0]  # to nm/pixel
+                if res[0] == 0:
+                    scale = None
+                else:
+                    scale = res[1] / res[0]  # to nm/pixel
                 if tif.imagej_metadata["unit"] == "nm":
                     pass
                 elif tif.imagej_metadata["unit"] in ["um", "µm", "micron"]:
@@ -93,10 +98,10 @@ def read_image(f):
                 raise NotImplementedError
             out_im = dset["data"]
 
-    elif f.suffix in [".emd"]: # TODO test but make this for dmx as well?
+    elif f.suffix in [".emd"]:  # TODO test but make this for dmx as well?
         with fileEMDVelox(f) as emd:
             out_im, mdata = emd.get_dataset(0)
-            defocus = float(emd.metaDataJSON['Optics']['Defocus'])*1e9 # nm
+            defocus = float(emd.metaDataJSON["Optics"]["Defocus"]) * 1e9  # nm
             defocus_unit = "nm"
             metadata["AcquisitionTime"] = str(mdata["AcquisitionTime"].time())
             metadata["AcquisitionDate"] = str(mdata["AcquisitionTime"].date())
@@ -130,6 +135,6 @@ def read_json(file):
     """
     read json
     """
-    with open(file, 'r') as f:
+    with open(file, "r") as f:
         d = json.load(f)
     return d

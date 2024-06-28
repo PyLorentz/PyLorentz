@@ -5,7 +5,7 @@ from scipy.ndimage import median_filter
 from tifffile import TiffFile
 import tifffile
 from PyLorentz.tie.TIE_params import TIE_params
-# from PyLorentz.io.read import read_image
+from PyLorentz.io.read import read_image
 from itertools import takewhile
 from skimage import io as skio
 import numpy as np
@@ -121,14 +121,14 @@ def load_data(
 
     f_inf = unflip_files[num_files // 2]
     try:
-        _, scale = read_image(f_inf)
+        _, scale = read_image_old(f_inf)
     except FileNotFoundError as e:
         print("Unflip infocus file not found.")
         print(f"Please set scale manually with")
         print(">>ptie.scale = XX #nm/pixel")
 
     try:
-        al_stack, _ = read_image(os.path.join(path, al_file))
+        al_stack, _ = read_image_old(os.path.join(path, al_file))
     except FileNotFoundError as e:
         print("Incorrect aligned stack filename given.")
         raise e
@@ -140,7 +140,7 @@ def load_data(
     if flip:
         f_inf_flip = flip_files[num_files // 2]
         try:
-            _, scale_flip = read_image(f_inf_flip)
+            _, scale_flip = read_image_old(f_inf_flip)
             if scale is not None:
                 if round(scale, 3) != round(scale_flip, 3):
                     print("Scale of the two infocus images are different.")
@@ -176,9 +176,7 @@ def load_data(
 
 
 
-
-
-def read_image(f):
+def read_image_old(f):
     """Uses Tifffile or ncempy.io load an image and read the scale if there is one.
 
     Args:

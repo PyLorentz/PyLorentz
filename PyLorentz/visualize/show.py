@@ -7,7 +7,6 @@ from PyLorentz.visualize.colorwheel import color_im, get_cmap
 from matplotlib import colors
 
 
-
 # =============================================== #
 #            Various display functions            #
 # =============================================== #
@@ -151,7 +150,7 @@ def show_stack(
 
     images = images[:, t:b, l:r]
 
-    _fig, _ax = plt.subplots()
+    # _fig, _ax = plt.subplots()
     plt.axis("off")
     N = images.shape[0]
 
@@ -252,12 +251,12 @@ def show_2D(
         if not GUI_handle or save is not None:
             cmap = get_cmap(cmap)
             cim = color_im(
-                    mag_x,
-                    mag_y,
-                    mag_z,
-                    cmap=cmap,
-                    rad=rad,
-                )
+                mag_x,
+                mag_y,
+                mag_z,
+                cmap=cmap,
+                rad=rad,
+            )
             im = ax.matshow(cim, cmap=cmap, origin=origin)
 
         else:
@@ -338,8 +337,6 @@ def show_2D(
         return fig, ax
     else:
         return
-
-
 
 
 # ================================================================= #
@@ -440,9 +437,9 @@ def show_3D(mag_x, mag_y, mag_z, a=15, ay=None, az=15, l=None, show_all=True):
 
     if show_all:  # all alpha values one
         alphas = np.ones((np.shape(arrow_colors)[0], 1))
-        tcolor = 'k'
+        tcolor = "k"
     else:  # alpha values map to inplane component
-        tcolor = 'w'
+        tcolor = "w"
         alphas = np.minimum(value, sat).reshape(len(value), 1)
         value = np.ones(value.shape)
         sat = np.ravel(1 - abs(2 * theta / np.pi))
@@ -541,3 +538,44 @@ def show_sims(phi, im_un, im_in, im_ov, title=None, save=None):
 
     plt.show()
     return
+
+
+def show_im_peaks(
+    im=None, peaks=None, peaks2=None, size=None, title=None, cbar=False, **kwargs
+):
+    """
+    peaks an array [[y1,x1], [y2,x2], ...]
+    """
+    _fig, ax = plt.subplots()
+    if im is not None:
+        im = ax.matshow(im, cmap=kwargs.pop("cmap", "gray"))
+    if peaks is not None:
+        peaks = np.array(peaks)
+        ax.plot(
+            peaks[:, 1],
+            peaks[:, 0],
+            c=kwargs.get("color1", "r"),
+            alpha=0.9,
+            ms=size,
+            marker="o",
+            fillstyle="none",
+            linestyle="none",
+        )
+    if peaks2 is not None and np.size(peaks2) != 0:
+        peaks2 = np.array(peaks2)
+        ax.plot(
+            peaks2[:, 1],
+            peaks2[:, 0],
+            c=kwargs.get("color2", "b"),
+            alpha=0.9,
+            ms=size,
+            marker="o",
+            fillstyle="none",
+            linestyle="none",
+        )
+    ax.set_aspect(1)
+    if title is not None:
+        ax.set_title(str(title), pad=0)
+    if cbar:
+        plt.colorbar(im)
+    plt.show()

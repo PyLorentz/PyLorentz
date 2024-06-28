@@ -15,9 +15,10 @@ import sys
 import json
 
 
-def write_tif(tif, path, scale, v=1, unit="nm", overwrite=True):
+def write_tif(data, path, scale, v=1, unit="nm", overwrite=True):
     """
     scale in nm/pixel default,
+    saves as float32
     """
     if scale is not None:
         res = 1 / scale
@@ -32,7 +33,7 @@ def write_tif(tif, path, scale, v=1, unit="nm", overwrite=True):
 
     tifffile.imwrite(
         path,
-        tif.astype("float32"),
+        data.astype("float32"),
         imagej=True,
         resolution=(res, res),
         metadata={"unit": unit},
@@ -132,7 +133,7 @@ def write_json(dict, path, overwrite=True, v=1):
         path = overwrite_rename(path)
 
     if v>= 1:
-        print(f"Saving as {path}")
+        print(f"Saving json {path}")
 
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(d2, f, ensure_ascii=False, indent=4, sort_keys=True)

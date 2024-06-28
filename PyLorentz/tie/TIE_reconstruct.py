@@ -20,12 +20,12 @@ import scipy
 import tifffile
 
 from PyLorentz.visualize.colorwheel import color_im
-from PyLorentz.TIE.longitudinal_deriv import polyfit_deriv
+from PyLorentz.tie.longitudinal_deriv import polyfit_deriv
 from PyLorentz.utils.microscopes import Microscope
 from PyLorentz.utils.TIE_helper import scale_stack, select_tifs
 from PyLorentz.utils.utils import dist
 from PyLorentz.visualize import show_im
-from PyLorentz.TIE.TIE_params import TIE_params
+from PyLorentz.tie.TIE_params import TIE_params
 
 
 def TIE(
