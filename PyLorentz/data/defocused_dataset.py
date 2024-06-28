@@ -436,6 +436,7 @@ class DefocusedDataset(BaseDataset):
     def save_DD(self, filepath="", copy_data: bool = False):
         """
         Save self dict as json and either list of filepaths, or full datasets as specified
-        make sure includes crop and such
+        make sure includes crop and such.
+        could/should probably build this around EMD file, see how datacubes are saved
         """
         return
