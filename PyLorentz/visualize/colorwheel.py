@@ -124,7 +124,7 @@ def get_cmap(cmap=None, **kwargs):
             cmap = cc.cm.CET_C6
             invert = not invert
             shift += np.pi / 2
-        elif cmap in ["c7", "cet_c7", "4fold", "fourfold", "4-fold", "colorwheel"]:
+        elif cmap in ["cet_c7", "c7", "4fold", "fourfold", "4-fold", "colorwheel"]:
             cmap = cc.cm.CET_C7
             invert = not invert
         elif cmap in ["cet_c8", "c8"]:
@@ -137,7 +137,7 @@ def get_cmap(cmap=None, **kwargs):
             cmap = mpl.cm.get_cmap(cmap)
         else:
             print(f"Unknown colormap input '{cmap}'.")
-            print("Try passing a colormap object next time.")
+            print("You can also pass a colormap object directly.")
             print("Proceeding with default cc.cm.CET_C7.")
             cmap = cc.cm.CET_C7
     except NameError as e:

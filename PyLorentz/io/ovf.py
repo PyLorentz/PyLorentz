@@ -7,7 +7,7 @@ from itertools import takewhile
 import numpy as np
 
 
-def load_ovf(file=None, mode="norm", v=1):
+def load_ovf(file=None, mode="norm", B0=1e4, v=1):
     """Load a .ovf or .omf file of magnetization values.
 
     This function takes magnetization output files from OOMMF or Mumax, pulls
@@ -17,11 +17,14 @@ def load_ovf(file=None, mode="norm", v=1):
     Args:
         file (string): Path to file
         mode (string): Define how the magnetization is scaled as it's read from
-            the file.
+            the file. OOMMF writes .omf files with vectors in units of A/m,
+            while Mumax writes .omf files with vectors normalized. This allows
+            the reading to scale the vectors appropriately to gauss or simply
+            make sure everything is normalized (as is needed for the phase
+            calculation).
 
             - "norm": (default) Normalize all vectors (does not change (0,0,0) vectors)
             - "raw": Don't do anything with the values.
-
         v (int): Verbosity.
 
             - 0 : No output
@@ -29,12 +32,11 @@ def load_ovf(file=None, mode="norm", v=1):
             - 2 : Extended output, print full header.
 
     Returns:
-        tuple: (mag_x, mag_y, mag_z, del_px)
+        tuple: (mags, scale, zscale)
 
-        - mag_x (`2D array`) -- x-component of magnetization (units depend on `mode`).
-        - mag_y (`2D array`) -- y-component of magnetization (units depend on `mode`).
-        - mag_z (`2D array`) -- z-component of magnetization (units depend on `mode`).
-        - del_px (float) -- Scale of datafile in y/x direction (nm/pixel)
+        - mags (`4D array`) -- shape [3, dimz, dimy, dimx], along first axis is stacked
+                               (magz, magy, magx)
+        - scale (float) -- Scale of datafile in y/x direction (nm/pixel)
         - zscale (float) -- Scale of datafile in z-direction (nm/pixel)
     """
     vprint = print if v >= 1 else lambda *a, **k: None
@@ -104,24 +106,24 @@ def load_ovf(file=None, mode="norm", v=1):
     Found scales (z, y, x): ({zscale}, {yscale}, {xscale})"""
             )
         )
-        del_px = np.max([i for i in [xscale, yscale, 0] if i is not None]) * 1e9
+        scale = np.max([i for i in [xscale, yscale, 0] if i is not None]) * 1e9
         if zscale is None:
-            zscale = del_px
+            zscale = scale
         else:
             zscale *= 1e9
         vprint(
-            f"Proceeding with {del_px:.3g} nm/pixel for in-plane and \
+            f"Proceeding with {scale:.3g} nm/pixel for in-plane and \
             {zscale:.3g} nm/pixel for out-of-plane."
         )
     else:
         assert xscale == yscale
-        del_px = xscale * 1e9  # originally given in meters
+        scale = xscale * 1e9  # originally given in meters
         zscale *= 1e9
-        if zscale != del_px:
-            vprint(f"Image (x-y) scale : {del_px:.3g} nm/pixel.")
+        if zscale != scale:
+            vprint(f"Image (x-y) scale : {scale:.3g} nm/pixel.")
             vprint(f"Out-of-plane (z) scale : {zscale:.3g} nm/pixel.")
         else:
-            vprint(f"Image scale : {del_px:.3g} nm/pixel.")
+            vprint(f"Image scale : {scale:.3g} nm/pixel.")
 
     if dtype == "text":
         data = np.genfromtxt(file)  # takes care of comments automatically
@@ -165,8 +167,10 @@ def load_ovf(file=None, mode="norm", v=1):
     mag_x = data[:, :, :, 0]
     mag_y = data[:, :, :, 1]
     mag_z = data[:, :, :, 2]
+    mags = np.array([mag_z, mag_y, mag_x])
 
-    return (mag_x, mag_y, mag_z, del_px, zscale)
+    return (mags, scale, zscale)
+
 
 
 def write_ovf(

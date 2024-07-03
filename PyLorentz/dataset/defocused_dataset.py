@@ -53,11 +53,12 @@ class DefocusedDataset(BaseDataset):
         scale: float | None = None,
         defvals: np.ndarray | None = None,
         mask: bool = True,
+        data_dir: os.PathLike|None=None,
         verbose: int | bool = 1,
         **kwargs,
     ):
         assert np.ndim(imstack) == 3, f"Bad input shape {imstack.shape}"
-        BaseDataset.__init__(self, imstack.shape[1:])
+        BaseDataset.__init__(self, imshape=imstack.shape[1:], data_dir=data_dir)
 
         vprint = print if verbose >= 1 else lambda *a, **k: None
 
@@ -74,8 +75,6 @@ class DefocusedDataset(BaseDataset):
         self._orig_flipstack = self.flipstack.copy()
         self._orig_shape = self._orig_imstack.shape[1:]
         self.mask = None
-
-        self._topdir = kwargs.get("topdir", None)
 
         if scale is None:
             vprint("No scale found. Set scale with DD.scale = <x> [nm/pix]")
@@ -211,6 +210,8 @@ class DefocusedDataset(BaseDataset):
                 vprint("Writing new metadata file:")
                 write_json(new_mdata_dict, new_mdata_file)
 
+        data_dir = aligned_file.absolute().parents[0]
+
         dd = cls(
             imstack=imstack,
             flipstack=flipstack,
@@ -218,12 +219,15 @@ class DefocusedDataset(BaseDataset):
             scale=scale,
             defvals=defvals,
             mask=mask,
+            data_dir=data_dir,
             verbose=verbose,
         )
 
-        dd._topdir = aligned_file.absolute().parents[0]
-
         return dd
+
+    @property
+    def flip(self):
+        return self._flip
 
     @property
     def defvals(self):
@@ -368,11 +372,12 @@ class DefocusedDataset(BaseDataset):
 
 
 
-    def apply_transforms(self):
+    def apply_transforms(self, v=1):
         # apply rotation -> crop, and set imstack and flipstack
         # for either stack or single image
         # might have to copy this over to show functions as well
-
+        if self._verbose or v>=1:
+            print("Applying transformations...")
         if self._preprocessed:
             imstack = self._orig_imstack_preprocessed.copy()
             flipstack = self._orig_flipstack_preprocessed.copy()

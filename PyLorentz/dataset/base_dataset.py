@@ -7,6 +7,23 @@ from matplotlib.backend_bases import MouseButton
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import scipy.ndimage as ndi
+import warnings
+
+import matplotlib as mpl
+### Remapping keybindings for interactive matplotlib figures
+mpl.rcParams["keymap.home"] = ""
+mpl.rcParams["keymap.back"] = ""
+mpl.rcParams["keymap.forward"] = ""
+mpl.rcParams["keymap.pan"] = ""
+mpl.rcParams["keymap.zoom"] = ""
+mpl.rcParams["keymap.save"] = ""
+mpl.rcParams["keymap.fullscreen"] = ""
+mpl.rcParams["keymap.grid"] = ""
+mpl.rcParams["keymap.grid_minor"] = ""
+mpl.rcParams["keymap.xscale"] = ""
+mpl.rcParams["keymap.yscale"] = ""
+mpl.rcParams["keymap.quit"] = ""
+
 
 # BaseImage?
 """
@@ -17,7 +34,7 @@ BaseImage?
 
 class BaseDataset(object):
 
-    def __init__(self, imshape):
+    def __init__(self, imshape:tuple|np.ndarray, data_dir: os.PathLike|None=None):
         # transforms will be rotation -> crop
         self._shape = imshape
         self._transformations = {
@@ -27,6 +44,8 @@ class BaseDataset(object):
             "left": 0,
             "right": self._shape[1],
         }
+
+        self._data_dir = data_dir
 
         return
 
@@ -38,6 +57,24 @@ class BaseDataset(object):
         if mdata["scale_unit"] != "nm":
             raise NotImplementedError(f"Unknown scale unit {mdata['scale_unit']}")
         return mdata
+
+    @property
+    def shape(self):
+        return self._shape
+
+    @property
+    def data_dir(self):
+        return self._data_dir
+
+    @data_dir.setter
+    def data_dir(self, p:os.PathLike|None ):
+        if p is None:
+            self._data_dir = p
+        else:
+            p = Path(p).absolute()
+            if not p.exists():
+                warnings.warn(f"data_dir does not exist, but setting anyways. data_dir = {p}")
+            self._data_dir = p
 
     @property
     def scale(self):
@@ -75,15 +112,16 @@ class BaseDataset(object):
         if print_instructions and verbose:
             s = (
                 "Interactive ROI selection:"
-                "\n\tRight click to move corner to mouse position"
-                "\n\t'j'/'k' to rotate the image, shift + 'j'/'k' to increase step size"
-                "\n\t'n'/'m' to grow/shrink the ROI, shift + 'n'/'m' to increase step size"
-                "\n\tarrow keys to move the ROI, + shift to increase step size"
-                "\n\t'c' to center the ROI on the middle of the image"
-                "\n\t'r' to make the ROI square"
-                "\n\t'f' to reset the ROI to the starting conditions, shift+'f' to reset to full image and zero rotation"
-                "\n\t'esc' or 'q' when finished to exit"
-                "\n(Click on image if not responding in notebook)"
+                "\n\tRight click | move closest corner to mouse position"
+                "\n\t'j'/'k'     | rotate the image, shift + 'j'/'k' to increase step size"
+                "\n\t'n'/'m'     | grow/shrink the ROI, shift + 'n'/'m' to increase step size"
+                "\n\tarrow keys  | move the ROI, + shift to increase step size"
+                "\n\t'c'         | center the ROI on the middle of the image"
+                "\n\t's'         | make the ROI square"
+                "\n\tshift+'r'         | reset the ROI to the starting conditions"
+                "\n\tshift+'f'   | restore the full image with zero rotation"
+                "\n\t'esc'       | save transformations and exit"
+                "\nIf display is not responding, try clicking on the image and ensuring %matplotlib widget"
             )
             print(s)
 
@@ -134,16 +172,14 @@ class BaseDataset(object):
                 self.scat = ax.scatter(xpoints, ypoints, c="r")
 
             def plot_image(self, rotation):
-                imrot = ndi.rotate(image.copy(), rotation, reshape=False)
+                imrot = ndi.rotate(image.copy(), rotation, reshape=False, order=1)
                 ax.matshow(imrot, cmap="gray")
 
             def print_update(self, rotation):
                 vprint(
-                    f"Rotation: {rotation} | "
-                    f"Points: "
-                    + f"({points[0,0]}, {points[0,1]}), ({points[1,0]}, {points[1,1]})"
-                    + " | Dimensions (h x w): "
-                    + f"{points[1,0]-points[0,0]} x {points[1,1]-points[0,1]}",
+                    f"Rotation: {rotation:4} | Points: ({points[0,0]:4}, {points[0,1]:4}), "
+                    + f"({points[1,0]:4}, {points[1,1]:4}) | Dimensions (h x w): "
+                    + f"{points[1,0]-points[0,0]:4} x {points[1,1]-points[0,1]:4}",
                     end="\r",
                 )
 
@@ -195,7 +231,7 @@ class BaseDataset(object):
                     self._transformations["right"] = points[1, 1]
                     self._transformations["rotation"] = self._temp_rotation
                     self._temp_rotation = None
-                    vprint(f"dd._transformations: {self._transformations}")
+                    vprint(f"setting transformations = {self._transformations}")
                     vprint(
                         f"Final image dimensions (h x w): {points[1,0]-points[0,0]} x {points[1,1]-points[0,1]}"
                     )
@@ -333,7 +369,7 @@ class BaseDataset(object):
                     p.plotrect(points)
                 p.print_update(self._temp_rotation)
 
-            elif event.key == "f":
+            elif event.key == "R":
                 points[0, 0] = start_points[0, 0]
                 points[0, 1] = start_points[0, 1]
                 points[1, 0] = start_points[1, 0]
@@ -359,7 +395,7 @@ class BaseDataset(object):
                     p.plotrect(points)
                 p.print_update(self._temp_rotation)
 
-            elif event.key == "r":
+            elif event.key == "s":
                 dimy = points[1, 0] - points[0, 0]
                 dimx = points[1, 1] - points[0, 1]
                 if dimy > dimx:
@@ -411,6 +447,7 @@ class BaseDataset(object):
         binding_id2 = plt.connect("motion_notify_event", on_move)
         plt.connect("key_press_event", on_key_press)
         plt.show()
+        print("Current parameters:")
         return
 
     def reset_transformations(self):
@@ -421,6 +458,50 @@ class BaseDataset(object):
         self._transformations["right"] = self._shape[1]
         self._transformations["top"] = 0
         self._transformations["bottom"] = self._shape[0]
+
+    @property
+    def transformations(self):
+        return self._transformations
+
+    @transformations.setter
+    def transformations(self, d, verbose=True):
+        if not isinstance(d, dict):
+            raise TypeError(f"transformations should be dict, not {type(d)}")
+        for key, val in d.items():
+            if key.lower() in ["rotation", "rot", "r"]:
+                self._transformations["rotation"] = val
+            elif key.lower() in ["top", "t"]:
+                self._transformations["top"] = val
+            elif key.lower() in ["bottom", "bot", "b"]:
+                self._transformations["bottom"] = val
+            elif key.lower() in ["left", "l"]:
+                self._transformations["left"] = val
+            elif key.lower() in ["right", "r"]:
+                self._transformations["right"] = val
+            else:
+                s = (
+                    f"Unknown key in transformations: {key}\n"
+                    + "Allowed keys are 'rotation', 'top', 'bottom', 'left', 'right'"
+                )
+                warnings.warn(s)
+
+        if verbose:
+            rotation = self._transformations["rotation"]
+            points = np.array(
+                [
+                    [self._transformations["top"], self._transformations["left"]],
+                    [self._transformations["bottom"], self._transformations["right"]],
+                ]
+            )
+            print(
+                f"Rotation: {rotation:4} | Points: ({points[0,0]:4}, {points[0,1]:4}), "
+                + f"({points[1,0]:4}, {points[1,1]:4}) | Dimensions (h x w): "
+                + f"{points[1,0]-points[0,0]:4} x {points[1,1]-points[0,1]:4}",
+                end="\r",
+            )
+
+
+
 
     @staticmethod
     def _points_dist(pos1, pos2):
