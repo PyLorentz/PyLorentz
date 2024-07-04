@@ -3,8 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from ipywidgets import interact
 from scipy import ndimage
-from PyLorentz.visualize.colorwheel import color_im, get_cmap
+from .colorwheel import color_im, get_cmap
 from matplotlib import colors
+from .show import show_im
 
 
 def show_2D(
@@ -17,11 +18,12 @@ def show_2D(
     title=None,
     color=True,
     cmap=None,
-    cbar=False,
+    cbar=True,
     origin="upper",
     save=None,
-    ax=None,
+    figax=None,
     rad=None,
+    scale=None,
     whitetotransparent=False,
     **kwargs,
 ):
@@ -64,6 +66,8 @@ def show_2D(
 
     if num_arrows > 0:
         a = int(((mag_x.shape[0] - 1) / num_arrows) + 1)
+    else:
+        a = -1
 
     dimy, dimx = mag_x.shape
     X = np.arange(0, dimx, 1)
@@ -89,7 +93,7 @@ def show_2D(
     else:
         aspect = dimy / dimx
 
-    if ax is None:
+    if figax is None:
         if save is not None:  # and title is None: # to avoid white border when saving
             fig = plt.figure()
             size = (sz_inches, sz_inches * aspect)
@@ -99,6 +103,8 @@ def show_2D(
         else:
             fig, ax = plt.subplots()
         ax.set_aspect(aspect)
+    else:
+        fig, ax = figax
     if color:
         cmap = get_cmap(cmap, **kwargs)
         cim = color_im(
@@ -112,19 +118,17 @@ def show_2D(
         if whitetotransparent and mag_z is not None:
             print("making transparent")
             cim = _white_to_transparent(cim, mag_z)
-        im = ax.matshow(cim, cmap=cmap, origin=origin)
-        if cbar:
-            # TODO set cbar height, and labels to be 0 - 2Pi
-            plt.colorbar(
-                im,
-                ax=ax,
-                pad=0.02,
-                format="%g",
-                label=str(kwargs.get("cbar_title", "")),
-            )
+
+        show_im(
+            cim,
+            cmap=cmap,
+            origin=origin,
+            cbar=cbar,
+            ticks_off=scale is None,
+            scale=scale,
+            figax=(fig, ax),
+        )
         arrow_color = "white"
-        ax.set_xticks([])
-        ax.set_yticks([])
 
     else:
         arrow_color = "black"
@@ -132,7 +136,7 @@ def show_2D(
 
     if a > 0:
         ashift = (dimx - 1) % a // 2
-        arrow_scale = 1/abs(arrow_size) if arrow_size is not None else None
+        arrow_scale = 1 / abs(arrow_size) if arrow_size is not None else None
         q = ax.quiver(
             X[ashift::a],
             Y[ashift::a],
@@ -157,10 +161,6 @@ def show_2D(
     else:
         tr = True
 
-    plt.tick_params(axis="x", labelbottom=False, bottom=False, top=False)
-    plt.tick_params(axis="y", labelleft=False, left=False, right=False)
-    # ax.set_aspect(aspect)
-
     if save is not None:
         if not color:
             tr = False
@@ -177,7 +177,9 @@ def show_2D(
     return
 
 
-def show_3D(mag_z, mag_y, mag_x, num_arrows=15, ay=None, num_arrows_z=15, l=None, show_all=True):
+def show_3D(
+    mag_z, mag_y, mag_x, num_arrows=15, ay=None, num_arrows_z=15, l=None, show_all=True
+):
     """Display a 3D vector field with arrows.
 
     Arrow color is determined by direction, with in-plane mapping to a HSV

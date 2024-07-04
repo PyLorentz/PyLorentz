@@ -10,6 +10,7 @@ import scipy.ndimage as ndi
 import warnings
 
 import matplotlib as mpl
+
 ### Remapping keybindings for interactive matplotlib figures
 mpl.rcParams["keymap.home"] = ""
 mpl.rcParams["keymap.back"] = ""
@@ -22,7 +23,7 @@ mpl.rcParams["keymap.grid"] = ""
 mpl.rcParams["keymap.grid_minor"] = ""
 mpl.rcParams["keymap.xscale"] = ""
 mpl.rcParams["keymap.yscale"] = ""
-mpl.rcParams["keymap.quit"] = ""
+mpl.rcParams["keymap.quit"] = "Qh"
 
 
 # BaseImage?
@@ -34,7 +35,9 @@ BaseImage?
 
 class BaseDataset(object):
 
-    def __init__(self, imshape:tuple|np.ndarray, data_dir: os.PathLike|None=None):
+    def __init__(
+        self, imshape: tuple | np.ndarray, data_dir: os.PathLike | None = None
+    ):
         # transforms will be rotation -> crop
         self._shape = imshape
         self._transformations = {
@@ -52,6 +55,27 @@ class BaseDataset(object):
     @classmethod
     def _read_mdata(self, metadata_file) -> dict:
         mdata = read_json(metadata_file)
+        keys = mdata.keys()
+        if "defocus_values" not in keys:
+            s = f"`defocus_values` not found in metadata file: {metadata_file}"
+            raise ValueError(s)
+        if "defocus_unit" not in keys:
+            print(
+                f"`defocus_unit` not found in metadata file: {metadata_file}"
+                + "\nSetting defocus_unit = `nm`"
+            )
+            mdata["defocus_unit"] = "nm"
+        if "scale" not in keys:
+            mdata["scale"] = None
+        if "scale_unit" not in keys:
+            print(
+                f"`scale_unit` not found in metadata file: {metadata_file}"
+                + "\nSetting scale_unit = `nm`"
+            )
+            mdata["scale_unit"] = "nm"
+        if "beam_energy" not in keys:
+            mdata["beam_energy"] = None
+
         if mdata["defocus_unit"] != "nm":
             raise NotImplementedError(f"Unknown defocus unit {mdata['defocus_unit']}")
         if mdata["scale_unit"] != "nm":
@@ -67,13 +91,15 @@ class BaseDataset(object):
         return self._data_dir
 
     @data_dir.setter
-    def data_dir(self, p:os.PathLike|None ):
+    def data_dir(self, p: os.PathLike | None):
         if p is None:
             self._data_dir = p
         else:
             p = Path(p).absolute()
             if not p.exists():
-                warnings.warn(f"data_dir does not exist, but setting anyways. data_dir = {p}")
+                warnings.warn(
+                    f"data_dir does not exist, but setting anyways. data_dir = {p}"
+                )
             self._data_dir = p
 
     @property
@@ -231,7 +257,7 @@ class BaseDataset(object):
                     self._transformations["right"] = points[1, 1]
                     self._transformations["rotation"] = self._temp_rotation
                     self._temp_rotation = None
-                    vprint(f"setting transformations = {self._transformations}")
+                    vprint(f"setting transformations:\n{self._transformations}")
                     vprint(
                         f"Final image dimensions (h x w): {points[1,0]-points[0,0]} x {points[1,1]-points[0,1]}"
                     )
@@ -307,7 +333,7 @@ class BaseDataset(object):
 
             elif event.key == "shift+up":
                 points[0, 0] = max(0, points[0, 0] - 20)
-                points[1, 0] = max(points[0, 0]+1, points[1, 0] - 20)
+                points[1, 0] = max(points[0, 0] + 1, points[1, 0] - 20)
                 p.plot(points)
                 if np.all(points >= 0):
                     p.plotrect(points)
@@ -323,7 +349,7 @@ class BaseDataset(object):
 
             elif event.key == "shift+left":
                 points[0, 1] = max(0, points[0, 1] - 20)
-                points[1, 1] = max(points[0, 1]+1, points[1, 1] - 20)
+                points[1, 1] = max(points[0, 1] + 1, points[1, 1] - 20)
                 p.plot(points)
                 if np.all(points >= 0):
                     p.plotrect(points)
@@ -339,7 +365,7 @@ class BaseDataset(object):
 
             elif event.key == "up":
                 points[0, 0] = max(0, points[0, 0] - 1)
-                points[1, 0] = max(points[0, 0]+1, points[1, 0] - 1)
+                points[1, 0] = max(points[0, 0] + 1, points[1, 0] - 1)
                 p.plot(points)
                 if np.all(points >= 0):
                     p.plotrect(points)
@@ -355,7 +381,7 @@ class BaseDataset(object):
 
             elif event.key == "left":
                 points[0, 1] = max(0, points[0, 1] - 1)
-                points[1, 1] = max(points[0, 1]+1, points[1, 1] - 1)
+                points[1, 1] = max(points[0, 1] + 1, points[1, 1] - 1)
                 p.plot(points)
                 if np.all(points >= 0):
                     p.plotrect(points)
@@ -499,9 +525,6 @@ class BaseDataset(object):
                 + f"{points[1,0]-points[0,0]:4} x {points[1,1]-points[0,1]:4}",
                 end="\r",
             )
-
-
-
 
     @staticmethod
     def _points_dist(pos1, pos2):

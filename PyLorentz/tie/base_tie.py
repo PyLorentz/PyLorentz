@@ -1,20 +1,25 @@
 import numpy as np
-from PyLorentz.data.defocused_dataset import DefocusedDataset as DD
+from PyLorentz.dataset.defocused_dataset import DefocusedDataset as DD
 import os
 from pathlib import Path
+from scipy.signal import convolve2d
+import scipy.constants as physcon
+from PyLorentz.visualize import show_im, show_2D
 
 
 class BasePhaseReconstruction(object):
 
     def __init__(
         self,
-        save_dir: os.PathLike|None=None,
+        save_dir: os.PathLike | None = None,
         name: str = "",
-        verbose: int|bool = 1,
+        scale: float | None = None,
+        verbose: int | bool = 1,
     ):
         self._save_dir = Path(save_dir).absolute()
         self._name = str(name)
         self._verbose = verbose
+        self._scale = scale
 
         self._results = {
             "By": None,
@@ -24,7 +29,17 @@ class BasePhaseReconstruction(object):
 
         return
 
+    @property
+    def scale(self):
+        return self._scale
 
+    @scale.setter
+    def scale(self, val):
+        if not isinstance(val, (float, int)):
+            raise TypeError(f"scale must be float/int, not {type(val)}")
+        if val <= 0:
+            raise ValueError(f"scale must be >0, not {val}")
+        self._scale = float(val)
 
     @property
     def name(self):
@@ -46,13 +61,11 @@ class BasePhaseReconstruction(object):
     def B(self):
         return np.array([self._results["By"], self._results["Bx"]])
 
-
     @property
     def phase_B(self):
         return self._results["phase_B"]
 
-
-    def vprint(self,*args, **kwargs):
+    def vprint(self, *args, **kwargs):
         if self._verbose:
             print(*args, **kwargs)
 
@@ -76,26 +89,61 @@ class BasePhaseReconstruction(object):
     def _save_key(self, key, color=False, fiji=True):
         return
 
+    def induction_from_phase(self, phase):
+        """Gives integrated induction in T*nm from a magnetic phase shift
+
+        Args:
+            phi (ndarray): 2D numpy array of size (dimy, dimx), magnetic component of the
+                phase shift in radians
+            del_px (float): in-plane scale of the image in nm/pixel
+
+        Returns:
+            tuple: (By, Bx) where each By, Bx is a 2D numpy array of size (dimy, dimx)
+                corresponding to the y/x component of the magnetic induction integrated
+                along the z-direction. Has units of T*nm (assuming del_px given in units
+                of nm/pixel)
+        """
+        grad_y, grad_x = np.gradient(np.squeeze(phase), edge_order=2)
+        pre_B = physcon.hbar / (physcon.e * self.scale) * 10**18  # T*nm^2
+        Bx = pre_B * grad_y
+        By = -1 * pre_B * grad_x
+        return (By, Bx)
 
 
+    def show_B(self, **kwargs):
+        """
+        show induction
+        """
+        show_2D(self.By, self.Bx, **kwargs)
+        return
 
+    # def show_phase(self):
+    #     """
+    #     show_phase
+    #     """
+    #     return
 
 
 class BaseTIE(BasePhaseReconstruction):
 
     def __init__(
         self,
-        save_dir: os.PathLike|None=None,
+        save_dir: os.PathLike | None = None,
+        scale: float | None = None,
+        beam_energy: float|None=None,
         name: str = "",
         sym: bool = False,
         qc: float | None = None,
-        verbose: int|bool = 1,
+        verbose: int | bool = 1,
     ):
-        BasePhaseReconstruction.__init__(self, save_dir, name, verbose)
+        BasePhaseReconstruction.__init__(self, save_dir, name, scale, verbose)
         self._sym = sym
         self._qc = qc
-        return
+        self._qi = None
+        self._pbcs = True
+        self._beam_energy = beam_energy
 
+        return
 
     @property
     def sym(self):
@@ -123,15 +171,88 @@ class BaseTIE(BasePhaseReconstruction):
         else:
             raise ValueError(f"qc must be float, not {type(val)}")
 
-
-    def show_B(self):
-        """
-        show induction
-        """
+    def _make_qi(self, shape: tuple, qc: float | None = None):
+        if qc is None:
+            qc = self.qc
+        ny, nx = shape
+        ly = np.fft.fftfreq(ny)
+        lx = np.fft.fftfreq(nx)
+        X, Y = np.meshgrid(lx, ly)
+        q = np.sqrt(X**2 + Y**2)
+        q[0, 0] = 1
+        if qc is not None and qc > 0:
+            self.vprint(f"Using a Tikhonov frequency [1/nm]: {qc}")
+            qi = q**2 / (q**2 + (qc * self.scale) ** 2) ** 2  # qc in 1/pix
+        else:  # normal Laplacian method
+            # self.vprint("Reconstructing with normal Laplacian method")
+            qi = 1 / q**2
+        qi[0, 0] = 0
+        self._qi = qi  # saves the freq dist
         return
 
-    def show_phase(self):
+    def _reconstruct_phase(self, infocus:np.ndarray, dIdZ:np.ndarray, defval:float):
+        print("dIdZ shape in recon phase: ", dIdZ.shape)
+        dimy, dimx = dIdZ.shape
+
+        # Fourier transform of longitudinal derivatives
+        fft1 = np.fft.fft2(dIdZ)
+        # applying 2/3 qc cutoff mask (see de Graef 2003)
+        gy, gx = np.ogrid[-dimy // 2 : dimy // 2, -dimx // 2 : dimx // 2]
+        rad = dimy / 3
+        qc_mask = gy**2 + gx**2 <= rad**2
+        qc_mask = np.fft.ifftshift(qc_mask)
+
+        # apply first inverse Laplacian operator
+        tmp1 = -1 * np.fft.ifft2(fft1 * qc_mask * self._qi)
+
+        # apply gradient operator and divide by in focus image
+        if self._pbcs:
+            # using kernel because np.gradient doesn't allow edge wrapping
+            kx = [[0, 0, 0], [1 / 2, 0, -1 / 2], [0, 0, 0]]
+            ky = [[0, 1 / 2, 0], [0, 0, 0], [0, -1 / 2, 0]]
+            grad_y1 = convolve2d(tmp1, ky, mode="same", boundary="wrap")
+            grad_y1 = np.real(grad_y1 / infocus)
+            grad_x1 = convolve2d(tmp1, kx, mode="same", boundary="wrap")
+            grad_x1 = np.real(grad_x1 / infocus)
+
+            # apply second gradient operator
+            # Applying laplacian directly doesn't give as good results??
+            grad_y2 = convolve2d(grad_y1, ky, mode="same", boundary="wrap")
+            grad_x2 = convolve2d(grad_x1, kx, mode="same", boundary="wrap")
+            tot = grad_y2 + grad_x2
+
+        else:
+            raise NotImplementedError
+
+        # apply second inverse Laplacian
+        fft2 = np.fft.fft2(tot)
+        prefactor = self._pre_Lap(defval)
+        phase = np.real(prefactor * -1 * np.fft.ifft2(fft2 * qc_mask * self._qi))
+
+        if self.sym:
+            d2y, d2x = phase.shape
+            phase = phase[:d2y//2, :d2x//2]
+
+        return phase
+
+    def _pre_Lap(self, def_step=1):
+        """Scaling prefactor used in the TIE reconstruction.
+
+        Args:
+            pscope (``Microscope`` object): Microscope object from
+                microscopes.py
+            def_step (float): The defocus value for which is being
+                reconstructed. If using a longitudinal derivative, def_step
+                should be 1.
+
+        Returns:
+            float: Numerical prefactor
         """
-        show_phase
-        """
-        return
+        epsilon = 0.5 * physcon.e / physcon.m_e / physcon.c**2
+        lam = (
+            physcon.h
+            * 1.0e9
+            / np.sqrt(2.0 * physcon.m_e * physcon.e)
+            / np.sqrt(self._beam_energy + epsilon * self._beam_energy**2)
+        )
+        return -1 * self.scale**2 / (16 * np.pi**3 * lam * def_step)

@@ -52,6 +52,7 @@ class DefocusedDataset(BaseDataset):
         flip: bool = False,
         scale: float | None = None,
         defvals: np.ndarray | None = None,
+        beam_energy: float|None = None,
         mask: bool = True,
         data_dir: os.PathLike|None=None,
         verbose: int | bool = 1,
@@ -67,6 +68,7 @@ class DefocusedDataset(BaseDataset):
         self._flip = flip if len(self.flipstack) > 0 else False  # either if flipstack
         self._scale = scale
         self.defvals = defvals
+        self._beam_energy = beam_energy
         self._verbose = verbose
         self._apply_mask = mask
         self._preprocessed = False
@@ -77,10 +79,11 @@ class DefocusedDataset(BaseDataset):
         self.mask = None
 
         if scale is None:
-            vprint("No scale found. Set scale with DD.scale = <x> [nm/pix]")
+            vprint("No scale found. Set with: DD.scale = <x> [nm/pix]")
         if defvals is None:
-            vprint("No scale found. Set scale with DD.scale = <x> [nm/pix]")
-
+            vprint("No scale found. Set with: DD.defvals = <x> [nm]")
+        if beam_energy is None:
+            vprint("No beam energy found. Set with: DD.energy = <x> [V]")
         return
 
     @classmethod
@@ -92,6 +95,7 @@ class DefocusedDataset(BaseDataset):
         flip: bool = False,
         scale: float | None = None,
         defocus_values: list | None = None,
+        beam_energy: float|None = None,
         dump_metadata: bool = True,
         mask: bool = True,
         legacy_data_loc: str | os.PathLike | None = None,
@@ -133,6 +137,7 @@ class DefocusedDataset(BaseDataset):
             mdata = cls._read_mdata(metadata_file)
             loaded_defvals = mdata["defocus_values"]
             loaded_scale = mdata["scale"]
+            loaded_energy = mdata["beam_energy"]
         elif legacy_data_loc is not None:
             loaded_scale, loaded_defvals = legacy_load(
                 legacy_data_loc, legacy_fls_filename
@@ -150,19 +155,29 @@ class DefocusedDataset(BaseDataset):
             else:
                 vprint(
                     f"Overwriting loaded scale, {loaded_scale:.2f} nm/pix,"
-                    + f"with set value {scale:.2f} nm/pix"
+                    + f"with user-set value {scale:.2f} nm/pix"
                 )
                 scale = float(scale)
 
         if loaded_defvals is not None:
-            if defocus_values is not None:
+            if defocus_values is None:
+                defvals = np.array(loaded_defvals)
+            else:
                 vprint(
                     f"Overwriting loaded defocus values:\n\t{loaded_defvals}"
-                    + f"with set value:\n\t{defvals}"
+                    + f"with user-set value:\n\t{defvals}"
                 )
                 defvals = np.array(defocus_values)
+
+        if loaded_energy is not None:
+            if beam_energy is None:
+                beam_energy = float(loaded_energy)
             else:
-                defvals = np.array(loaded_defvals)
+                vprint(
+                    f"Overwriting loaded beam energy:\n\t{loaded_energy}"
+                    + f"with user-set value:\n\t{beam_energy}"
+                )
+                beam_energy = float(beam_energy)
 
         ### load aligned images
         aligned_file = Path(aligned_file)
@@ -218,6 +233,7 @@ class DefocusedDataset(BaseDataset):
             flip=flip,
             scale=scale,
             defvals=defvals,
+            beam_energy=beam_energy,
             mask=mask,
             data_dir=data_dir,
             verbose=verbose,
@@ -260,12 +276,24 @@ class DefocusedDataset(BaseDataset):
         self._defvals = np.array(vals)
 
     @property
+    def energy(self):
+        return self._beam_energy
+
+    @energy.setter
+    def energy(self, val):
+        if not isinstance(val, (float, int)):
+            raise TypeError(f"energy must be numeric, found {type(val)}")
+        if val <= 0:
+            raise ValueError(f"energy must be > 0, not {val}")
+        self._beam_energy = float(val)
+
+    @property
     def full_stack(self):
         return np.concatenate([self.imstack, self.flipstack])
 
     @property
     def full_defvals(self):
-        if self._flip:
+        if self.flip:
             return np.concatenate([self.defvals, self.defvals])
         else:
             return self.defvals
@@ -273,7 +301,7 @@ class DefocusedDataset(BaseDataset):
     @property
     def infocus(self):
         inf_index = self.len_tfs//2
-        if self._flip:
+        if self.flip:
             ave_infocus = (self.imstack[inf_index] + self.flipstack[inf_index]) / 2
             return ave_infocus
         else:
@@ -285,7 +313,7 @@ class DefocusedDataset(BaseDataset):
 
     @property
     def len_tfs(self):
-        if self._flip:
+        if self.flip:
             assert len(self.imstack) == len(self.flipstack)
         return len(self.imstack)
 
@@ -312,21 +340,21 @@ class DefocusedDataset(BaseDataset):
             for i in tqdm(range(self.len_tfs)):
                 self.imstack[i] = filter_hotpix(self.imstack[i], fast=fast, **kwargs)
 
-                if self._flip:
+                if self.flip:
                     self.flipstack[i] = filter_hotpix(self.flipstack[i], fast=fast, **kwargs)
 
         if median_filter_size is not None:
             self.imstack = ndi.median_filter(
                 self.imstack, size=(1, median_filter_size, median_filter_size)
             )
-            if self._flip:
+            if self.flip:
                 self.flipstack = ndi.median_filter(
                     self.flipstack, size=(1, median_filter_size, median_filter_size)
                 )
 
         # subtract minimum
         self.imstack -= self.imstack.min(axis=(1,2))[..., None, None]
-        if self._flip:
+        if self.flip:
             self.flipstack -= self.flipstack.min(axis=(1,2))[..., None, None]
 
         self._preprocessed = True
@@ -368,6 +396,7 @@ class DefocusedDataset(BaseDataset):
         mask = mask.astype(np.float32, copy=False)
         mask = ndi.gaussian_filter(mask, 2)
         self.mask = mask
+        self._orig_mask = mask.copy()
         return
 
 
@@ -384,34 +413,39 @@ class DefocusedDataset(BaseDataset):
         else:
             imstack = self._orig_imstack.copy()
             flipstack = self._orig_flipstack.copy()
-        if self._transformations["rotation"] != 0:
-            imstack = ndi.rotate(imstack,
-                                 self._transformations["rotation"],
-                                 reshape=False,
-                                 axes=(1,2))
-            if self._flip:
-                flipstack = ndi.rotate(flipstack,
-                                    self._transformations["rotation"],
-                                    reshape=False,
-                                    axes=(1,2))
 
+        # will fail if mask not made, change to force preprocess?
+        mask = self._orig_mask.copy()
+        if self._transformations["rotation"] != 0:
+            # same speed as doing all together, this way have progress bar
+            mask = ndi.rotate(mask, self._transformations["rotation"], reshape=False)
+            for a0 in tqdm(range(len(imstack)), disable=v<1):
+                imstack[a0] = ndi.rotate(imstack[a0],
+                                         self._transformations["rotation"],
+                                         reshape=False)
+                if self.flip:
+                    flipstack[a0] = ndi.rotate(flipstack[a0],
+                                            self._transformations["rotation"],
+                                            reshape=False)
         top = self._transformations["top"]
         bottom = self._transformations["bottom"]
         left = self._transformations["left"]
         right = self._transformations["right"]
         imstack = imstack[:, top:bottom, left:right]
-        if self._flip:
+        mask = mask[top:bottom, left:right]
+        if self.flip:
             flipstack = flipstack[:, top:bottom, left:right]
 
         self.imstack = imstack
         self.flipstack = flipstack
+        self.mask = mask
         return
 
     def select_ROI(self, image: np.ndarray|None=None):
         # select image as infocus orig image if none given
         if image is None:
             inf_ind = self.len_tfs//2
-            if self._flip:
+            if self.flip:
                 if self._preprocessed:
                     image = self._orig_imstack_preprocessed[inf_ind] + self._orig_flipstack_preprocessed[inf_ind]
                 else:
