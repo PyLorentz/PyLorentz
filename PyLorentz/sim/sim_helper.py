@@ -21,7 +21,7 @@ import numpy as np
 import sys as sys
 
 import os
-from .comp_phase import mansPhi, linsupPhi
+from .comp_phase_old import mansPhi, linsupPhi
 from PyLorentz.utils.microscopes import Microscope
 
 import textwrap

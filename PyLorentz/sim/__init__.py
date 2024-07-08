@@ -1,1 +1,1 @@
-from .comp_phase import mansPhi, linsupPhi
+from .comp_phase_old import mansPhi, linsupPhi

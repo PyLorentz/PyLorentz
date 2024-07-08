@@ -5,6 +5,8 @@ from pathlib import Path
 from scipy.signal import convolve2d
 import scipy.constants as physcon
 from PyLorentz.visualize import show_im, show_2D
+from PyLorentz.visualize.colorwheel import color_im, get_cmap
+from PyLorentz.io.write import overwrite_rename, write_json, write_tif
 
 
 class BasePhaseReconstruction(object):
@@ -12,14 +14,16 @@ class BasePhaseReconstruction(object):
     def __init__(
         self,
         save_dir: os.PathLike | None = None,
-        name: str = "",
+        name: str|None = None,
         scale: float | None = None,
         verbose: int | bool = 1,
     ):
         self._save_dir = Path(save_dir).absolute()
-        self._name = str(name)
+        self._name = name
+        self._save_name = name
         self._verbose = verbose
         self._scale = scale
+        self._overwrite = False
 
         self._results = {
             "By": None,
@@ -81,12 +85,45 @@ class BasePhaseReconstruction(object):
         else:
             self._save_dir = p
 
-    def _save_keys(self, keys):
-        # for k in keys:
-        #     self._save_result(key)
+    def _save_keys(self, keys, defval:float|None=None, overwrite:bool|None=None, **kwargs):
+        ovr = overwrite if overwrite is not None else self._overwrite
+        for key in keys:
+            if defval is not None:
+                name = f"{self._save_name}_{self._fmt_defocus(defval)}_{key}.tiff"
+            else:
+                name = f"{self._save_name}_{key}.tiff"
+            fname = self.save_dir / name
+
+            if "color" in key:
+                image = color_im(
+                    self._results["By"],
+                    self._results["Bx"],
+                    **kwargs,
+                )
+            else:
+                image = self._results[key]
+
+            write_tif(image,
+                      fname,
+                      self.scale,
+                      v=self._verbose,
+                      overwrite=ovr,
+                      color="color" in key)
         return
 
-    def _save_key(self, key, color=False, fiji=True):
+    @staticmethod
+    def _fmt_defocus(defval: float|int, digits:int=3):
+        "returns a string of defocus value converted to nm, um, or mm as appropriate"
+
+        rnd_digits = len(str(round(defval))) - digits
+        rnd_abs = round(defval, -1*rnd_digits)
+
+        if abs(rnd_abs) < 1e3: # nm
+            return f"{rnd_abs:.0f}nm"
+        elif abs(rnd_abs) < 1e6: # um
+            return f"{rnd_abs/1e3:.0f}um"
+        elif abs(rnd_abs) < 1e9: # mm
+            return f"{rnd_abs/1e3:.0f}mm"
         return
 
     def induction_from_phase(self, phase):
@@ -131,7 +168,7 @@ class BaseTIE(BasePhaseReconstruction):
         save_dir: os.PathLike | None = None,
         scale: float | None = None,
         beam_energy: float|None=None,
-        name: str = "",
+        name: str|None = None,
         sym: bool = False,
         qc: float | None = None,
         verbose: int | bool = 1,
@@ -181,7 +218,7 @@ class BaseTIE(BasePhaseReconstruction):
         q = np.sqrt(X**2 + Y**2)
         q[0, 0] = 1
         if qc is not None and qc > 0:
-            self.vprint(f"Using a Tikhonov frequency [1/nm]: {qc}")
+            self.vprint(f"Using a Tikhonov frequency [1/nm]: {qc:.1e}")
             qi = q**2 / (q**2 + (qc * self.scale) ** 2) ** 2  # qc in 1/pix
         else:  # normal Laplacian method
             # self.vprint("Reconstructing with normal Laplacian method")
@@ -191,7 +228,6 @@ class BaseTIE(BasePhaseReconstruction):
         return
 
     def _reconstruct_phase(self, infocus:np.ndarray, dIdZ:np.ndarray, defval:float):
-        print("dIdZ shape in recon phase: ", dIdZ.shape)
         dimy, dimx = dIdZ.shape
 
         # Fourier transform of longitudinal derivatives
@@ -254,5 +290,5 @@ class BaseTIE(BasePhaseReconstruction):
             * 1.0e9
             / np.sqrt(2.0 * physcon.m_e * physcon.e)
             / np.sqrt(self._beam_energy + epsilon * self._beam_energy**2)
-        )
+        ) # electron wavelength
         return -1 * self.scale**2 / (16 * np.pi**3 * lam * def_step)

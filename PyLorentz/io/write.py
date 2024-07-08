@@ -13,12 +13,14 @@ import numpy as np
 import io
 import sys
 import json
+from PyLorentz.utils.utils import norm_image
+import warnings
 
 
-def write_tif(data, path, scale, v=1, unit="nm", overwrite=True):
+def write_tif(data, path, scale, v=1, unit="nm", overwrite=True, color=False):
     """
     scale in nm/pixel default,
-    saves as float32
+    saves as float32 if greyscale, or uint8 if color image
     """
     if scale is not None:
         res = 1 / scale
@@ -31,9 +33,17 @@ def write_tif(data, path, scale, v=1, unit="nm", overwrite=True):
     if v >= 1:
         print("Saving: ", path)
 
+    if color:
+        im = (255 * norm_image(data)).astype(np.uint8)
+    else:
+        if np.ndim(data) == 3:
+            if np.shape(data)[0] in [3, 4]:
+                warnings.warn("If this is a color image, save with color=True")
+        im = data.astype(np.float32)
+
     tifffile.imwrite(
         path,
-        data.astype("float32"),
+        im,
         imagej=True,
         resolution=(res, res),
         metadata={"unit": unit},

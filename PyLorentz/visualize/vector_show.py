@@ -108,8 +108,8 @@ def show_2D(
     if color:
         cmap = get_cmap(cmap, **kwargs)
         cim = color_im(
-            mag_x,
             mag_y,
+            mag_x,
             mag_z,
             cmap=cmap,
             rad=rad,
@@ -124,9 +124,10 @@ def show_2D(
             cmap=cmap,
             origin=origin,
             cbar=cbar,
-            ticks_off=scale is None,
+            ticks_off=scale is None or kwargs.pop("ticks_off", False),
             scale=scale,
             figax=(fig, ax),
+            title=title,
         )
         arrow_color = "white"
 
@@ -155,24 +156,15 @@ def show_2D(
         if origin == "upper":
             ax.invert_yaxis()
 
-    if title is not None:
-        tr = False
-        ax.set_title(title)
-    else:
-        tr = True
-
     if save is not None:
-        if not color:
-            tr = False
-        tr = True
         print(f"Saving: {save}")
         plt.axis("off")
         dpi = kwargs.get("dpi", max(dimy, dimx) * 5 / sz_inches)
         # sets dpi to 5 times original image dpi so arrows are reasonably sharp
         if title is None:  # for no padding
-            plt.savefig(save, dpi=dpi, bbox_inches=0, transparent=tr)
+            plt.savefig(save, dpi=dpi, bbox_inches=0, transparent=whitetotransparent)
         else:
-            plt.savefig(save, dpi=dpi, bbox_inches="tight", transparent=tr)
+            plt.savefig(save, dpi=dpi, bbox_inches="tight", transparent=whitetotransparent)
 
     return
 

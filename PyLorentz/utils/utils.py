@@ -58,3 +58,13 @@ def circ4(dim, rad):
     # 4-fold symmetric circle even at small dimensions
     return (dist4(dim) < rad).astype("int")
 
+
+def norm_image(image):
+    """Normalize image intensities to between 0 and 1"""
+    if image.max() == image.min():
+        image = image - np.max(image)
+    else:
+        image = image - np.min(image)
+        image = image / np.max(image)
+    return image
+

@@ -7,7 +7,7 @@ from itertools import takewhile
 import numpy as np
 
 
-def load_ovf(file=None, mode="norm", B0=1e4, v=1):
+def read_ovf(file=None, mode="norm", B0=1e4, v=1):
     """Load a .ovf or .omf file of magnetization values.
 
     This function takes magnetization output files from OOMMF or Mumax, pulls

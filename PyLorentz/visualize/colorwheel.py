@@ -152,7 +152,7 @@ def get_cmap(cmap=None, **kwargs):
     return cmap
 
 
-def color_im(mx, my, mz=None, cmap=None, rad=None, background="black", **kwargs):
+def color_im(vy, vx, vz=None, cmap=None, rad=None, background="black", **kwargs):
     """Make the RGB image from vector maps. Takes 2D array inputs for x, y, (and
     optionally z) vector components, along with
 
@@ -223,10 +223,10 @@ def color_im(mx, my, mz=None, cmap=None, rad=None, background="black", **kwargs)
     Returns:
         ``ndarray``: Numpy array (M x N x 3) containing the RGB color image.
     """
-    mx, my = np.squeeze(mx), np.squeeze(my)
-    assert mx.ndim == my.ndim == 2
-    assert np.shape(my) == np.shape(mx)
-    if mz is not None:
+    vx, vy = np.squeeze(vx), np.squeeze(vy)
+    assert vx.ndim == vy.ndim == 2
+    assert np.shape(vy) == np.shape(vx)
+    if vz is not None:
         HSL = kwargs.get("HSL", None)
         if HSL is None:
             HSL = kwargs.get("HLS", False) # i can never remember if it's HSL or HLS
@@ -238,12 +238,12 @@ def color_im(mx, my, mz=None, cmap=None, rad=None, background="black", **kwargs)
         cmap = get_cmap(cmap, **kwargs)
 
     if rad is None:
-        rad = mx.shape[0] // 16
+        rad = vx.shape[0] // 16
         rad = max(rad, 16)
 
-    raw_inp_mags = np.sqrt(mx**2 + my**2)
+    raw_inp_mags = np.sqrt(vx**2 + vy**2)
     if np.min(raw_inp_mags) == np.max(raw_inp_mags):
-        mags = np.ones_like(mx)
+        mags = np.ones_like(vx)
     else:
         mags = raw_inp_mags - np.min(raw_inp_mags)
         mags = mags / np.max(mags)  # normalize [0,1]
@@ -251,10 +251,10 @@ def color_im(mx, my, mz=None, cmap=None, rad=None, background="black", **kwargs)
     if kwargs.get("uni_mag", False):
         cutoff = kwargs.get("uni_mag_cutoff", 0.5)
         mags = np.where(mags > cutoff, 1, 0)
-    if mz is None:
+    if vz is None:
         bkgs = np.where(mags == 0)
     else:
-        bkgs = np.where(np.sqrt(mx**2 + my**2 + mz**2) == 0)
+        bkgs = np.where(np.sqrt(vx**2 + vy**2 + vz**2) == 0)
 
     if rad > 0:
         pad = 10  # padding between edge of image and color-wheel
@@ -262,22 +262,22 @@ def color_im(mx, my, mz=None, cmap=None, rad=None, background="black", **kwargs)
         pad = 0
         rad = 0
 
-    dimy = np.shape(my)[0]
+    dimy = np.shape(vy)[0]
     if dimy < 2 * rad:
         rad = dimy // 2
-    dimx = np.shape(my)[1] + 2 * rad + pad
+    dimx = np.shape(vy)[1] + 2 * rad + pad
     cimage = np.zeros((dimy, dimx, 3))
 
     # azimuth maps to hue
     if kwargs.get("one_pi", False):
-        azimuth = np.mod((np.arctan2(mx, my) + np.pi), np.pi) / np.pi
+        azimuth = np.mod((np.arctan2(vx, vy) + np.pi), np.pi) / np.pi
     else:
-        azimuth = (np.arctan2(mx, my) + np.pi) / (2 * np.pi)
+        azimuth = (np.arctan2(vx, vy) + np.pi) / (2 * np.pi)
 
     # apply colormap to angle
     imrgb = cmap(azimuth)[..., :3]  # remove alpha channel
 
-    if mz is None:
+    if vz is None:
         if background.lower() == "black":
             for i in range(3):
                 imrgb[:, :, i] *= mags
@@ -285,7 +285,7 @@ def color_im(mx, my, mz=None, cmap=None, rad=None, background="black", **kwargs)
             for i in range(3):
                 imrgb[:, :, i] = 1 - (1 - imrgb[:, :, i]) * mags
     else:  # mz > 1 -> white, mz < 1 -> black
-        theta = np.arctan2(mz, raw_inp_mags)
+        theta = np.arctan2(vz, raw_inp_mags)
         # from hipl.utils.show import show_im
         # show_im(mags, 'mags')
         # show_im(theta, 'theta')
@@ -297,8 +297,8 @@ def color_im(mx, my, mz=None, cmap=None, rad=None, background="black", **kwargs)
             S[bkgs] = 0
             L[bkgs] = 0.5
 
-            for j in range(np.shape(mx)[0]):
-                for i in range(np.shape(mx)[1]):
+            for j in range(np.shape(vx)[0]):
+                for i in range(np.shape(vx)[1]):
                     imrgb[j, i, :] = colorsys.hls_to_rgb(H[j, i], L[j, i], S[j, i])
         else:
             if kwargs.get("uni_mag", False):
@@ -317,7 +317,7 @@ def color_im(mx, my, mz=None, cmap=None, rad=None, background="black", **kwargs)
         return imrgb
     else:
         cimage[:, : -2 * rad - pad, :] = imrgb
-        if mz is None:
+        if vz is None:
             wheel = make_colorwheel(
                 rad, cmap, background="black", core=background, **kwargs
             )

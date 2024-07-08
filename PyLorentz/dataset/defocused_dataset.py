@@ -406,7 +406,7 @@ class DefocusedDataset(BaseDataset):
         # for either stack or single image
         # might have to copy this over to show functions as well
         if self._verbose or v>=1:
-            print("Applying transformations...")
+            print("Applying transformations...", end="\r")
         if self._preprocessed:
             imstack = self._orig_imstack_preprocessed.copy()
             flipstack = self._orig_flipstack_preprocessed.copy()
@@ -439,6 +439,7 @@ class DefocusedDataset(BaseDataset):
         self.imstack = imstack
         self.flipstack = flipstack
         self.mask = mask
+        print(f"Finished")
         return
 
     def select_ROI(self, image: np.ndarray|None=None):

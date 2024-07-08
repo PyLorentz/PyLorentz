@@ -6,6 +6,8 @@ from pathlib import Path
 import warnings
 import matplotlib.pyplot as plt
 from PyLorentz.visualize import show_im, show_2D
+from PyLorentz.io.write import write_json
+from datetime import datetime
 
 
 class TIE(BaseTIE):
@@ -14,7 +16,7 @@ class TIE(BaseTIE):
         self,
         dd: DD,
         save_dir: os.PathLike | None = None,
-        name: str = "",
+        name: str|None = None,
         sym: bool = False,
         qc: float | None = None,
         verbose: int = 1,
@@ -47,14 +49,15 @@ class TIE(BaseTIE):
     def reconstruct(
         self,
         index: int | None = None,
-        name: str = "",
+        name: str|None = None,
         sym: bool = False,
         qc: float | None = None,
         flip: bool | None = None,
-        save: bool = False,
+        save: bool|str|list[str] = False,
         save_dir: os.PathLike | None = None,
         verbose: int | bool = 1,
         pbcs: bool|None=None,
+        overwrite: bool=False,
     ):
         if index is None:
             index = self.dd.len_tfs - 1
@@ -62,7 +65,6 @@ class TIE(BaseTIE):
         assert index < len(self.dd.defvals_index)
         self._defval_index = index
         self._defval = self.dd.defvals_index[index]
-        self.name = name
         self.sym = sym
         if qc is not None:
             self.qc = qc
@@ -72,8 +74,18 @@ class TIE(BaseTIE):
             self._pbcs = pbcs
         self._verbose = verbose
         if save:
-            # checking here that dir exists before running
-            self.save_dir = save_dir
+            # setting here checks that parent dir exists before running
+            if save_dir is not None:
+                self.save_dir = save_dir
+            if name is None:
+                if self.name is None:
+                    now = datetime.now().strftime("%y%m%d-%H%M%S")
+                    self._save_name = f"{now}_TIE"
+                else:
+                    self._save_name = self.name
+            else:
+                self._save_name = name
+        self._overwrite = overwrite if overwrite is not None else self._overwrite
 
         self.vprint(
             f"Performing TIE reconstruction with defocus ± {self._defval/1e3:.2f} um, index = {index}"
@@ -104,7 +116,6 @@ class TIE(BaseTIE):
         # get derivatives
         dIdZ_B, dIdZ_E = self._get_derivatives(recon_stack, recon_mask, self.flip)
         self._results["dIdZ_B"] = dIdZ_B.copy()
-        self._results["dIdZ_E"] = dIdZ_E.copy()
 
         # temp checks
         assert dimy, dimx == recon_stack.shape[1:]
@@ -119,14 +130,53 @@ class TIE(BaseTIE):
         self._results["Bx"] = Bx
 
         if self.flip:
+            self._results["dIdZ_E"] = dIdZ_E.copy()
             phase_E = self._reconstruct_phase(infocus_im, dIdZ_E, self._defval)
             self._results["phase_E"] = phase_E - phase_E.min()
 
         if save:
-            # TODO
-            pass
+            self._save_results(save, overwrite)
 
+        return self # self or None?
+
+    def _save_results(self, save, overwrite=None):
+        if isinstance(save, bool):
+            save_keys = ["phase_B", "Bx", "By", "color"]
+            if self.flip:
+                save_keys.append("phase_E")
+        elif isinstance(save, str):
+            if save.lower() in ["b", "induction"]:
+                save_keys = ["Bx", "By", "color"]
+            elif save.lower() in ["phase"]:
+                save_keys = ["phase_B"]
+                if self.flip:
+                    save_keys.append("phase_E")
+            elif save.lower() == "all":
+                save_keys = list(self._results.keys())
+
+        elif hasattr(save, '__iter__'):
+            # is list or tuple of keys
+            save_keys = [str(k) for k in save]
+
+        self.save_dir.mkdir(exist_ok=True)
+        self._save_keys(save_keys, self.defval, overwrite)
+        self._save_log(overwrite)
         return
+
+    def _save_log(self, overwrite:bool|None=None):
+        log_dict = {
+            "name":self.name,
+            "_save_name":self._save_name,
+            "defval":self._defval,
+            "flip":self.flip,
+            "sym": self.sym,
+            "qc": self.qc,
+        }
+        ovr = overwrite if overwrite is not None else self._overwrite
+        name = f"{self._save_name}_{self._fmt_defocus(self.defval)}_log.json"
+        write_json(log_dict, self.save_dir / name, overwrite=ovr, v=self._verbose)
+        return
+
 
     def _get_derivatives(self, stack, mask, flip):
         if flip:
@@ -264,7 +314,7 @@ class TIE(BaseTIE):
             else:
                 raise ValueError(f"phase_E does not exist because flip=False")
 
-    def visualize(self):
+    def visualize(self, cbar=False, plot_scale:bool|str=True):
         """
         show phase + induction, if flip then show phase_e too
         options to save
@@ -276,12 +326,27 @@ class TIE(BaseTIE):
 
         fig, axs = plt.subplots(ncols=ncols, figsize=(4*ncols, 3))
 
-        show_im(self.phase_B, title="Magnetic phase shift", scale=self.scale, figax=(fig, axs[0]), cbar=False)
+        if isinstance(plot_scale, str):
+            if plot_scale == "all":
+                ticks1 = ticks2 = ticks3 = False
+            elif plot_scale.lower() == "phase":
+                ticks1 = ticks2 = False
+                ticks3 = True
+            elif plot_scale.lower() in ["color", "induction", "b", "ind"]:
+                ticks1 = ticks2 = True
+                ticks3 = False
+            else:
+                ticks1 = False
+                ticks2 = ticks3 = True
+        else:
+            ticks1 = False
+            ticks2 = ticks3 = True
+        show_im(self.phase_B, title="Magnetic phase shift", scale=self.scale, figax=(fig, axs[0]), ticks_off=ticks1, cbar=cbar, cbar_title="rad")
 
         if self.flip:
-            show_im(self.phase_E, title="Electrostatic phase shift", scale=self.scale, figax=(fig, axs[1]), ticks_off=True, cbar=False)
+            show_im(self.phase_E, title="Electrostatic phase shift", scale=self.scale, figax=(fig, axs[1]), ticks_off=ticks2, cbar=cbar, cbar_title="rad")
 
-        show_2D(self.By, self.Bx, figax=(fig, axs[-1]), title="Integrated induction map")
+        show_2D(self.By, self.Bx, figax=(fig, axs[-1]), scale=self.scale, ticks_off=ticks3,  title="Integrated induction map")
 
         plt.show()
         return
