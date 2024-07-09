@@ -1,5 +1,5 @@
 import numpy as np
-from PyLorentz.dataset.defocused_dataset import DefocusedDataset as DD
+from PyLorentz.dataset.defocused_dataset import ThroughFocalSeries as DD
 import os
 from PyLorentz.tie.base_tie import BaseTIE
 from pathlib import Path
@@ -357,3 +357,9 @@ class SITE(BaseTIE):
 
     def __init__(self):
         return
+
+    @classmethod
+    def from_array(cls, image, scale, defocus, beam_energy, qc, sym, name, verbose):
+        # make dadaset
+        return
+

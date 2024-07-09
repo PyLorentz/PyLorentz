@@ -1,12 +1,12 @@
 import numpy as np
-from PyLorentz.dataset.defocused_dataset import DefocusedDataset as DD
+from PyLorentz.dataset.defocused_dataset import ThroughFocalSeries as DD
 import os
 from pathlib import Path
 from scipy.signal import convolve2d
 import scipy.constants as physcon
 from PyLorentz.visualize import show_im, show_2D
 from PyLorentz.visualize.colorwheel import color_im, get_cmap
-from PyLorentz.io.write import overwrite_rename, write_json, write_tif
+from PyLorentz.io.write import overwrite_rename, write_json, write_tif, format_defocus
 
 
 class BasePhaseReconstruction(object):
@@ -114,17 +114,7 @@ class BasePhaseReconstruction(object):
     @staticmethod
     def _fmt_defocus(defval: float|int, digits:int=3):
         "returns a string of defocus value converted to nm, um, or mm as appropriate"
-
-        rnd_digits = len(str(round(defval))) - digits
-        rnd_abs = round(defval, -1*rnd_digits)
-
-        if abs(rnd_abs) < 1e3: # nm
-            return f"{rnd_abs:.0f}nm"
-        elif abs(rnd_abs) < 1e6: # um
-            return f"{rnd_abs/1e3:.0f}um"
-        elif abs(rnd_abs) < 1e9: # mm
-            return f"{rnd_abs/1e3:.0f}mm"
-        return
+        return format_defocus(defval, digits, spacer="")
 
     def induction_from_phase(self, phase):
         """Gives integrated induction in T*nm from a magnetic phase shift

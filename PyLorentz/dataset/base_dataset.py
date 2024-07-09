@@ -23,7 +23,7 @@ mpl.rcParams["keymap.grid"] = ""
 mpl.rcParams["keymap.grid_minor"] = ""
 mpl.rcParams["keymap.xscale"] = ""
 mpl.rcParams["keymap.yscale"] = ""
-mpl.rcParams["keymap.quit"] = "Qh"
+mpl.rcParams["keymap.quit"] = "Q"
 
 
 # BaseImage?

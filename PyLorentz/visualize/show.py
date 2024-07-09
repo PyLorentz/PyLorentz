@@ -90,18 +90,19 @@ def show_im(
 
     if figax is not None:
         fig, ax = figax
-    elif simple and title is None:
-        # all this to avoid a white border when saving the image without a title or cbar
-        fig = plt.figure()
+    else:
         aspect = image.shape[0] / image.shape[1]
-        size = kwargs.pop("figsize", (4, 4 * aspect))
+        size = kwargs.pop("figsize", (5, 5 * aspect))
         if isinstance(size, (int, float)):
             size = (size, size)
-        fig.set_size_inches(size)
-        ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
-        fig.add_axes(ax)
-    else:
-        _fig, ax = plt.subplots(figsize=kwargs.pop("figsize", (4, 4)))
+        if simple and title is None:
+            # all this to avoid a white border when saving the image without a title or cbar
+            fig = plt.figure()
+            fig.set_size_inches(size)
+            ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
+            fig.add_axes(ax)
+        else:
+            _fig, ax = plt.subplots(figsize=size)
 
     cmap = kwargs.get("cmap", "gray")
 
@@ -220,6 +221,8 @@ def show_im(
             plt.savefig(save, dpi=dpi, bbox_inches=0)
         else:
             plt.savefig(save, dpi=dpi, bbox_inches="tight")
+    else:
+        plt.tight_layout()
 
     if figax is None:
         plt.show()

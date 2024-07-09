@@ -149,3 +149,19 @@ def write_json(dict, path, overwrite=True, v=1):
         json.dump(d2, f, ensure_ascii=False, indent=4, sort_keys=True)
 
     return
+
+def format_defocus(defval: float|int, digits:int=3, spacer=""):
+    "returns a string of defocus value converted to nm, um, or mm as appropriate"
+
+    rnd_digits = len(str(round(defval))) - digits
+    rnd_abs = round(defval, -1*rnd_digits)
+
+    if abs(rnd_abs) < 1e3: # nm
+        return f"{rnd_abs:.0f}{spacer}nm"
+    elif abs(rnd_abs) < 1e6: # um
+        return f"{rnd_abs/1e3:.0f}{spacer}um"
+    elif abs(rnd_abs) < 1e9: # mm
+        return f"{rnd_abs/1e6:.0f}{spacer}mm"
+    else:
+        return f"{rnd_abs/1e9:.0f}{spacer}m"
+

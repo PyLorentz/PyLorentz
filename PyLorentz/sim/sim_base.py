@@ -3,6 +3,7 @@ from PyLorentz.io import read_ovf
 import os
 from PyLorentz.visualize import show_2D, show_3D
 import scipy.constants as physcon
+import scipy.ndimage as ndi
 
 
 class SimBase(object):
@@ -16,7 +17,8 @@ class SimBase(object):
         verbose: float | bool = 1,
     ):
         self._mags = mags
-        self._mags_shape_func = None
+        self._shape_func = None
+        self._flat_shape_func = None
         self._scale = scale
         self._zscale = zscale
         self._verbose = verbose
@@ -273,17 +275,41 @@ class SimBase(object):
         self._mags = vals
 
     @property
-    def mags_shape_func(self):
-        return self._mags_shape_func
+    def shape_func(self):
+        return self._shape_func
 
-    @mags_shape_func.setter
-    def mags_shape_func(self, val):
-        val = np.array(val)
-        if val.shape != self._mags_shape[1:]:
+    @shape_func.setter
+    def shape_func(self, val):
+        val = np.array(val).astype("int")
+        if val.shape != self._mags_shape:
             raise ValueError(
                 f"shape function shape, {val.shape} should equal mags shape, {self._mags_shape}"
             )
-        self._mags_shape_func = val
+        self._shape_func = val
+
+    @property
+    def flat_shape_func(self):
+        return self._flat_shape_func
+
+    def get_flat_shape_func(self, sigma=0):
+        # rotate x then y
+        # return flattened array
+        if abs(self.tilt_x) < 0.1 and abs(self.tilt_y) < 0.1 or np.ptp(self.shape_func) == 0:
+            flat = self.shape_func.sum(axis=0)
+        else:
+            padwidth = np.max(self._mags_shape[1:]) // 2
+            rot = np.pad(
+                self._shape_func, ((padwidth, padwidth), (0, 0), (0, 0))
+            ).astype(np.float32)
+            if abs(self.tilt_x) >= 0.1:
+                rot = ndi.rotate(rot, self.tilt_x, axes=(0, 1), reshape=False)
+            if abs(self.tilt_y) >= 0.1:
+                rot = ndi.rotate(rot, self.tilt_y, axes=(0, 2), reshape=False)
+            flat = rot.sum(axis=0)
+        if sigma > 0:
+            flat = ndi.gaussian_filter(flat, sigma)
+        self._flat_shape_func = flat
+        return
 
     def show_mags(self, s3D=False, xy_only=False, **kwargs):
 
@@ -291,9 +317,16 @@ class SimBase(object):
             show_3D(self.Mz, self.My, self.Mx, **kwargs)
         else:
             if xy_only:
-                show_2D(mag_y=self.My, mag_x=self.Mx, **kwargs)
+                show_2D(
+                    mag_y=self.My.mean(axis=0), mag_x=self.Mx.mean(axis=0), **kwargs
+                )
             else:
-                show_2D(mag_y=self.My, mag_x=self.Mx, mag_z=self.Mz, **kwargs)
+                show_2D(
+                    mag_y=self.My.mean(axis=0),
+                    mag_x=self.Mx.mean(axis=0),
+                    mag_z=self.Mz.mean(axis=0),
+                    **kwargs,
+                )
         return
 
     def get_shape_func(self, mags: np.ndarray | None = None):
@@ -309,7 +342,7 @@ class SimBase(object):
         assert mags.shape[0] == 3
 
         shape_func = np.any((mags != 0), axis=0)
-        self.mags_shape_func = shape_func
+        self.shape_func = shape_func
 
         return
 
@@ -331,8 +364,8 @@ class SimBase(object):
         return sigma
 
     def _pre_B(self):
-        return 2*np.pi*self.B0*self.zscale*self.scale/self._phi0
+        return 2 * np.pi * self.B0 * self.zscale * self.scale / self._phi0
 
     def _pre_E(self):
         # TODO figure out how I want to include the phase shift from the membrane
-        return self._interaction_constant * self.sample_V0*self.zscale
+        return self._interaction_constant() * self.sample_V0 * self.zscale

@@ -43,7 +43,7 @@ len(defvals) = len(tifstack) = len(flipstack) if there is one
 """
 
 
-class DefocusedDataset(BaseDataset):
+class ThroughFocalSeries(BaseDataset):
 
     def __init__(
         self,
@@ -400,7 +400,6 @@ class DefocusedDataset(BaseDataset):
         return
 
 
-
     def apply_transforms(self, v=1):
         # apply rotation -> crop, and set imstack and flipstack
         # for either stack or single image
@@ -480,3 +479,24 @@ class DefocusedDataset(BaseDataset):
         could/should probably build this around EMD file, see how datacubes are saved
         """
         return
+
+
+# for single images / SITIE / SIPRAD
+# SITIE itself should be able to take either a DefocusedDataset or DefocusImage?
+    # have a from_TFS
+class DefocusedDataset(BaseDataset):
+
+    # this is from array
+    def __init__(self):
+
+        # BaseDataset.__init__(self, imshape=imstack.shape[1:], data_dir=data_dir)
+
+        return
+
+    @classmethod
+    def from_TFS(cls):
+        return cls
+
+    @classmethod
+    def from_image(cls):
+        return cls
