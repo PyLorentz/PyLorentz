@@ -69,8 +69,8 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
         else:
             raise ValueError(f"phase_method has bad value somehow: {self.phase_method}")
 
-        self._phase_B = phase_B
-        self._phase_E = phase_E
+        self._phase_B = phase_B - phase_B.min()
+        self._phase_E = phase_E - phase_E.min()
         return
 
     def sim_images(
@@ -92,7 +92,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
 
         self.vprint(
             f"Simulating images for defocus values: "
-            + f"{', '.join([format_defocus(i, spacer=" ") for i in defocus_values])}"
+            + f"{', '.join([format_defocus(i, spacer=' ') for i in defocus_values])}"
         )
 
         images = []
@@ -102,11 +102,87 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
             images.append(scope.compute_image(object_wave, padded_shape=padded_shape))
         images = np.array(images)
 
-        return images.squeeze()
+        dd = DefocusedDataset(
+            images=images,
+            defvals=defocus_values,
+            scale=self.scale,
+            beam_energy=scope.E,
+            simulated=True,
+            verbose=self._verbose,
+        )
 
+        return dd
+
+    def sim_TFS(
+        self,
+        defocus_values: float | list,  # single defocus value or list of them
+        scope: Microscope,
+        flip=False,
+        filter_sigma: float = 1,
+        amorphous_bkg=None,
+        padded_shape=None,
+    ) -> ThroughFocalSeries:
+
+        if isinstance(defocus_values, (float, int)):
+            full_defvals = [-1 * abs(defocus_values), 0, abs(defocus_values)]
+        else:
+            defocus_values = np.sort(np.unique(np.abs(defocus_values)))
+            if defocus_values[0] == 0:
+                defocus_values = defocus_values[1:]
+            full_defvals = np.concatenate(
+                [-1 * defocus_values[::-1], [0], defocus_values]
+            )
+
+        self.vprint(
+            f"Simulating images for defocus values: "
+            + f"{', '.join([format_defocus(i, spacer=' ') for i in full_defvals])}"
+        )
+        if flip:
+            self.vprint("Will simulate a tfs for both unflip and flip orientations.")
+
+        seed = np.random.randint(1e9)
+        object_wave = self._generate_object_wave(
+            filter_sigma, amorphous_bkg, flip=False, seed=seed
+        )
+        if flip:
+            object_wave_flip = self._generate_object_wave(
+                filter_sigma, amorphous_bkg, flip=True, seed=seed
+            )
+        imstack = []
+        flipstack = []
+        scope.scale = self.scale
+        for defval in full_defvals:
+            scope.defocus = defval
+            imstack.append(scope.compute_image(object_wave, padded_shape=padded_shape))
+            if flip:
+                flipstack.append(
+                    scope.compute_image(object_wave_flip, padded_shape=padded_shape)
+                )
+
+        # for single or set of defocus values, record a through focal series with/without flip
+        # one defocus val, flip=False -> [+-, +0, ++]
+        # one defocus val, flip=True, -> [[+-, +0, ++], [--, -0, -+]]
+        # multiple defocus vals,
+        # everything goes into a DefocusedDataset object
+        tfs = ThroughFocalSeries(
+            imstack=imstack,
+            flipstack=flipstack,
+            flip=flip,
+            scale=self.scale,
+            defvals=full_defvals,
+            beam_energy=scope.E,
+            simulated=True,
+            verbose=self._verbose,
+        )
+        # tfs.preprocess()
+        return tfs
 
     def _generate_object_wave(
-        self, filter_sigma: float = 1, amorphous_bkg=None, flip: bool = False
+        self,
+        filter_sigma: float = 1,
+        amorphous_bkg=None,
+        flip: bool = False,
+        seed: int | None = None,
     ):
         """
         generate the object wave used to simulate images
@@ -125,8 +201,9 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
                 bkg_amount = 0.01
             else:
                 bkg_amount = amorphous_bkg / 1000
-
-            random_phase = np.random.uniform(
+            seed = np.random.randint(1e9) if seed is None else seed
+            rng = np.random.default_rng(seed=seed)
+            random_phase = rng.uniform(
                 low=-1 * bkg_amount, high=bkg_amount, size=phase_t.shape
             )
             random_phase = ndi.gaussian_filter(
@@ -161,14 +238,3 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
         object_wave = amplitude * np.exp(1.0j * phase_t)
 
         return object_wave
-
-    def sim_TFS(
-        self, defocus_values, scope, flip_series=False, **kwargs
-    ) -> ThroughFocalSeries:
-        # for single or set of defocus values, record a through focal series with/without flip
-        # one defocus val, flip=False -> [+-, +0, ++]
-        # one defocus val, flip=True, -> [[+-, +0, ++], [--, -0, -+]]
-        # multiple defocus vals,
-        # everything goes into a DefocusedDataset object
-
-        return

@@ -238,7 +238,10 @@ def bloch(dim, chirality="cw", pad=True, ir=0, show=False, bkg="pos", sigma=None
     cx, cy = [dim // 2, dim // 2]
     sigma = dim // 40 if sigma is None else sigma
     if pad:
-        rad = 3 * dim // 8
+        if isinstance(pad, (float, int)):
+            rad = (dim - 2*pad) // 2
+        else:
+            rad = 3 * dim // 8
     else:
         rad = dim // 2
 
@@ -335,7 +338,8 @@ def neel(dim, chirality="io", pad=True, ir=0, show=False):
     """
     cx, cy = [dim // 2, dim // 2]
     if pad:
-        rad = 3 * dim // 8
+        if isinstance(pad, (float, int)):
+            rad = (dim - 2*pad) // 2
     else:
         rad = dim // 2
 
@@ -422,7 +426,8 @@ def blochII(
     cp2 = max(cp2, cp1+1)
 
     if pad:
-        rad = 3 * dim // 8
+        if isinstance(pad, (float, int)):
+            rad = (dim - 2*pad) // 2
     else:
         rad = dim // 2
 

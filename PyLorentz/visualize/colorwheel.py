@@ -318,11 +318,18 @@ def color_im(vy, vx, vz=None, cmap=None, rad=None, background="black", **kwargs)
     else:
         cimage[:, : -2 * rad - pad, :] = imrgb
         if vz is None:
+            wbkg = "black" if background == "white" else "white"
             wheel = make_colorwheel(
-                rad, cmap, background="black", core=background, **kwargs
+                rad, cmap, background=wbkg, core=background, **kwargs
             )
+            if background == "black": # have white sidebar
+                cimage[:, dimx-2*rad-pad :] = 1
+
         else:
             wheel = make_colorwheelz(rad, cmap, **kwargs)
+            cimage[:, dimx-2*rad-pad :] = 0
+            cimage[:, dimx-2*rad-pad] = 1
+
         cimage[
             dimy // 2 - rad : dimy // 2 + rad,
             dimx - 2 * rad - pad // 2 : -pad // 2,

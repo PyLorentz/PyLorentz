@@ -36,19 +36,26 @@ BaseImage?
 class BaseDataset(object):
 
     def __init__(
-        self, imshape: tuple | np.ndarray, data_dir: os.PathLike | None = None
+        self,
+        imshape: tuple | np.ndarray|None=None,
+        data_dir: os.PathLike | None = None,
+        scale: float | None = None,
+        verbose: int|bool=1,
     ):
         # transforms will be rotation -> crop
+        # if imshape is not None:
         self._shape = imshape
+        self.scale = scale
         self._transformations = {
             "rotation": 0,
             "top": 0,
-            "bottom": self._shape[0],
+            "bottom": imshape[0],
             "left": 0,
-            "right": self._shape[1],
+            "right": imshape[1],
         }
+        self._verbose = verbose
 
-        self._data_dir = data_dir
+        self.data_dir = data_dir
 
         return
 
@@ -107,7 +114,9 @@ class BaseDataset(object):
         return self._scale
 
     @scale.setter
-    def scale(self, val: float):
+    def scale(self, val: float | None):
+        if val is None:
+            self._scale = None
         if val > 0:
             self._scale = val
         else:
@@ -491,6 +500,8 @@ class BaseDataset(object):
 
     @transformations.setter
     def transformations(self, d, verbose=True):
+        if not hasattr(self, "_transformations"):
+            self._transformations = {}
         if not isinstance(d, dict):
             raise TypeError(f"transformations should be dict, not {type(d)}")
         for key, val in d.items():
@@ -540,3 +551,8 @@ class BaseDataset(object):
         assert len(pos1) == len(pos2) == 2
         squared = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
         return np.sqrt(squared)
+
+    def vprint(self, *args, **kwargs):
+        if self._verbose:
+            print(*args, **kwargs)
+

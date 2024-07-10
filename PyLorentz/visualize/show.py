@@ -229,7 +229,7 @@ def show_im(
     return
 
 
-def show_stack(images, titles=None, full_scale=True, **kwargs):
+def show_stack(images, titles=None, scale_each=True, **kwargs):
     """
     Uses ipywidgets.interact to allow user to view multiple images on the same
     axis using a slider. There is likely a better way to do this, but this was
@@ -244,7 +244,7 @@ def show_stack(images, titles=None, full_scale=True, **kwargs):
     """
     _fig, _ax = plt.subplots()
     images = np.array(images)
-    if not full_scale:
+    if not scale_each:
         vmin = np.min(images)
         vmax = np.max(images)
     else:

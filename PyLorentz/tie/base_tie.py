@@ -1,5 +1,5 @@
 import numpy as np
-from PyLorentz.dataset.defocused_dataset import ThroughFocalSeries as DD
+from PyLorentz.dataset.defocused_dataset import ThroughFocalSeries as TFS
 import os
 from pathlib import Path
 from scipy.signal import convolve2d
@@ -7,7 +7,7 @@ import scipy.constants as physcon
 from PyLorentz.visualize import show_im, show_2D
 from PyLorentz.visualize.colorwheel import color_im, get_cmap
 from PyLorentz.io.write import overwrite_rename, write_json, write_tif, format_defocus
-
+from datetime import datetime
 
 class BasePhaseReconstruction(object):
 
@@ -18,7 +18,7 @@ class BasePhaseReconstruction(object):
         scale: float | None = None,
         verbose: int | bool = 1,
     ):
-        self._save_dir = Path(save_dir).absolute()
+        self._save_dir = save_dir
         self._name = name
         self._save_name = name
         self._verbose = verbose
@@ -78,12 +78,15 @@ class BasePhaseReconstruction(object):
         return self._save_dir
 
     @save_dir.setter
-    def save_dir(self, p):
-        p = Path(p)
-        if not p.parents[0].exists():
-            raise ValueError(f"save dir parent does not exist: {p.parents[0]}")
+    def save_dir(self, p:os.PathLike|None):
+        if p is None:
+            self._save_dir = None
         else:
-            self._save_dir = p
+            p = Path(p).absolute()
+            if not p.parents[0].exists():
+                raise ValueError(f"save dir parent does not exist: {p.parents[0]}")
+            else:
+                self._save_dir = p
 
     def _save_keys(self, keys, defval:float|None=None, overwrite:bool|None=None, **kwargs):
         ovr = overwrite if overwrite is not None else self._overwrite
@@ -112,9 +115,9 @@ class BasePhaseReconstruction(object):
         return
 
     @staticmethod
-    def _fmt_defocus(defval: float|int, digits:int=3):
+    def _fmt_defocus(defval: float|int, digits:int=3, spacer=""):
         "returns a string of defocus value converted to nm, um, or mm as appropriate"
-        return format_defocus(defval, digits, spacer="")
+        return format_defocus(defval, digits, spacer=spacer)
 
     def induction_from_phase(self, phase):
         """Gives integrated induction in T*nm from a magnetic phase shift
@@ -136,7 +139,6 @@ class BasePhaseReconstruction(object):
         By = -1 * pre_B * grad_x
         return (By, Bx)
 
-
     def show_B(self, **kwargs):
         """
         show induction
@@ -144,11 +146,22 @@ class BasePhaseReconstruction(object):
         show_2D(self.By, self.Bx, **kwargs)
         return
 
-    # def show_phase(self):
-    #     """
-    #     show_phase
-    #     """
-    #     return
+    def _check_save_name(self, save_dir:os.PathLike|None, name:str|None, mode:str=""):
+        if save_dir is None:
+            if self.save_dir is None:
+                raise ValueError(f"save_dir not specified, is None")
+        else:
+            self.save_dir = save_dir
+        if name is None:
+            if self.name is None:
+                now = datetime.now().strftime("%y%m%d-%H%M%S")
+                if len(mode) > 0:
+                    mode = "_" + mode
+                self._save_name = f"{now}{mode}"
+            else:
+                self._save_name = self.name
+        else:
+            self._save_name = name
 
 
 class BaseTIE(BasePhaseReconstruction):
@@ -253,7 +266,7 @@ class BaseTIE(BasePhaseReconstruction):
         # apply second inverse Laplacian
         fft2 = np.fft.fft2(tot)
         prefactor = self._pre_Lap(defval)
-        phase = np.real(prefactor * -1 * np.fft.ifft2(fft2 * qc_mask * self._qi))
+        phase = np.real(prefactor * np.fft.ifft2(fft2 * qc_mask * self._qi))
 
         if self.sym:
             d2y, d2x = phase.shape
@@ -282,3 +295,42 @@ class BaseTIE(BasePhaseReconstruction):
             / np.sqrt(self._beam_energy + epsilon * self._beam_energy**2)
         ) # electron wavelength
         return -1 * self.scale**2 / (16 * np.pi**3 * lam * def_step)
+
+    @property
+    def beam_energy(self):
+        return self._beam_energy
+
+    @beam_energy.setter
+    def beam_energy(self, val: float|None):
+        if val is None:
+            self._beam_energy = None
+        else:
+            if not isinstance(val, (float, int)):
+                raise TypeError(f"energy must be numeric, found {type(val)}")
+            if val <= 0:
+                raise ValueError(f"energy must be > 0, not {val}")
+            self._beam_energy = float(val)
+
+    def _symmetrize(self, imstack, mode="even"):
+        """Makes the even symmetric extension of an image (4x as large).
+
+        Args:
+            image (2D array): input image (M,N)
+
+        Returns:
+            ``ndarray``: Numpy array of shape (2M,2N)
+        """
+        if np.ndim(imstack) == 2:
+            imstack = imstack[None,]
+        dimz, dimy, dimx = imstack.shape
+        imi = np.zeros((dimz, dimy * 2, dimx * 2))
+        imi[:, :dimy, :dimx] = imstack
+        if mode == "even":
+            imi[:, dimy:, :dimx] = np.flip(imstack, axis=1)
+            imi[:, :, dimx:] = np.flip(imi[:, :, :dimx], axis=2)
+        elif mode == "odd":
+            imi[:, dimy:, :dimx] = -1 * np.flip(imstack, axis=1)
+            imi[:, :, dimx:] = -1 * np.flip(imi[:, :, :dimx], axis=2)
+        else:
+            raise ValueError(f"`mode` should be `even` or `odd`, not `{mode}`")
+        return imi.squeeze()

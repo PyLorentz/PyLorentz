@@ -4,7 +4,6 @@ import textwrap
 from scipy.ndimage import median_filter
 from tifffile import TiffFile
 import tifffile
-from PyLorentz.tie.TIE_params import TIE_params
 from ncempy.io import dm as ncempy_dm
 from ncempy.io.emdVelox import fileEMDVelox
 from itertools import takewhile
