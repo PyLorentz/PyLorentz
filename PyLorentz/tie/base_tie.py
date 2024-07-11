@@ -1,20 +1,31 @@
-import numpy as np
-from PyLorentz.dataset.defocused_dataset import ThroughFocalSeries as TFS
 import os
-from pathlib import Path
-from scipy.signal import convolve2d
-import scipy.constants as physcon
-from PyLorentz.visualize import show_im, show_2D
-from PyLorentz.visualize.colorwheel import color_im, get_cmap
-from PyLorentz.io.write import overwrite_rename, write_json, write_tif, format_defocus
+import warnings
 from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+import scipy.constants as physcon
+from scipy.signal import convolve2d
+
+from PyLorentz.dataset.defocused_dataset import ThroughFocalSeries as TFS
+from PyLorentz.io.write import format_defocus, overwrite_rename, write_json, write_tif
+from PyLorentz.visualize import show_2D, show_im
+from PyLorentz.visualize.colorwheel import color_im, get_cmap
+
+
+def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
+    return "%s:%s: %s:%s\n" % (filename, lineno, category.__name__, message)
+
+
+warnings.formatwarning = warning_on_one_line
+
 
 class BasePhaseReconstruction(object):
 
     def __init__(
         self,
         save_dir: os.PathLike | None = None,
-        name: str|None = None,
+        name: str | None = None,
         scale: float | None = None,
         verbose: int | bool = 1,
     ):
@@ -54,20 +65,24 @@ class BasePhaseReconstruction(object):
         self._name = str(name)
 
     @property
+    def results(self):
+        return self._results
+
+    @property
     def By(self):
-        return self._results["By"]
+        return self.results["By"]
 
     @property
     def Bx(self):
-        return self._results["Bx"]
+        return self.results["Bx"]
 
     @property
     def B(self):
-        return np.array([self._results["By"], self._results["Bx"]])
+        return np.array([self.results["By"], self.results["Bx"]])
 
     @property
     def phase_B(self):
-        return self._results["phase_B"]
+        return self.results["phase_B"]
 
     def vprint(self, *args, **kwargs):
         if self._verbose:
@@ -78,7 +93,7 @@ class BasePhaseReconstruction(object):
         return self._save_dir
 
     @save_dir.setter
-    def save_dir(self, p:os.PathLike|None):
+    def save_dir(self, p: os.PathLike | None):
         if p is None:
             self._save_dir = None
         else:
@@ -88,7 +103,9 @@ class BasePhaseReconstruction(object):
             else:
                 self._save_dir = p
 
-    def _save_keys(self, keys, defval:float|None=None, overwrite:bool|None=None, **kwargs):
+    def _save_keys(
+        self, keys, defval: float | None = None, overwrite: bool | None = None, **kwargs
+    ):
         ovr = overwrite if overwrite is not None else self._overwrite
         for key in keys:
             if defval is not None:
@@ -99,23 +116,25 @@ class BasePhaseReconstruction(object):
 
             if "color" in key:
                 image = color_im(
-                    self._results["By"],
-                    self._results["Bx"],
+                    self.results["By"],
+                    self.results["Bx"],
                     **kwargs,
                 )
             else:
-                image = self._results[key]
+                image = self.results[key]
 
-            write_tif(image,
-                      fname,
-                      self.scale,
-                      v=self._verbose,
-                      overwrite=ovr,
-                      color="color" in key)
+            write_tif(
+                image,
+                fname,
+                self.scale,
+                v=self._verbose,
+                overwrite=ovr,
+                color="color" in key,
+            )
         return
 
     @staticmethod
-    def _fmt_defocus(defval: float|int, digits:int=3, spacer=""):
+    def _fmt_defocus(defval: float | int, digits: int = 3, spacer=""):
         "returns a string of defocus value converted to nm, um, or mm as appropriate"
         return format_defocus(defval, digits, spacer=spacer)
 
@@ -146,7 +165,9 @@ class BasePhaseReconstruction(object):
         show_2D(self.By, self.Bx, **kwargs)
         return
 
-    def _check_save_name(self, save_dir:os.PathLike|None, name:str|None, mode:str=""):
+    def _check_save_name(
+        self, save_dir: os.PathLike | None, name: str | None, mode: str = ""
+    ):
         if save_dir is None:
             if self.save_dir is None:
                 raise ValueError(f"save_dir not specified, is None")
@@ -170,8 +191,8 @@ class BaseTIE(BasePhaseReconstruction):
         self,
         save_dir: os.PathLike | None = None,
         scale: float | None = None,
-        beam_energy: float|None=None,
-        name: str|None = None,
+        beam_energy: float | None = None,
+        name: str | None = None,
         sym: bool = False,
         qc: float | None = None,
         verbose: int | bool = 1,
@@ -181,7 +202,7 @@ class BaseTIE(BasePhaseReconstruction):
         self._qc = qc
         self._qi = None
         self._pbcs = True
-        self._beam_energy = beam_energy
+        self.beam_energy = beam_energy
 
         return
 
@@ -223,14 +244,14 @@ class BaseTIE(BasePhaseReconstruction):
         if qc is not None and qc > 0:
             self.vprint(f"Using a Tikhonov frequency [1/nm]: {qc:.1e}")
             qi = q**2 / (q**2 + (qc * self.scale) ** 2) ** 2  # qc in 1/pix
-        else:  # normal Laplacian method
+        else:
             # self.vprint("Reconstructing with normal Laplacian method")
             qi = 1 / q**2
         qi[0, 0] = 0
         self._qi = qi  # saves the freq dist
         return
 
-    def _reconstruct_phase(self, infocus:np.ndarray, dIdZ:np.ndarray, defval:float):
+    def _reconstruct_phase(self, infocus: np.ndarray, dIdZ: np.ndarray, defval: float):
         dimy, dimx = dIdZ.shape
 
         # Fourier transform of longitudinal derivatives
@@ -270,7 +291,7 @@ class BaseTIE(BasePhaseReconstruction):
 
         if self.sym:
             d2y, d2x = phase.shape
-            phase = phase[:d2y//2, :d2x//2]
+            phase = phase[: d2y // 2, : d2x // 2]
 
         return phase
 
@@ -287,13 +308,15 @@ class BaseTIE(BasePhaseReconstruction):
         Returns:
             float: Numerical prefactor
         """
+        if self._beam_energy is None:
+            raise ValueError("beam_energy must be set, is currently None.")
         epsilon = 0.5 * physcon.e / physcon.m_e / physcon.c**2
         lam = (
             physcon.h
             * 1.0e9
             / np.sqrt(2.0 * physcon.m_e * physcon.e)
             / np.sqrt(self._beam_energy + epsilon * self._beam_energy**2)
-        ) # electron wavelength
+        )  # electron wavelength
         return -1 * self.scale**2 / (16 * np.pi**3 * lam * def_step)
 
     @property
@@ -301,8 +324,11 @@ class BaseTIE(BasePhaseReconstruction):
         return self._beam_energy
 
     @beam_energy.setter
-    def beam_energy(self, val: float|None):
+    def beam_energy(self, val: float | None):
         if val is None:
+            warnings.warn(
+                "BaseTIE has beam_energy=None, this must be set before reconstructing"
+            )
             self._beam_energy = None
         else:
             if not isinstance(val, (float, int)):
@@ -320,17 +346,28 @@ class BaseTIE(BasePhaseReconstruction):
         Returns:
             ``ndarray``: Numpy array of shape (2M,2N)
         """
-        if np.ndim(imstack) == 2:
+        imstack = np.array(imstack)
+        if imstack.ndim == 2:
             imstack = imstack[None,]
+            d2 = True  # want output to be same shape as input always
+        else:
+            assert imstack.ndim == 3, (
+                "symmetrize only supports 2D images or 3D stacks, "
+                + f"not {imstack.ndim} arrays"
+            )
+            d2 = False
         dimz, dimy, dimx = imstack.shape
         imi = np.zeros((dimz, dimy * 2, dimx * 2))
-        imi[:, :dimy, :dimx] = imstack
+        imi[..., :dimy, :dimx] = imstack
         if mode == "even":
-            imi[:, dimy:, :dimx] = np.flip(imstack, axis=1)
-            imi[:, :, dimx:] = np.flip(imi[:, :, :dimx], axis=2)
+            imi[..., dimy:, :dimx] = np.flip(imstack, axis=1)
+            imi[..., :, dimx:] = np.flip(imi[..., :, :dimx], axis=2)
         elif mode == "odd":
-            imi[:, dimy:, :dimx] = -1 * np.flip(imstack, axis=1)
-            imi[:, :, dimx:] = -1 * np.flip(imi[:, :, :dimx], axis=2)
+            imi[..., dimy:, :dimx] = -1 * np.flip(imstack, axis=1)
+            imi[..., :, dimx:] = -1 * np.flip(imi[..., :, :dimx], axis=2)
         else:
             raise ValueError(f"`mode` should be `even` or `odd`, not `{mode}`")
-        return imi.squeeze()
+        if d2:
+            return imi[0]
+        else:
+            return imi

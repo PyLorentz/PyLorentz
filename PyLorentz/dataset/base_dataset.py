@@ -46,7 +46,7 @@ class BaseDataset(object):
         # if imshape is not None:
         self._shape = imshape
         self.scale = scale
-        self._transformations = {
+        self._transforms = {
             "rotation": 0,
             "top": 0,
             "bottom": imshape[0],
@@ -56,7 +56,8 @@ class BaseDataset(object):
         self._verbose = verbose
 
         self.data_dir = data_dir
-
+        #Keep track of if transforms have been changed but not applied
+        self._transforms_modified = False
         return
 
     @classmethod
@@ -130,7 +131,7 @@ class BaseDataset(object):
 
     def _select_ROI(self, image: np.ndarray, print_instructions=True, verbose=True):
         """Select a rectangular region of interest and rotation angle
-        assign to self._transformations
+        assign to self._transforms
         don't do any actual cropping here
 
         Args:
@@ -153,10 +154,11 @@ class BaseDataset(object):
                 "\n\tarrow keys  | move the ROI, + shift to increase step size"
                 "\n\t'c'         | center the ROI on the middle of the image"
                 "\n\t's'         | make the ROI square"
-                "\n\tshift+'r'         | reset the ROI to the starting conditions"
+                "\n\tshift+'r'   | reset the ROI to the starting conditions"
                 "\n\tshift+'f'   | restore the full image with zero rotation"
-                "\n\t'esc'       | save transformations and exit"
-                "\nIf display is not responding, try clicking on the image and ensuring %matplotlib widget"
+                "\n\t'esc'       | save transforms and exit"
+                "\nIf display is not responding, try clicking on the image and ensuring "
+                "you ran %matplotlib widget"
             )
             print(s)
 
@@ -166,11 +168,11 @@ class BaseDataset(object):
         # ax.matshow(image, cmap="gray")
         dy, dx = self._shape
 
-        start_rotation = self._transformations["rotation"]
+        start_rotation = self._transforms["rotation"]
         points = np.array(
             [
-                [self._transformations["top"], self._transformations["left"]],
-                [self._transformations["bottom"], self._transformations["right"]],
+                [self._transforms["top"], self._transforms["left"]],
+                [self._transforms["bottom"], self._transforms["right"]],
             ]
         )
         start_points = points.copy()
@@ -260,22 +262,25 @@ class BaseDataset(object):
                 if np.all(points >= 0):
                     plt.disconnect(binding_id)
                     plt.disconnect(binding_id2)
-                    self._transformations["top"] = points[0, 0]
-                    self._transformations["left"] = points[0, 1]
-                    self._transformations["bottom"] = points[1, 0]
-                    self._transformations["right"] = points[1, 1]
-                    self._transformations["rotation"] = self._temp_rotation
+                    self._transforms["top"] = points[0, 0]
+                    self._transforms["left"] = points[0, 1]
+                    self._transforms["bottom"] = points[1, 0]
+                    self._transforms["right"] = points[1, 1]
+                    self._transforms["rotation"] = self._temp_rotation
+                    print("\nSetting transforms.")
+                    vprint(
+                        f"Final image dimensions (h x w): {points[1,0]-points[0,0]} x "
+                        + f"{points[1,1]-points[0,1]}"
+                    )
+                    vprint(
+                        "Cropping can be returned to the full image by running "
+                        + "self.reset_transforms()"
+                    )
                     self._temp_rotation = None
-                    vprint(f"setting transformations:\n{self._transformations}")
-                    vprint(
-                        f"Final image dimensions (h x w): {points[1,0]-points[0,0]} x {points[1,1]-points[0,1]}"
-                    )
-                    vprint(
-                        "Cropping can be returned to the full image by running dd.reset_transformations()"
-                    )
+                    self._transforms_modified = True
                 else:
                     vprint(f"One or more points are not well defined.: {points}")
-                    self.reset_transformations()
+                    self._reset_transforms()
                 plt.close(fig)
                 return
 
@@ -485,57 +490,58 @@ class BaseDataset(object):
         print("Current parameters:")
         return
 
-    def reset_transformations(self):
+    def _reset_transforms(self):
         """Reset the ptie.crop() region to the full image."""
         print("Resetting ROI to unrotated full image.")
-        self._transformations["rotation"] = 0
-        self._transformations["left"] = 0
-        self._transformations["right"] = self._shape[1]
-        self._transformations["top"] = 0
-        self._transformations["bottom"] = self._shape[0]
+        self._transforms["rotation"] = 0
+        self._transforms["left"] = 0
+        self._transforms["right"] = self._shape[1]
+        self._transforms["top"] = 0
+        self._transforms["bottom"] = self._shape[0]
+        self._transforms_modified = True
 
     @property
-    def transformations(self):
-        return self._transformations
+    def transforms(self):
+        return self._transforms
 
-    @transformations.setter
-    def transformations(self, d, verbose=True):
-        if not hasattr(self, "_transformations"):
-            self._transformations = {}
+    @transforms.setter
+    def transforms(self, d, verbose=True):
+        if not hasattr(self, "_transforms"):
+            self._transforms = {}
         if not isinstance(d, dict):
-            raise TypeError(f"transformations should be dict, not {type(d)}")
+            raise TypeError(f"transforms should be dict, not {type(d)}")
         for key, val in d.items():
             if key.lower() in ["rotation", "rot", "r"]:
-                self._transformations["rotation"] = val
+                self._transforms["rotation"] = val
             elif key.lower() in ["top", "t"]:
-                self._transformations["top"] = val
+                self._transforms["top"] = val
             elif key.lower() in ["bottom", "bot", "b"]:
-                self._transformations["bottom"] = val
+                self._transforms["bottom"] = val
             elif key.lower() in ["left", "l"]:
-                self._transformations["left"] = val
+                self._transforms["left"] = val
             elif key.lower() in ["right", "r"]:
-                self._transformations["right"] = val
+                self._transforms["right"] = val
             else:
                 s = (
-                    f"Unknown key in transformations: {key}\n"
+                    f"Unknown key in transforms: {key}\n"
                     + "Allowed keys are 'rotation', 'top', 'bottom', 'left', 'right'"
                 )
                 warnings.warn(s)
 
-        if verbose:
-            rotation = self._transformations["rotation"]
+        if self._verbose and verbose:
+            rotation = self._transforms["rotation"]
             points = np.array(
                 [
-                    [self._transformations["top"], self._transformations["left"]],
-                    [self._transformations["bottom"], self._transformations["right"]],
+                    [self._transforms["top"], self._transforms["left"]],
+                    [self._transforms["bottom"], self._transforms["right"]],
                 ]
             )
             print(
                 f"Rotation: {rotation:4} | Points: ({points[0,0]:4}, {points[0,1]:4}), "
                 + f"({points[1,0]:4}, {points[1,1]:4}) | Dimensions (h x w): "
                 + f"{points[1,0]-points[0,0]:4} x {points[1,1]-points[0,1]:4}",
-                end="\r",
             )
+        self._transforms_modified = True
 
     @staticmethod
     def _points_dist(pos1, pos2):

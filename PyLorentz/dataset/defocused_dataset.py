@@ -102,7 +102,7 @@ class ThroughFocalSeries(BaseDataset):
         if defvals is None:
             self.vprint("No scale found. Set with: DD.defvals = <x> [nm]")
         if beam_energy is None:
-            self.vprint("No beam energy found. Set with: DD.energy = <x> [V]")
+            self.vprint("Beam energy not found. Set with: DD.energy = <x> [V]")
         return
 
     @classmethod
@@ -116,7 +116,7 @@ class ThroughFocalSeries(BaseDataset):
         defocus_values: list | None = None,
         beam_energy: float | None = None,
         dump_metadata: bool = True,
-        mask: bool = True,
+        use_mask: bool = True,
         legacy_data_loc: str | os.PathLike | None = None,
         legacy_fls_filename: str | os.PathLike | None = None,
         verbose: int | bool = True,
@@ -161,12 +161,14 @@ class ThroughFocalSeries(BaseDataset):
             loaded_scale, loaded_defvals = legacy_load(
                 legacy_data_loc, legacy_fls_filename
             )
+            loaded_energy = None
         else:
             assert scale is not None and defocus_values is not None
             scale = float(scale)
             defvals = np.array(defocus_values)
             loaded_scale = None
             loaded_defvals = None
+            loaded_energy = None
 
         if loaded_scale is not None:
             if scale is None:
@@ -253,7 +255,7 @@ class ThroughFocalSeries(BaseDataset):
             scale=scale,
             defvals=defvals,
             beam_energy=beam_energy,
-            mask=mask,
+            use_mask=use_mask,
             data_dir=data_dir,
             verbose=verbose,
         )
@@ -352,11 +354,14 @@ class ThroughFocalSeries(BaseDataset):
 
     @beam_energy.setter
     def beam_energy(self, val):
-        if not isinstance(val, (float, int)):
-            raise TypeError(f"energy must be numeric, found {type(val)}")
-        if val <= 0:
-            raise ValueError(f"energy must be > 0, not {val}")
-        self._beam_energy = float(val)
+        if val is None:
+            self._beam_energy = None
+        else:
+            if not isinstance(val, (float, int)):
+                raise TypeError(f"energy must be numeric, found {type(val)}")
+            if val <= 0:
+                raise ValueError(f"energy must be > 0, not {val}")
+            self._beam_energy = float(val)
 
     @property
     def full_stack(self):
@@ -380,6 +385,27 @@ class ThroughFocalSeries(BaseDataset):
             return ave_infocus
         else:
             return self.imstack[inf_index]
+
+    @property
+    def orig_infocus(self):
+        inf_index = self.len_tfs // 2
+        if self.flip:
+            if self._preprocessed:
+                ave_infocus = (
+                    self._orig_imstack_preprocessed[inf_index]
+                    + self._orig_flipstack_preprocessed[inf_index]
+                ) / 2
+            else:
+                ave_infocus = (
+                    self._orig_imstack[inf_index] + self._orig_flipstack[inf_index]
+                ) / 2
+
+            return ave_infocus
+        else:
+            if self._preprocessed:
+                return self._orig_imstack_preprocessed[inf_index]
+            else:
+                return self._orig_imstack[inf_index]
 
     @property
     def shape(self):
@@ -417,9 +443,7 @@ class ThroughFocalSeries(BaseDataset):
         if hotpix:
             self.vprint("Filtering hot/dead pixels")
             for i in tqdm(range(self.len_tfs)):
-                self.imstack[i] = filter_hotpix(
-                    self.imstack[i], fast=fast, **kwargs
-                )
+                self.imstack[i] = filter_hotpix(self.imstack[i], fast=fast, **kwargs)
 
                 if self.flip:
                     self.flipstack[i] = filter_hotpix(
@@ -482,7 +506,7 @@ class ThroughFocalSeries(BaseDataset):
         # for either stack or single image
         # might have to copy this over to show functions as well
         if self._verbose or v >= 1:
-            print("Applying transformations...", end="\r")
+            print("Applying transforms", end="\r")
         if self._preprocessed:
             imstack = self._orig_imstack_preprocessed.copy()
             flipstack = self._orig_flipstack_preprocessed.copy()
@@ -492,21 +516,21 @@ class ThroughFocalSeries(BaseDataset):
 
         # will fail if mask not made, change to force preprocess?
         mask = self._orig_mask.copy()
-        if self._transformations["rotation"] != 0:
+        if self._transforms["rotation"] != 0:
             # same speed as doing all together, this way have progress bar
-            mask = ndi.rotate(mask, self._transformations["rotation"], reshape=False)
+            mask = ndi.rotate(mask, self._transforms["rotation"], reshape=False)
             for a0 in tqdm(range(len(imstack)), disable=v < 1):
                 imstack[a0] = ndi.rotate(
-                    imstack[a0], self._transformations["rotation"], reshape=False
+                    imstack[a0], self._transforms["rotation"], reshape=False
                 )
                 if self.flip:
                     flipstack[a0] = ndi.rotate(
-                        flipstack[a0], self._transformations["rotation"], reshape=False
+                        flipstack[a0], self._transforms["rotation"], reshape=False
                     )
-        top = self._transformations["top"]
-        bottom = self._transformations["bottom"]
-        left = self._transformations["left"]
-        right = self._transformations["right"]
+        top = self._transforms["top"]
+        bottom = self._transforms["bottom"]
+        left = self._transforms["left"]
+        right = self._transforms["right"]
         imstack = imstack[:, top:bottom, left:right]
         mask = mask[top:bottom, left:right]
         if self.flip:
@@ -515,7 +539,7 @@ class ThroughFocalSeries(BaseDataset):
         self.imstack = imstack
         self.flipstack = flipstack
         self.mask = mask
-        print(f"Finished")
+        self._transforms_modified = False
         return
 
     def select_ROI(self, image: np.ndarray | None = None):
@@ -535,8 +559,6 @@ class ThroughFocalSeries(BaseDataset):
                     image = self._orig_imstack_preprocessed[inf_ind]
                 else:
                     image = self._orig_imstack[inf_ind]
-            if self.mask is not None:
-                image *= self.mask
         else:
             assert image.shape == self._orig_shape
 
@@ -619,6 +641,10 @@ class ThroughFocalSeries(BaseDataset):
                 + f"shape {self.shape}"
             )
 
+    def reset_transforms(self):
+        self._reset_transforms()
+        self.apply_transforms()
+        return
 
 # for single images / SITIE / SIPRAD
 # SITIE itself should be able to take either a DefocusedDataset or DefocusImage?
@@ -658,7 +684,7 @@ class DefocusedDataset(BaseDataset):
         self._simulated = simulated
         self._verbose = verbose
         # leaving mask for possible future implementation, e.g. masking center region
-        self.mask = None # np.ones_like(self.shape)
+        self.mask = None  # np.ones_like(self.shape)
 
         self._preprocessed = False
 
@@ -755,24 +781,25 @@ class DefocusedDataset(BaseDataset):
     def apply_transforms(self, v=1):
         # apply rotation -> crop, and set images
         if self._verbose or v >= 1:
-            print("Applying transformations", end="\r")
+            print("Applying transforms", end="\r")
         if self._preprocessed:
             images = self._orig_images_preprocessed.copy()
         else:
             images = self._orig_images.copy()
 
-        if self._transformations["rotation"] != 0:
+        if self._transforms["rotation"] != 0:
             for a0 in tqdm(range(len(images)), disable=v < 1):
                 images[a0] = ndi.rotate(
-                    images[a0], self._transformations["rotation"], reshape=False
+                    images[a0], self._transforms["rotation"], reshape=False
                 )
-        top = self._transformations["top"]
-        bottom = self._transformations["bottom"]
-        left = self._transformations["left"]
-        right = self._transformations["right"]
+        top = self._transforms["top"]
+        bottom = self._transforms["bottom"]
+        left = self._transforms["left"]
+        right = self._transforms["right"]
         images = images[:, top:bottom, left:right]
 
         self.images = images
+        self._transforms_modified = False
         print(f"Finished")
         return
 
@@ -802,3 +829,8 @@ class DefocusedDataset(BaseDataset):
 
     def __str__(self):
         return f"DefocusedDataset containing {len(self)} image(s) of shape {self.shape}"
+
+    def reset_transforms(self):
+        self._reset_transforms()
+        self.apply_transforms()
+        return

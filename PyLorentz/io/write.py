@@ -30,7 +30,7 @@ def write_tif(data, path, scale, v=1, unit="nm", overwrite=True, color=False):
         path = overwrite_rename(path)
 
     if v >= 1:
-        print("Saving: ", path)
+        print("Saving tif: ", path)
 
     if color:
         im = (255 * norm_image(data)).astype(np.uint8)

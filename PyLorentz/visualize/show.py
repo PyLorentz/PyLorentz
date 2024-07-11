@@ -102,7 +102,7 @@ def show_im(
             ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
             fig.add_axes(ax)
         else:
-            _fig, ax = plt.subplots(figsize=size)
+            fig, ax = plt.subplots(figsize=size)
 
     cmap = kwargs.get("cmap", "gray")
 
@@ -148,45 +148,59 @@ def show_im(
     else:
         plt.tick_params(axis="x", top=False)
         ax.xaxis.tick_bottom()
-        ax.tick_params(direction="in")
+        ax.tick_params(direction=kwargs.get("tick_direction", "out"))
         if scale is None:
             ticks_label = "pixels"
         else:
+            ax_ysize_inch = ax.get_position().height * fig.get_size_inches()[1]
+            ax_xsize_inch = ax.get_position().width * fig.get_size_inches()[0]
+            num_ticks_y = max(round(ax_ysize_inch + 1), 3)
+            num_ticks_x = max(round(ax_xsize_inch + 1), 3)
+            fov_y, fov_x = np.array(image.shape) * scale
 
-            def mjrFormatter(x, pos):
-                return f"{scale*x:.3g}"
+            ylim = ax.get_ylim()
+            ymax = ylim[0] if origin == "upper" else ylim[1]
+            ndig_y = len(str(round(ymax))) - 1
+            floor_fov_y = np.floor(fov_y / 10**ndig_y) * 10**ndig_y
+            # floor_fov_y = np.floor(fov_y/(10**ndig_y*(num_ticks_y)))*(10**ndig_y*(num_ticks_y))
+            yticks = np.linspace(0, floor_fov_y / scale, int(num_ticks_y))
+            if origin == "lower":
+                yticks = yticks[1:]
+            ax.set_yticks(yticks - 0.5)
+            ylabs, unit = tick_label_formatter(
+                yticks, fov_y, scale, kwargs.get("scale_units")
+            )
+            ax.set_yticklabels(ylabs)
 
-            fov = scale * max(image.shape[0], image.shape[1])
-            if kwargs.get("scale_units", None) is None:
-                if fov < 4:  # if fov < 4 nm use A scale
-                    ticks_label = r"  Å  "  # extra spaces to pad away from ticks
-                    scale *= 10
-                elif fov < 4e3:  # if fov < 4um use nm scale
-                    ticks_label = " nm "
-                elif fov < 4e6:  # fov < 4 mm use um scale
-                    ticks_label = r" $\mu$m "
-                    scale /= 1e3
-                else:  # if fov > 4mm use m scale
-                    ticks_label = "  m  "
-                    scale /= 1e9
-            else:
-                ticks_label = kwargs.get("scale_units")
+            ticks_label = unit
 
-            ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(mjrFormatter))
-            ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(mjrFormatter))
+            _, xmax = ax.get_xlim()
+            ndig_x = len(str(round(xmax))) - 1
+            floor_fov_x = np.floor(fov_x / 10**ndig_x) * 10**ndig_x
+            xticks = np.linspace(0, floor_fov_x / scale, int(num_ticks_x))[1:]
+            ax.set_xticks(xticks - 0.5)
+            xlabs, unit = tick_label_formatter(
+                xticks, fov_y, scale, kwargs.get("scale_units")
+            )  # fov_y so same scale/units on x and y axes
+            ax.set_xticklabels(xlabs)
 
         if kwargs.pop("ticks_label_off", False):
             pass
         elif origin == "lower":
-            ax.text(y=0, x=0, s=ticks_label, rotation=-45, va="top", ha="right")
+            ax.text(y=-0.5, x=-0.5, s=ticks_label, rotation=-45, va="top", ha="right")
         elif origin == "upper":  # keep label in lower left corner
             ax.text(
-                y=image.shape[0], x=0, s=ticks_label, rotation=-45, va="top", ha="right"
+                y=image.shape[0] - 0.5,
+                x=-0.5,
+                s=ticks_label,
+                rotation=-45,
+                va="top",
+                ha="right",
             )
 
     if roi is not None:
         lw = kwargs.get("roi_lw", 2)
-        pad = kwargs.get("roi_pad", 2)
+        pad = kwargs.get("roi_pad", 0)
         color = kwargs.get("roi_color", "white")
         dy, dx = image.shape
         left = (roi["left"] - lw * pad) / dx
@@ -197,8 +211,16 @@ def show_im(
         p = plt.Rectangle(
             (left, bottom), width, height, fill=False, edgecolor=color, linewidth=lw
         )
-
-        p.set_transform(ax.transAxes)
+        if "rotation" in roi.keys():
+            transform = (
+                mpl.transforms.Affine2D().rotate_deg_around(
+                    0.5, 0.5, -1 * roi["rotation"]
+                )
+                + ax.transAxes
+            )
+        else:
+            transform = ax.transAxes
+        p.set_transform(transform)
         p.set_clip_on(False)
         ax.add_patch(p)
 
@@ -372,3 +394,29 @@ def show_im_peaks(im=None, peaks=None, peaks2=None, title=None, cbar=False, **kw
             linestyle="none",
         )
     plt.show()
+
+
+def tick_label_formatter(ticks, fov, scale, scale_units=None):
+    labels = None
+    unit = None
+    if scale_units is None:
+        if fov < 4:  # if fov < 4 nm use A scale
+            unit = r"  Å  "  # extra spaces to pad away from ticks
+            ticks *= 10
+        elif fov < 2e3:  # if fov < 4um use nm scale
+            unit = " nm "
+        elif fov < 2e6:  # fov < 4 mm use um scale
+            unit = r" $\mu$m "
+            ticks /= 1e3
+        else:  # if fov > 4mm use m scale
+            unit = "  m  "
+            ticks /= 1e9
+    else:
+        unit = scale_units
+        return ticks, unit
+
+    labels = [
+        f"{v:.0f}" if v > 10 else f"{v:.0f}" if v == 0 else f"{v:.2f}"
+        for v in ticks * scale
+    ]
+    return labels, unit

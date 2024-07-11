@@ -257,7 +257,7 @@ def color_im(vy, vx, vz=None, cmap=None, rad=None, background="black", **kwargs)
         bkgs = np.where(np.sqrt(vx**2 + vy**2 + vz**2) == 0)
 
     if rad > 0:
-        pad = 10  # padding between edge of image and color-wheel
+        pad = min(2 * (rad//10), 40)  # padding between edge of image and color-wheel
     else:
         pad = 0
         rad = 0

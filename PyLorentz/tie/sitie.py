@@ -106,6 +106,10 @@ class SITIE(BaseTIE):
         else:
             assert isinstance(index, int)
 
+        if self.dd._transforms_modified:
+            self.vprint("DD has unapplied transforms, applying now.")
+            self.dd.apply_transforms()
+
         self._recon_defval_index = index
         self._recon_defval = self.dd.defvals[index]
         self.sym = sym
@@ -142,7 +146,6 @@ class SITIE(BaseTIE):
         dIdZ_B = 2 * (recon_image - infocus_im)
         dIdZ_B -= np.sum(dIdZ_B) / np.size(infocus_im)
 
-        self.vprint("Calling SITIE solver")
         phase_B = self._reconstruct_phase(infocus_im, dIdZ_B, self._recon_defval)
         self._results["phase_B"] = phase_B - phase_B.min()
         By, Bx = self.induction_from_phase(phase_B)
@@ -238,4 +241,4 @@ class SITIE(BaseTIE):
 
         plt.tight_layout()
         plt.show()
-        return
+        return self

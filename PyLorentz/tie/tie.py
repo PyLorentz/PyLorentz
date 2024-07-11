@@ -20,6 +20,7 @@ class TIE(BaseTIE):
         name: str | None = None,
         sym: bool = False,
         qc: float | None = None,
+        beam_energy:float|None=None,
         verbose: int = 1,
     ):
         self.tfs = tfs
@@ -74,10 +75,7 @@ class TIE(BaseTIE):
         pbcs: bool | None = None,
         overwrite: bool = False,
     ):
-        if index is None:
-            index = self.tfs.len_tfs - 1
-        assert isinstance(index, int)
-        assert index < len(self.tfs.defvals_index)
+        index = self._check_index(index)
         self._recon_defval_index = index
         self._recon_defval = self.tfs.defvals_index[index]
         self.sym = sym
@@ -91,7 +89,9 @@ class TIE(BaseTIE):
         if save:
             self._check_save_name(save_dir, name, mode="TIE")
             self._overwrite = overwrite if overwrite is not None else self._overwrite
-
+        if self.tfs._transforms_modified:
+            self.vprint("TFS has unapplied transforms, applying now.")
+            self.tfs.apply_transforms()
         self.vprint(
             f"Performing TIE reconstruction with defocus ± "
             + f"{self._fmt_defocus(self._recon_defval, spacer=" ")}, index = {index}"
@@ -108,6 +108,7 @@ class TIE(BaseTIE):
 
         # select images
         recon_stack, infocus_im = self._select_images()
+
         self._results["infocus"] = infocus_im.copy() * self.tfs.mask
         recon_mask = self.tfs.mask.copy()
 
@@ -115,7 +116,8 @@ class TIE(BaseTIE):
             dimy *= 2
             dimx *= 2
             recon_stack = self._symmetrize(recon_stack)
-            recon_mask = self._symmetrize([recon_mask])[0]
+            recon_mask = self._symmetrize([recon_mask]).squeeze()
+            infocus_im = self._symmetrize([infocus_im]).squeeze()
 
         self._make_qi((dimy, dimx))
 
@@ -123,11 +125,18 @@ class TIE(BaseTIE):
         dIdZ_B, dIdZ_E = self._get_derivatives(recon_stack, recon_mask, self.flip)
         self._results["dIdZ_B"] = dIdZ_B.copy()
 
-        # temp checks
+        # temp checks # TODO remove
         assert dimy, dimx == recon_stack.shape[1:]
-        assert np.min(recon_stack) > 0
+        if np.min(recon_stack) < 0:
+            # print("\n*** bad neg value figure out *** \n")
+            pass
+        #     print('min: ', recon_stack.min())
+        #     recon_stack -= recon_stack.min()
+        #     print('min: ', recon_stack.min())
+        # assert np.min(recon_stack) >= 0
 
-        self.vprint("Calling TIE solver")
+
+        # self.vprint("Calling TIE solver")
 
         phase_B = self._reconstruct_phase(infocus_im, dIdZ_B, self._recon_defval)
         self._results["phase_B"] = phase_B - phase_B.min()
@@ -158,7 +167,7 @@ class TIE(BaseTIE):
                 if self.flip:
                     save_keys.append("phase_E")
             elif save.lower() == "all":
-                save_keys = list(self._results.keys())
+                save_keys = list(self.results.keys())
 
         elif hasattr(save, "__iter__"):
             # is list or tuple of keys
@@ -208,13 +217,11 @@ class TIE(BaseTIE):
         # if ptie.flip == True: returns [ +- , -- , 0 , ++ , -+ ]
         # elif ptie.flip == False: returns [+-, 0, ++]
         # where first +/- is unflip/flip, second +/- is over/underfocus.
-        print("defval index: ", self._recon_defval_index)
 
         under_ind = self.tfs.len_tfs // 2 - (self._recon_defval_index + 1)
         over_ind = self.tfs.len_tfs // 2 + (self._recon_defval_index + 1)
 
         if self.flip:
-            print("selecting from flip")
             stack = np.stack(
                 [
                     self.tfs.imstack[under_ind],
@@ -225,7 +232,6 @@ class TIE(BaseTIE):
                 ]
             )
         else:
-            print("selecting ffrom not flip")
             stack = np.stack(
                 [
                     self.tfs.imstack[under_ind],
@@ -256,6 +262,10 @@ class TIE(BaseTIE):
         t = np.max(tots) / tots
         imstack *= t[..., None, None]
         return imstack / np.max(imstack)
+
+    @property
+    def _valid_def_inds(self):
+        return len(self.tfs.defvals_index)
 
     @property
     def recon_defval(self):
@@ -291,9 +301,9 @@ class TIE(BaseTIE):
     @property
     def phase_E(self):
         if self.flip:
-            return self._results["phase_E"]
+            return self.results["phase_E"]
         else:
-            if self._results["phase_E"] is not None:
+            if self.results["phase_E"] is not None:
                 self.vprint("Returning old phase_E as currently flip=False")
             else:
                 raise ValueError(f"phase_E does not exist because flip=False")
@@ -376,3 +386,13 @@ class TIE(BaseTIE):
         plt.tight_layout()
         plt.show()
         return
+
+    def _check_index(self, index:int):
+        if index is None:
+            index = self._valid_def_inds - 1
+        elif abs(index+1) > self._valid_def_inds or index < -1* self._valid_def_inds:
+            raise ValueError(f"index {index} is out of bounds for defvals_index with size {self._valid_def_inds}")
+        elif not isinstance(index, int):
+            raise IndexError(f"index must be of type int, not {type(index)}")
+        index = index % self._valid_def_inds
+        return index
