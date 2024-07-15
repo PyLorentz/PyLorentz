@@ -1,1 +1,2 @@
-from .defocused_dataset import ThroughFocalSeries, DefocusedDataset
+from .defocused_dataset import DefocusedDataset
+from .through_focal_series import ThroughFocalSeries

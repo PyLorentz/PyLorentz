@@ -17,14 +17,12 @@ def show_im(
     scale=None,
     save=None,
     roi=None,
+    cmap="gray",
     figax=None,
     intensity_range="minmax",
     **kwargs,
 ):
-    """Display an image on a new axis.
-    # TODO add colorcet colormaps here. basically just allow using my colorwheel
-    version of get_cmap, expanded to look for other strings with matplotlib
-
+    """Display an image.
     Takes a 2D array and displays the image in grayscale with optional title on
     a new axis. In general it's nice to have things on their own axes, but if
     too many are open it's a good idea to close with plt.close('all').
@@ -104,7 +102,7 @@ def show_im(
         else:
             fig, ax = plt.subplots(figsize=size)
 
-    cmap = kwargs.get("cmap", "gray")
+    cmap = get_cmap(cmap, **kwargs)
 
     if intensity_range.lower() == "minmax":
         vmin = kwargs.get("vmin", None)
@@ -137,7 +135,7 @@ def show_im(
     im = ax.matshow(image, origin=origin, vmin=vmin, vmax=vmax, cmap=cmap)
 
     if title is not None:
-        ax.set_title(str(title))
+        ax.set_title(str(title), fontsize=kwargs.pop("title_fontsize", 12))
 
     if simple or kwargs.pop("ticks_off", False):
         if title is not None or cbar:
@@ -145,8 +143,13 @@ def show_im(
             ax.set_yticks([])
         else:
             ax.set_axis_off()  # this will not draw bounding box as well
+        if not kwargs.pop("show_bbox", True):
+            ax.set_axis_off()
     else:
         plt.tick_params(axis="x", top=False)
+        if not kwargs.get("show_bbox", True):
+            for spine in ax.spines.values(): # works for subplots unlike plt.box(False)
+                spine.set_visible(False)
         ax.xaxis.tick_bottom()
         ax.tick_params(direction=kwargs.get("tick_direction", "out"))
         if scale is None:
@@ -156,7 +159,7 @@ def show_im(
             ax_xsize_inch = ax.get_position().width * fig.get_size_inches()[0]
             num_ticks_y = max(round(ax_ysize_inch + 1), 3)
             num_ticks_x = max(round(ax_xsize_inch + 1), 3)
-            fov_y, fov_x = np.array(image.shape) * scale
+            fov_y, fov_x = np.array(image.shape)[:2] * scale
 
             ylim = ax.get_ylim()
             ymax = ylim[0] if origin == "upper" else ylim[1]
@@ -227,14 +230,14 @@ def show_im(
     if cbar:
         # for matching cbar height to image height even with title
         aspect = image.shape[-2] / image.shape[-1]
-        plt.colorbar(
+        cb = plt.colorbar(
             im,
             ax=ax,
             pad=0.02,
             format="%g",
-            label=str(cbar_title),
             fraction=0.047 * aspect,
         )
+        cb.set_label(str(cbar_title), labelpad=0)
 
     if save:
         print("saving: ", save)
@@ -243,10 +246,9 @@ def show_im(
             plt.savefig(save, dpi=dpi, bbox_inches=0)
         else:
             plt.savefig(save, dpi=dpi, bbox_inches="tight")
-    else:
-        plt.tight_layout()
 
     if figax is None:
+        plt.tight_layout()
         plt.show()
     return
 
@@ -420,3 +422,15 @@ def tick_label_formatter(ticks, fov, scale, scale_units=None):
         for v in ticks * scale
     ]
     return labels, unit
+
+
+def show_fft(fft, **kwargs):
+
+    mag = np.abs(np.fft.fftshift(fft))
+    bads = np.where(mag==0)
+    mag[bads] = 1
+    lg = np.log(mag)
+    lg[bads] = np.min(lg)
+
+    show_im(lg, **kwargs)
+    return

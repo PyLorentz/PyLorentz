@@ -160,8 +160,6 @@ class SITIE(BaseTIE):
     def _save_results(self, save, overwrite=None):
         if isinstance(save, bool):
             save_keys = ["phase_B", "Bx", "By", "color", "input_image"]
-            if self.flip:
-                save_keys.append("phase_E")
         elif isinstance(save, str):
             if save.lower() in ["b", "induction", "ind"]:
                 save_keys = ["Bx", "By", "color"]
@@ -183,9 +181,17 @@ class SITIE(BaseTIE):
         log_dict = {
             "name": self.name,
             "_save_name": self._save_name,
-            "defval": self._recon_defval,
+            "defval": self.recon_defval,
             "sym": self.sym,
             "qc": self.qc,
+            "scale": self.scale,
+            "transforms": self.dd.transforms,
+            "filters": self.dd._filters,
+            "beam_energy": self.dd.beam_energy,
+            "simulated": self.dd._simulated,
+            "data_dir": self.dd.data_dir,
+            "data_files": self.dd.data_files,
+            "save_dir": self._save_dir,
         }
         ovr = overwrite if overwrite is not None else self._overwrite
         name = f"{self._save_name}_{self._fmt_defocus(self.recon_defval)}_log.json"
@@ -194,6 +200,13 @@ class SITIE(BaseTIE):
 
     def __len__(self):
         return len(self.dd.images)
+
+
+    @property
+    def recon_defval(self):
+        if self._recon_defval is None:
+            print(f"defval is None or has not yet been specified with an index")
+        return self._recon_defval
 
 
     def visualize(self, cbar=False, plot_scale: bool | str = True):
@@ -230,12 +243,12 @@ class SITIE(BaseTIE):
         )
 
         show_2D(
-            self.By,
             self.Bx,
+            self.By,
             figax=(fig, axs[1]),
             scale=self.scale,
             ticks_off=ticks2,
-            title="Integrated induction map             ",
+            title="Integrated induction map      ",
         )
         axs[-1].axis('off')
 

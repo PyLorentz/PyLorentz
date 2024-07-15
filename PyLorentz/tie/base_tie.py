@@ -7,7 +7,6 @@ import numpy as np
 import scipy.constants as physcon
 from scipy.signal import convolve2d
 
-from PyLorentz.dataset.defocused_dataset import ThroughFocalSeries as TFS
 from PyLorentz.io.write import format_defocus, overwrite_rename, write_json, write_tif
 from PyLorentz.visualize import show_2D, show_im
 from PyLorentz.visualize.colorwheel import color_im, get_cmap
@@ -158,11 +157,45 @@ class BasePhaseReconstruction(object):
         By = -1 * pre_B * grad_x
         return (By, Bx)
 
-    def show_B(self, **kwargs):
+    def show_B(self, show_scale=False, **kwargs):
         """
         show induction
         """
-        show_2D(self.By, self.Bx, **kwargs)
+        dname = (
+            self.name
+            if self.name is not None
+            else self._save_name if self._save_name is not None else ""
+        )
+        sc = self.scale if show_scale else None
+        show_2D(
+            self.Bx,
+            self.By,
+            scale=sc,
+            title=kwargs.pop("title", f"{dname} B      "),
+            title_fontsize=kwargs.pop("title_fontsize", 10),
+            **kwargs,
+        )
+        return
+
+    def show_phase_B(self, show_scale=True, **kwargs):
+        """
+        show induction
+        """
+        dname = (
+            self.name
+            if self.name is not None
+            else self._save_name if self._save_name is not None else ""
+        )
+        ticks_off = not show_scale
+        show_im(
+            self.phase_B,
+            scale=kwargs.pop("scale", self.scale),
+            cbar_title=kwargs.pop("cbar_title", "rad"),
+            title=kwargs.pop("title", f"{dname} phase_B"),
+            ticks_off=ticks_off,
+            title_fontsize=kwargs.pop("title_fontsize", 10),
+            **kwargs,
+        )
         return
 
     def _check_save_name(
@@ -172,7 +205,7 @@ class BasePhaseReconstruction(object):
             if self.save_dir is None:
                 raise ValueError(f"save_dir not specified, is None")
         else:
-            self.save_dir = save_dir
+            self.save_dir = save_dir  # checks while setting that parents exist
         if name is None:
             if self.name is None:
                 now = datetime.now().strftime("%y%m%d-%H%M%S")

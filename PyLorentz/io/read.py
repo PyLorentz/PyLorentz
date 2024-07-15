@@ -30,9 +30,10 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
                 filepath: str
                 filename: str
                 scale: nm/pixel
-                defocus: nm
+                defocus_values: nm
                 scale_unit: str
                 defocus_unit: str
+                beam_energy: float
     """
     f = Path(f)
     if not f.exists():
@@ -43,6 +44,7 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
     }
     defocus = None
     defocus_unit = None
+    beam_energy = None
     if f.suffix in [".tif", ".tiff"]:
         with TiffFile(f, mode="r") as tif:
             if tif.imagej_metadata is not None and "unit" in tif.imagej_metadata:
@@ -83,8 +85,9 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
         with ncempy_dm.fileDM(f) as im:
             dset = im.getDataset(0)
             mdata = im.getMetadata(0)
+
             if any(["def" in i for i in mdata.keys()]):
-                print("possibly found defocus metadata in dm file. update to load!")
+                print("possibly found defocus metadata in dm file. update load!")
             assert dset["pixelUnit"][0] == dset["pixelUnit"][1]
             assert dset["pixelSize"][0] == dset["pixelSize"][1]
 
@@ -95,6 +98,10 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
             else:
                 print(f"unknown scale type {dset['pixelUnit'][0]}")
                 raise NotImplementedError
+
+            if 'Microscope Info Voltage' in mdata:
+                beam_energy = mdata['Microscope Info Voltage']
+
             out_im = dset["data"]
 
     elif f.suffix in [".emd"]:  # TODO test but make this for dmx as well?
@@ -114,6 +121,7 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
             else:
                 print(f"unknown scale type {mdata['pixelUnit'][0]}")
                 raise NotImplementedError
+        raise NotImplementedError("look for beam energy")
 
     elif f.suffix in [".png", ".jpg", ".jpeg"]:
         out_im = skio.imread(f)
@@ -124,8 +132,9 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
 
     metadata["scale"] = scale
     metadata["scale_unit"] = "nm"
-    metadata["defocus"] = defocus
+    metadata["defocus_values"] = defocus
     metadata["defocus_unit"] = defocus_unit
+    metadata["beam_energy"] = beam_energy
 
     return out_im, metadata
 

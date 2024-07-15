@@ -9,15 +9,15 @@ from .show import show_im
 
 
 def show_2D(
-    mag_y,
-    mag_x,
-    mag_z=None,
+    Vx,
+    Vy,
+    Vz=None,
     num_arrows=0,
     arrow_size=None,
     arrow_width=None,
     title=None,
     color=True,
-    cmap=None,
+    cmap='hsv',
     cbar=True,
     origin="upper",
     save=None,
@@ -56,39 +56,39 @@ def show_2D(
     Returns:
         fig: Returns the figure handle.
     """
-    assert mag_x.ndim == mag_y.ndim
-    if mag_x.ndim == 3:
+    assert Vx.ndim == Vy.ndim
+    if Vx.ndim == 3:
         print("Summing along first axis")
-        mag_x = np.sum(mag_x, axis=0)
-        mag_y = np.sum(mag_y, axis=0)
-        if mag_z is not None:
-            mag_z = np.sum(mag_z, axis=0)
+        Vx = np.sum(Vx, axis=0)
+        Vy = np.sum(Vy, axis=0)
+        if Vz is not None:
+            Vz = np.sum(Vz, axis=0)
 
     if num_arrows > 0:
-        a = int(((mag_x.shape[0] - 1) / num_arrows) + 1)
+        a = int(((Vx.shape[0] - 1) / num_arrows) + 1)
     else:
         a = -1
 
-    dimy, dimx = mag_x.shape
+    dimy, dimx = Vx.shape
     X = np.arange(0, dimx, 1)
     Y = np.arange(0, dimy, 1)
-    U = mag_x
-    V = mag_y
+    U = Vx
+    V = Vy
 
     sz_inches = kwargs.pop("figsize", 5)
     if color:
         if rad is None:
-            rad = mag_x.shape[0] // 16
+            rad = Vx.shape[0] // 16
             rad = max(rad, 16)
             pad = 10  # pixels
-            width = np.shape(mag_y)[1] + 2 * rad + pad
+            width = np.shape(Vy)[1] + 2 * rad + pad
             aspect = dimy / width
         elif rad == 0:
-            width = np.shape(mag_y)[1]
+            width = np.shape(Vy)[1]
             aspect = dimy / width
         else:
             pad = 10  # pixels
-            width = np.shape(mag_y)[1] + 2 * rad + pad
+            width = np.shape(Vy)[1] + 2 * rad + pad
             aspect = dimy / width
     else:
         aspect = dimy / dimx
@@ -108,17 +108,20 @@ def show_2D(
     if color:
         cmap = get_cmap(cmap, **kwargs)
         cim = color_im(
-            mag_y,
-            mag_x,
-            mag_z,
+            Vx,
+            Vy,
+            Vz,
             cmap=cmap,
             rad=rad,
             **kwargs,
         )
-        if whitetotransparent and mag_z is not None:
+        if whitetotransparent and Vz is not None:
             print("making transparent")
-            cim = _white_to_transparent(cim, mag_z)
+            cim = _white_to_transparent(cim, Vz)
 
+        show_bbox = kwargs.get("show_bbox")
+        if show_bbox is None:
+            show_bbox = kwargs.get("background") == "white"
         show_im(
             cim,
             cmap=cmap,
@@ -128,6 +131,8 @@ def show_2D(
             scale=scale,
             figax=(fig, ax),
             title=title,
+            show_bbox=show_bbox,
+            **kwargs,
         )
         arrow_color = "white"
 
@@ -170,7 +175,7 @@ def show_2D(
 
 
 def show_3D(
-    mag_z, mag_y, mag_x, num_arrows=15, ay=None, num_arrows_z=15, l=None, show_all=True
+    Vx, Vy, Vz, num_arrows=15, ay=None, num_arrows_z=15, l=None, show_all=True
 ):
     """Display a 3D vector field with arrows.
 
@@ -201,22 +206,22 @@ def show_3D(
     Returns:
         None: None. Displays a matplotlib axes3D object.
     """
-    bmax = max(mag_x.max(), mag_y.max(), mag_z.max())
+    bmax = max(Vx.max(), Vy.max(), Vz.max())
 
     if l is None:
-        l = mag_x.shape[1] / (2 * bmax * a)
+        l = Vx.shape[1] / (2 * bmax * a)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
-    if mag_x.ndim == 3:
-        dimz, dimy, dimx = mag_x.shape
+    if Vx.ndim == 3:
+        dimz, dimy, dimx = Vx.shape
         if az > dimz:
             az = 1
         else:
             az = ((dimz - 1) // az) + 1
     else:
-        dimy, dimx = mag_x.shape
+        dimy, dimx = Vx.shape
         dimz = 1
 
     Z, Y, X = np.meshgrid(
@@ -229,15 +234,15 @@ def show_3D(
     axx = ((dimx - 1) // a) + 1
 
     # doesnt handle (0,0,0) arrows very well, so this puts in very small ones.
-    zeros = ~(mag_x.astype("bool") | mag_y.astype("bool") | mag_z.astype("bool"))
+    zeros = ~(Vx.astype("bool") | Vy.astype("bool") | Vz.astype("bool"))
     zinds = np.where(zeros)
-    mag_z[zinds] = bmax / 1e5
-    mag_x[zinds] = bmax / 1e5
-    mag_y[zinds] = bmax / 1e5
+    Vz[zinds] = bmax / 1e5
+    Vx[zinds] = bmax / 1e5
+    Vy[zinds] = bmax / 1e5
 
-    U = mag_x.reshape((dimz, dimy, dimx))
-    V = mag_y.reshape((dimz, dimy, dimx))
-    W = mag_z.reshape((dimz, dimy, dimx))
+    U = Vx.reshape((dimz, dimy, dimx))
+    V = Vy.reshape((dimz, dimy, dimx))
+    W = Vz.reshape((dimz, dimy, dimx))
 
     # maps in plane direction to hsv wheel, out of plane to white (+z) and black (-z)
     phi = np.ravel(np.arctan2(V[::az, ::ay, ::axx], U[::az, ::ay, ::axx]))

@@ -1,5 +1,5 @@
 import numpy as np
-from PyLorentz.dataset.defocused_dataset import ThroughFocalSeries
+from PyLorentz.dataset.through_focal_series import ThroughFocalSeries
 import os
 from PyLorentz.tie.base_tie import BaseTIE
 from pathlib import Path
@@ -20,7 +20,7 @@ class TIE(BaseTIE):
         name: str | None = None,
         sym: bool = False,
         qc: float | None = None,
-        beam_energy:float|None=None,
+        beam_energy: float | None = None,
         verbose: int = 1,
     ):
         self.tfs = tfs
@@ -51,13 +51,12 @@ class TIE(BaseTIE):
         self._recon_defval = None
         self._recon_defval_index = None
 
-
         if not self.tfs._preprocessed:
             if not self.tfs._simulated:
                 warnings.warn(
                     "experimental dataset has not been preprocessed "
                     + "creating uniform mask."
-                    )
+                )
             self.tfs.mask = np.ones(self.tfs.shape, dtype=np.float32)
 
         return
@@ -69,7 +68,7 @@ class TIE(BaseTIE):
         sym: bool = False,
         qc: float | None = None,
         flip: bool | None = None,
-        save: bool | str | list[str] = False,
+        save_mode: bool | str | list[str] = False,
         save_dir: os.PathLike | None = None,
         verbose: int | bool = 1,
         pbcs: bool | None = None,
@@ -86,7 +85,7 @@ class TIE(BaseTIE):
         if pbcs is not None:
             self._pbcs = pbcs
         self._verbose = verbose
-        if save:
+        if save_mode:
             self._check_save_name(save_dir, name, mode="TIE")
             self._overwrite = overwrite if overwrite is not None else self._overwrite
         if self.tfs._transforms_modified:
@@ -94,7 +93,7 @@ class TIE(BaseTIE):
             self.tfs.apply_transforms()
         self.vprint(
             f"Performing TIE reconstruction with defocus ± "
-            + f"{self._fmt_defocus(self._recon_defval, spacer=" ")}, index = {index}"
+            + f"{self._fmt_defocus(self._recon_defval, spacer=' ')}, index = {index}"
         )
         if self.flip:
             self.vprint(
@@ -116,7 +115,7 @@ class TIE(BaseTIE):
             dimy *= 2
             dimx *= 2
             recon_stack = self._symmetrize(recon_stack)
-            recon_mask = self._symmetrize([recon_mask]).squeeze()
+            recon_mask = np.abs(self._symmetrize([recon_mask]).squeeze())
             infocus_im = self._symmetrize([infocus_im]).squeeze()
 
         self._make_qi((dimy, dimx))
@@ -128,13 +127,15 @@ class TIE(BaseTIE):
         # temp checks # TODO remove
         assert dimy, dimx == recon_stack.shape[1:]
         if np.min(recon_stack) < 0:
-            # print("\n*** bad neg value figure out *** \n")
             pass
-        #     print('min: ', recon_stack.min())
-        #     recon_stack -= recon_stack.min()
-        #     print('min: ', recon_stack.min())
+            # print("\n*** bad neg value figure out *** \n")
+            # print('min: ', recon_stack.min())
+            # recon_stack -= recon_stack.min()
+            # infocus_im -= infocus_im.min()
+            # recon_stack += 1e-9
+            # infocus_im += 1e-9
+            # print('min: ', recon_stack.min())
         # assert np.min(recon_stack) >= 0
-
 
         # self.vprint("Calling TIE solver")
 
@@ -149,46 +150,66 @@ class TIE(BaseTIE):
             phase_E = self._reconstruct_phase(infocus_im, dIdZ_E, self._recon_defval)
             self._results["phase_E"] = phase_E - phase_E.min()
 
-        if save:
-            self._save_results(save, overwrite)
+        if save_mode:
+            self.save_results(save_mode=save_mode, overwrite=overwrite)
 
         return self  # self or None?
 
-    def _save_results(self, save, overwrite=None):
-        if isinstance(save, bool):
+    def save_results(
+        self,
+        save_mode: bool | str | list[str] = True,
+        save_dir: os.PathLike | None = None,
+        name: str | None = None,
+        overwrite: bool = False,
+    ) -> ThroughFocalSeries:
+        self._check_save_name(save_dir, name=name, mode="TIE")
+
+        if isinstance(save_mode, bool):
+            if not save_mode:
+                return self
             save_keys = ["phase_B", "Bx", "By", "color"]
             if self.flip:
                 save_keys.append("phase_E")
-        elif isinstance(save, str):
-            if save.lower() in ["b", "induction"]:
+        elif isinstance(save_mode, str):
+            if save_mode.lower() in ["b", "induction"]:
                 save_keys = ["Bx", "By", "color"]
-            elif save.lower() in ["phase"]:
+            elif save_mode.lower() in ["phase"]:
                 save_keys = ["phase_B"]
                 if self.flip:
                     save_keys.append("phase_E")
-            elif save.lower() == "all":
+            elif save_mode.lower() == "all":
                 save_keys = list(self.results.keys())
 
-        elif hasattr(save, "__iter__"):
+        elif hasattr(save_mode, "__iter__"):
             # is list or tuple of keys
-            save_keys = [str(k) for k in save]
+            save_keys = [str(k) for k in save_mode]
 
         self.save_dir.mkdir(exist_ok=True)
         self._save_keys(save_keys, self.recon_defval, overwrite)
         self._save_log(overwrite)
-        return
+        return self
 
     def _save_log(self, overwrite: bool | None = None):
         log_dict = {
             "name": self.name,
             "_save_name": self._save_name,
-            "defval": self._recon_defval,
+            "defval": self.recon_defval,
             "flip": self.flip,
             "sym": self.sym,
             "qc": self.qc,
+            "scale": self.scale,
+            "transforms": self.tfs.transforms,
+            "filters": self.tfs._filters,
+            "beam_energy": self.tfs.beam_energy,
+            "simulated": self.tfs._simulated,
+            "use_mask": self.tfs._use_mask,
+            "data_dir": self.tfs.data_dir,
+            "data_files": self.tfs.data_files,
+            "save_dir": self._save_dir,
         }
         ovr = overwrite if overwrite is not None else self._overwrite
         name = f"{self._save_name}_{self._fmt_defocus(self.recon_defval)}_log.json"
+        self._log = log_dict
         write_json(log_dict, self.save_dir / name, overwrite=ovr, v=self._verbose)
         return
 
@@ -318,7 +339,7 @@ class TIE(BaseTIE):
         else:
             ncols = 2
 
-        fig, axs = plt.subplots(ncols=ncols, figsize=(3 * ncols, 3.))
+        fig, axs = plt.subplots(ncols=ncols, figsize=(3 * ncols, 3.0))
 
         if isinstance(plot_scale, str):
             if plot_scale == "all":
@@ -364,15 +385,15 @@ class TIE(BaseTIE):
             )
 
         show_2D(
-            self.By,
             self.Bx,
+            self.By,
             figax=(fig, axs[-1]),
             scale=self.scale,
             ticks_off=ticks3,
-            title="Integrated induction map             ",
+            title="Integrated induction map      ",
             # rad=0,
         )
-        axs[-1].axis('off')
+        axs[-1].axis("off")
         # cax = fig.add_subplot(5,5,15, aspect='equal', anchor="SE")
         # box = cax.get_position()
         # box.x0 = box.x0 + 0.01
@@ -387,12 +408,36 @@ class TIE(BaseTIE):
         plt.show()
         return
 
-    def _check_index(self, index:int):
+    def _check_index(self, index: int):
         if index is None:
             index = self._valid_def_inds - 1
-        elif abs(index+1) > self._valid_def_inds or index < -1* self._valid_def_inds:
-            raise ValueError(f"index {index} is out of bounds for defvals_index with size {self._valid_def_inds}")
+        elif abs(index + 1) > self._valid_def_inds or index < -1 * self._valid_def_inds:
+            raise ValueError(
+                f"index {index} is out of bounds for defvals_index with size {self._valid_def_inds}"
+            )
         elif not isinstance(index, int):
             raise IndexError(f"index must be of type int, not {type(index)}")
         index = index % self._valid_def_inds
         return index
+
+    def show_phase_E(self, show_scale=True, **kwargs):
+        """
+        show induction
+        """
+        dname = (
+            self.name
+            if self.name is not None
+            else self._save_name if self._save_name is not None else ""
+        )
+
+        ticks_off = not show_scale
+        show_im(
+            self.phase_E,
+            scale=kwargs.pop("scale", self.scale),
+            cbar_title=kwargs.pop("cbar_title", "rad"),
+            title=kwargs.pop("title", f"{dname} phase_E"),
+            ticks_off=ticks_off,
+            title_fontsize=kwargs.pop("title_fontsize", 10),
+            **kwargs,
+        )
+        return

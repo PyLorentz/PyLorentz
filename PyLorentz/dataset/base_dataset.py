@@ -1,7 +1,8 @@
 import numpy as np
 from pathlib import Path
 from PyLorentz.io.read import read_image, read_json
-from PyLorentz.io.write import write_json
+from PyLorentz.io.write import write_json, format_defocus
+from PyLorentz.utils.filter import bandpass_filter
 import os
 from matplotlib.backend_bases import MouseButton
 import matplotlib.pyplot as plt
@@ -37,10 +38,10 @@ class BaseDataset(object):
 
     def __init__(
         self,
-        imshape: tuple | np.ndarray|None=None,
+        imshape: tuple | np.ndarray | None = None,
         data_dir: os.PathLike | None = None,
         scale: float | None = None,
-        verbose: int|bool=1,
+        verbose: int | bool = 1,
     ):
         # transforms will be rotation -> crop
         # if imshape is not None:
@@ -53,20 +54,32 @@ class BaseDataset(object):
             "left": 0,
             "right": imshape[1],
         }
+        self._filters = {
+            "hotpix": False,
+            "median": False,
+            "q_highpass": None,
+            "q_lowpass": None,
+            "filter_type": None,
+            "butterworth_order": None,
+        }
         self._verbose = verbose
 
         self.data_dir = data_dir
-        #Keep track of if transforms have been changed but not applied
+        # Keep track of if transforms have been changed but not applied
         self._transforms_modified = False
         return
 
-    @classmethod
-    def _read_mdata(self, metadata_file) -> dict:
-        mdata = read_json(metadata_file)
+    @staticmethod
+    def _parse_mdata(metadata_file: os.PathLike | dict) -> dict:
+        if isinstance(metadata_file, dict):
+            mdata = metadata_file
+        else:
+            mdata = read_json(metadata_file)
         keys = mdata.keys()
         if "defocus_values" not in keys:
-            s = f"`defocus_values` not found in metadata file: {metadata_file}"
-            raise ValueError(s)
+            # s = f"`defocus_values` not found in metadata file: {metadata_file}"
+            # raise ValueError(s)
+            mdata["defocus_values"] = None
         if "defocus_unit" not in keys:
             print(
                 f"`defocus_unit` not found in metadata file: {metadata_file}"
@@ -85,9 +98,33 @@ class BaseDataset(object):
             mdata["beam_energy"] = None
 
         if mdata["defocus_unit"] != "nm":
-            raise NotImplementedError(f"Unknown defocus unit {mdata['defocus_unit']}")
+            if mdata["defocus_unit"].lower() == "nm":
+                pass
+            elif mdata["defocus_unit"].lower() in ["um", "μm"]:
+                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * 1e3
+            elif mdata["defocus_unit"].lower() == "mm":
+                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * 1e6
+            elif mdata["defocus_unit"].lower() == "m":
+                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * 1e9
+            else:
+                raise NotImplementedError(
+                    f"Unknown defocus unit {mdata['defocus_unit']}"
+                )
+            mdata["defocus_unit"] = "nm"
+
         if mdata["scale_unit"] != "nm":
-            raise NotImplementedError(f"Unknown scale unit {mdata['scale_unit']}")
+            if mdata["scale_unit"].lower() == "nm":
+                pass
+            elif mdata["scale_unit"].lower() in ["um", "μm"]:
+                mdata["scale_values"] = mdata["scale"] * 1e3
+            elif mdata["scale_unit"].lower() == "mm":
+                mdata["scale_values"] = mdata["scale"] * 1e6
+            elif mdata["scale_unit"].lower() == "m":
+                mdata["scale_values"] = mdata["scale"] * 1e9
+            else:
+                raise NotImplementedError(f"Unknown scale unit {mdata['scale_unit']}")
+            mdata["scale_unit"] = "nm"
+
         return mdata
 
     @property
@@ -118,10 +155,13 @@ class BaseDataset(object):
     def scale(self, val: float | None):
         if val is None:
             self._scale = None
-        if val > 0:
-            self._scale = val
         else:
-            raise ValueError(f"scale must be > 0, received {val}")
+            if val is None:
+                self._scale = None
+            if val > 0:
+                self._scale = val
+            else:
+                raise ValueError(f"scale must be > 0, received {val}")
 
     def crop(self):
 
@@ -209,7 +249,9 @@ class BaseDataset(object):
                 self.scat = ax.scatter(xpoints, ypoints, c="r")
 
             def plot_image(self, rotation):
+                im_min = image.min()
                 imrot = ndi.rotate(image.copy(), rotation, reshape=False, order=1)
+                imrot[imrot==0] = im_min
                 ax.matshow(imrot, cmap="gray")
 
             def print_update(self, rotation):
@@ -558,7 +600,48 @@ class BaseDataset(object):
         squared = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
         return np.sqrt(squared)
 
+    @staticmethod
+    def _do_thing(pos1, pos2):
+        """Distance between two 2D points
+
+        Args:
+            pos1 (list): [y1, x1] point 1
+            pos2 (list): [y2, x2] point 2
+
+        Returns:
+            float: Euclidean distance between the two points
+        """
+        assert len(pos1) == len(pos2) == 2
+        squared = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
+        return np.sqrt(squared)
+
+    @staticmethod
+    def _fmt_defocus(defval: float | int, digits: int = 3, spacer: str = " "):
+        """returns a string of defocus value converted to nm, um, or mm as appropriate"""
+        return format_defocus(defval, digits, spacer=spacer)
+
     def vprint(self, *args, **kwargs):
         if self._verbose:
             print(*args, **kwargs)
 
+    def _bandpass_filter(
+        self,
+        image: np.ndarray,
+        q_lowpass: float | None = None,
+        q_highpass: float | None = None,
+        filter_type: str = "butterworth",  # butterworth or gaussian
+        butterworth_order: int = 2,
+    ):
+
+        return bandpass_filter(
+            image,
+            sampling=1/self.scale,
+            q_lowpass=q_lowpass,
+            q_highpass=q_highpass,
+            filter_type=filter_type,
+            butterworth_order=butterworth_order,
+        )
+
+    @property
+    def fov(self):
+        return np.array(self.shape) * self.scale

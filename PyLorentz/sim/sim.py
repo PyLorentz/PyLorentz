@@ -238,3 +238,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
         object_wave = amplitude * np.exp(1.0j * phase_t)
 
         return object_wave
+
+    def _add_noise(self):
+        # take dose and add poissan noise, gaussian blurring, etc.
+        raise NotImplementedError

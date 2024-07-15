@@ -94,7 +94,7 @@ def overwrite_rename_dir(dirpath, spacer="_"):
         if not any(dirpath.iterdir()):  # directory is empty
             return dirpath
         dirname = dirpath.stem
-        if dirname[-1].isnumeric():  # TODO check if this is date format
+        if dirname[-1].isnumeric():  # TODO add check for if is date format
             dirname, num = splitnum(dirname)
             nname = dirname + str(int(num) + 1) + "/"
             return overwrite_rename_dir(dirpath.parents[0] / nname)
@@ -111,18 +111,25 @@ def splitnum(s):
     return head, tail
 
 
-def prep_dict_for_json(d):
+def prep_dict_for_json(d:any):
     """
     still plenty of things it doesn't handle
     """
     def _json_serializable(val):
         if isinstance(val, np.ndarray):
             return val.tolist()
+        elif isinstance(val, np.generic):
+            return val.item()
         elif isinstance(val, Path):
             return str(val)
         elif isinstance(val, list):
             for i in range(len(val)):
                 val[i] = _json_serializable(val[i])
+            return val
+        # elif isinstance(val, dict): # causes dict -> null?
+        #     for key, v2 in val.items():
+        #         val[key] = _json_serializable(v2)
+        # elif: ## as things come up will need to add
         else:
             return val
 
@@ -142,7 +149,10 @@ def write_json(dict, path, overwrite=True, v=1):
         path = overwrite_rename(path)
 
     if v>= 1:
-        print(f"Saving json {path}")
+        print(f"Saving json: {path}")
+
+    # for key, val in d2.items():
+    #     print(f"key: {key} | type {type(val)} ")
 
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(d2, f, ensure_ascii=False, indent=4, sort_keys=True)

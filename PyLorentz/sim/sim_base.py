@@ -318,13 +318,13 @@ class SimBase(object):
         else:
             if xy_only:
                 show_2D(
-                    mag_y=self.My.mean(axis=0), mag_x=self.Mx.mean(axis=0), **kwargs
+                    Vy=self.My.mean(axis=0), Vx=self.Mx.mean(axis=0), **kwargs
                 )
             else:
                 show_2D(
-                    mag_y=self.My.mean(axis=0),
-                    mag_x=self.Mx.mean(axis=0),
-                    mag_z=self.Mz.mean(axis=0),
+                    Vy=self.My.mean(axis=0),
+                    Vx=self.Mx.mean(axis=0),
+                    Vz=self.Mz.mean(axis=0),
                     **kwargs,
                 )
         return

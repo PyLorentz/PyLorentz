@@ -99,7 +99,7 @@ def get_cmap(cmap=None, **kwargs):
         Object: matplotlib.colors.colormap object
     """
     if cmap is None:
-        cmap = "default"
+        cmap = "linear"
     elif isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(
         cmap, colors.ListedColormap
     ):
@@ -113,34 +113,44 @@ def get_cmap(cmap=None, **kwargs):
     shift = kwargs.get("shift", 0)
     invert = kwargs.get("invert", False)
     try:
-        if cmap in ["legacy4fold", "cet_c2", "c2"]:
+        if cmap in ["linear", "lin", ""]:
+            cmap = mpl.cm.get_cmap("gray")
+        elif cmap in ["diverging", "div"]:
+            cmap = mpl.cm.get_cmap("coolwarm")
+        elif cmap in ["linear_cbl", "cbl", "lin_cbl"]:
+            cmap = cc.cm.CET_CBL1
+        elif cmap in ["diverging_cbl", "div_cbl"]:
+            cmap = cc.cm.CET_CBD1
+        elif cmap in ["cet_rainbow", "cet_r1", "r1"]:
+            cmap = cc.cm.CET_R1
+        elif cmap in ["legacy4fold", "cet_c2", "c2", "cet_2"]:
             cmap = cc.cm.CET_C2
             shift += -np.pi / 2  # matching directions of legacy 4-fold
         elif cmap in ["purehsv", "legacyhsv"]:
             cmap = mpl.cm.get_cmap("hsv")
             invert = not invert
             shift += np.pi / 2
-        elif cmap in ["cet_c6", "c6", "6fold", "sixfold", "hsv", "default", ""]:
+        elif cmap in ["cet_c6", "c6", "cet_6", "6fold", "sixfold", "hsv", "cyclic"]:
             cmap = cc.cm.CET_C6
             invert = not invert
             shift += np.pi / 2
-        elif cmap in ["cet_c7", "c7", "4fold", "fourfold", "4-fold", "colorwheel"]:
+        elif cmap in ["cet_c7", "c7", "cet_7", "4fold", "fourfold", "4-fold"]:
             cmap = cc.cm.CET_C7
             invert = not invert
-        elif cmap in ["cet_c8", "c8"]:
+        elif cmap in ["cet_c8", "c8", "cet_8"]:
             cmap = cc.cm.CET_C8
-        elif cmap in ["cet_c10", "c10", "isolum", "isoluminant", "iso"]:
+        elif cmap in ["cet_c10", "c10", "cet_10", "isolum", "isoluminant", "iso"]:
             cmap = cc.cm.CET_C10
-        elif cmap in ["cet_c11", "c11"]:
+        elif cmap in ["cet_c11", "c11", "cet_11"]:
             cmap = cc.cm.CET_C11
-        elif cmap in ["twilight", "twilight_shifted"]:
+        elif cmap in mpl.pyplot.colormaps():
             cmap = mpl.cm.get_cmap(cmap)
         else:
             print(f"Unknown colormap input '{cmap}'.")
             print("You can also pass a colormap object directly.")
             print("Proceeding with default cc.cm.CET_C7.")
             cmap = cc.cm.CET_C7
-    except NameError as e:
+    except NameError:
         print("Colorcet not installed, proceeding with hsv from mpl")
         cmap = mpl.cm.get_cmap("hsv")
         invert = not invert
@@ -152,7 +162,7 @@ def get_cmap(cmap=None, **kwargs):
     return cmap
 
 
-def color_im(vy, vx, vz=None, cmap=None, rad=None, background="black", **kwargs):
+def color_im(vx, vy, vz=None, cmap=None, rad=None, background="black", **kwargs):
     """Make the RGB image from vector maps. Takes 2D array inputs for x, y, (and
     optionally z) vector components, along with
 
