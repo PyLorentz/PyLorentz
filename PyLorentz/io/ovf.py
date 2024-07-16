@@ -75,13 +75,13 @@ def read_ovf(file=None, mode="norm", B0=1e4, v=1):
         if line.startswith("# zstepsize"):
             zscale = float(line.split(":", 1)[1])
         if line.startswith("# Begin: Data Text"):
-            vprint("Text file found")
+            vprint(f"Text file found: {file}")
             dtype = "text"
         if line.startswith("# Begin: Data Binary 4"):
-            vprint("Binary 4 file found")
+            vprint(f"Binary 4 file found: {file}")
             dtype = "bin4"
         if line.startswith("# Begin: Data Binary 8"):
-            vprint("Binary 8 file found")
+            vprint(f"Binary 8 file found: {file}")
             dtype = "bin8"
 
     if xsize is None or ysize is None or zsize is None:

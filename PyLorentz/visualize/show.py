@@ -13,7 +13,7 @@ def show_im(
     simple=False,
     origin="upper",
     cbar=None,
-    cbar_title="",
+    cbar_title=None,
     scale=None,
     save=None,
     roi=None,
@@ -138,7 +138,7 @@ def show_im(
         ax.set_title(str(title), fontsize=kwargs.pop("title_fontsize", 12))
 
     if simple or kwargs.pop("ticks_off", False):
-        if title is not None or cbar:
+        if title is not None or cbar or kwargs.get("show_bbox", True):
             ax.set_xticks([])
             ax.set_yticks([])
         else:
@@ -237,7 +237,8 @@ def show_im(
             format="%g",
             fraction=0.047 * aspect,
         )
-        cb.set_label(str(cbar_title), labelpad=0)
+        if cbar_title is not None:
+            cb.set_label(str(cbar_title), labelpad=5)
 
     if save:
         print("saving: ", save)

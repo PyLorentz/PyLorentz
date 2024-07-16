@@ -1,14 +1,17 @@
-import numpy as np
-from PyLorentz.io import read_ovf, format_defocus
 import os
-from PyLorentz.visualize import show_2D, show_3D, show_im
-from .sim_base import SimBase
-from .comp_phase import LinsupPhase, MansuripurPhase
-from PyLorentz.dataset import ThroughFocalSeries, DefocusedDataset
-import scipy.ndimage as ndi
 from warnings import warn
-from PyLorentz.utils import Microscope
 
+import numpy as np
+import scipy.ndimage as ndi
+
+from PyLorentz.dataset import DefocusedDataset, ThroughFocalSeries
+from PyLorentz.io import format_defocus, read_ovf
+from PyLorentz.utils import Microscope
+from PyLorentz.visualize import show_2D, show_3D, show_im
+
+from .comp_phase import LinsupPhase, MansuripurPhase
+from .sim_base import SimBase
+from pathlib import Path
 
 class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
     def __init__(
@@ -29,6 +32,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
 
     @classmethod
     def load_ovf(cls, file, verbose=1):
+        file = Path(file).absolute()
         mags, scale, zscale = read_ovf(file, v=verbose)
 
         sim = cls(
@@ -63,7 +67,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
         if self.phase_method == "mansuripur":
             phase_B, phase_E = self._calc_phase_mansuripur(**kwargs)
         elif self.phase_method == "linsup":
-            phase_B, phase_E = self._calc_phase_linsup(multiproc=True, device="cpu")
+            phase_B, phase_E = self._calc_phase_linsup(multiproc=multiproc, device=device, **kwargs)
             self.get_flat_shape_func()
             # needed for image simulation, done in mansuripur, and here to prevent mistakes
         else:

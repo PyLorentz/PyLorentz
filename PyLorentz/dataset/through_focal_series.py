@@ -731,25 +731,22 @@ class ThroughFocalSeries(BaseDataset):
         fig, axs = plt.subplots(
             nrows=nrows, ncols=ncols, figsize=(2 * ncols, 2 * nrows)
         )
+        if not self.flip:
+            axs = axs[None,]
 
         inf_idx = len(self.defvals) // 2
-        ref_image = self.imstack[inf_idx - 1].copy()
+        ref_image = self.imstack[[inf_idx - 1,inf_idx+1]]
         vmin_infocus = np.min(ref_image)
         vmax_infocus = np.max(ref_image)
 
         for a0, df in enumerate(self.defvals):
-            if self.flip:
-                ax = axs[0, a0]
-            else:
-                ax = axs[a0]
-
             vmin = vmin_infocus if a0 == inf_idx else None
             vmax = vmax_infocus if a0 == inf_idx else None
 
             im_un = self.imstack[a0]
             show_im(
                 im_un,
-                figax=(fig, ax),
+                figax=(fig, axs[0,a0]),
                 title=f"{format_defocus(df)}",
                 simple=True,
                 cmap=kwargs.get("cmap", "gray"),
@@ -769,6 +766,12 @@ class ThroughFocalSeries(BaseDataset):
                     vmax=vmax,
                     cbar=kwargs.get("cbar", False),
                 )
+
+        if self.flip:
+            axs[0,0].set_ylabel("Unflip")
+            axs[1,0].set_ylabel("Flip")
+
+
         return
 
     def __str__(self):

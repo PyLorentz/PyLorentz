@@ -1,9 +1,10 @@
 import numpy as np
 from PyLorentz.io import read_ovf
 import os
-from PyLorentz.visualize import show_2D, show_3D
+from PyLorentz.visualize import show_2D, show_3D, show_im
 import scipy.constants as physcon
 import scipy.ndimage as ndi
+import matplotlib.pyplot as plt
 
 
 class SimBase(object):
@@ -38,11 +39,11 @@ class SimBase(object):
         self._default_params = {
             "phase_method": "mansuripur",  # "mansuripur" or "linsup"
             "B0": 1e4,  # gauss
-            "sample_V0": 20.0,  # V
+            "sample_V0": 0.0,  # V | 20.0
             "sample_xip0": 50.0,  # nm
-            "mem_V0": 10.0,  # V
+            "mem_V0": 0.0,  # V | 10.0
             "mem_xip0": 1e3,  # nm
-            "mem_thk": 50.0,  # nm
+            "mem_thickness": 0.0,  # nm | 50
             "theta_x": 0.0,  # degrees
             "tilt_y": 0.0,  # degrees
             "beam_energy": 200e3,  # eV
@@ -267,6 +268,10 @@ class SimBase(object):
     def _mags_shape(self):
         return self.mags.shape[1:]
 
+    @property
+    def shape(self):
+        return self._mags_shape
+
     @mags.setter
     def mags(self, vals):
         vals = np.array(vals, dtype=np.float64)
@@ -280,7 +285,8 @@ class SimBase(object):
 
     @shape_func.setter
     def shape_func(self, val):
-        val = np.array(val).astype("int")
+        val = np.array(val).astype(np.float32)
+        # int can lead to (quiet) unexpected behavior when blurring and such
         if val.shape != self._mags_shape:
             raise ValueError(
                 f"shape function shape, {val.shape} should equal mags shape, {self._mags_shape}"
@@ -294,7 +300,11 @@ class SimBase(object):
     def get_flat_shape_func(self, sigma=0):
         # rotate x then y
         # return flattened array
-        if abs(self.tilt_x) < 0.1 and abs(self.tilt_y) < 0.1 or np.ptp(self.shape_func) == 0:
+        if (
+            abs(self.tilt_x) < 0.1
+            and abs(self.tilt_y) < 0.1
+            or np.ptp(self.shape_func) == 0
+        ):
             flat = self.shape_func.sum(axis=0)
         else:
             padwidth = np.max(self._mags_shape[1:]) // 2
@@ -309,24 +319,6 @@ class SimBase(object):
         if sigma > 0:
             flat = ndi.gaussian_filter(flat, sigma)
         self._flat_shape_func = flat
-        return
-
-    def show_mags(self, s3D=False, xy_only=False, **kwargs):
-
-        if s3D:
-            show_3D(self.Mz, self.My, self.Mx, **kwargs)
-        else:
-            if xy_only:
-                show_2D(
-                    Vy=self.My.mean(axis=0), Vx=self.Mx.mean(axis=0), **kwargs
-                )
-            else:
-                show_2D(
-                    Vy=self.My.mean(axis=0),
-                    Vx=self.Mx.mean(axis=0),
-                    Vz=self.Mz.mean(axis=0),
-                    **kwargs,
-                )
         return
 
     def get_shape_func(self, mags: np.ndarray | None = None):
@@ -369,3 +361,83 @@ class SimBase(object):
     def _pre_E(self):
         # TODO figure out how I want to include the phase shift from the membrane
         return self._interaction_constant() * self.sample_V0 * self.zscale
+
+    def show_mags(self, xy_only=False, s3D=False, show_scale=False, **kwargs):
+        scale = self.scale if show_scale else None
+        if s3D:
+            show_3D(
+                self.Mx, self.My, self.Mz, title="magnetization", scale=scale, **kwargs
+            )
+        else:
+            if xy_only:
+                show_2D(
+                    Vx=self.Mx.mean(axis=0),
+                    Vy=self.My.mean(axis=0),
+                    title="magnetization",
+                    scale=scale,
+                    **kwargs,
+                )
+            else:
+                show_2D(
+                    Vx=self.Mx.mean(axis=0),
+                    Vy=self.My.mean(axis=0),
+                    Vz=self.Mz.mean(axis=0),
+                    title="magnetization",
+                    scale=scale,
+                    **kwargs,
+                )
+        return
+
+    def show_thickness_map(self, **kwargs):
+        show_im(
+            self.shape_func.sum(axis=0) * self.zscale,
+            scale=self.scale,
+            cbar_title="thickness (nm)",
+            title="thickness map",
+            **kwargs,
+        )
+
+        return
+
+    def visualize(self, show_thickness_map=True, xy_only=False):
+        if not show_thickness_map:
+            self.show_mags(xy_only=xy_only)
+            return
+
+        fig, axs = plt.subplots(ncols=2, figsize=(8, 4))
+        self.show_mags(xy_only=xy_only, figax=(fig, axs[0]))
+        self.show_thickness_map(figax=(fig, axs[1]))
+        plt.show()
+        return
+
+    def show_phase(self):
+        fig, axs = plt.subplots(ncols=2, figsize=(9, 4))
+        self.show_phase_B(figax=(fig, axs[0]), cbar_title=None)
+        self.show_phase_E(
+            figax=(fig, axs[1]),
+            ticks_off=True,
+        )
+        plt.tight_layout()
+        plt.show()
+
+        return
+
+    def show_phase_B(self, **kwargs):
+        show_im(
+            self.phase_B,
+            scale=kwargs.pop("scale", self.scale),
+            cbar_title=kwargs.pop("cbar_title", "rad"),
+            title="phase_B",
+            **kwargs,
+        )
+        return
+
+    def show_phase_E(self, **kwargs):
+        show_im(
+            self.phase_E,
+            scale=kwargs.pop("scale", self.scale),
+            cbar_title=kwargs.pop("cbar_title", "rad"),
+            title="phase_E",
+            **kwargs,
+        )
+        return
