@@ -1,4 +1,4 @@
-Arthur McCray -- Northwestern University, Argonne National Lab
+Arthur McCray -- Molecular Foundry, LBL, Argonne National Lab
 Tim Cote -- Northwestern University, Argonne National Lab
 Yue Li -- Argonne National Lab
 Charudatta Phatak -- Argonne National Lab

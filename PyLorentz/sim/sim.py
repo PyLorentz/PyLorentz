@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+from typing import List, Optional, Union
 from warnings import warn
 
 import numpy as np
@@ -7,31 +9,51 @@ import scipy.ndimage as ndi
 from PyLorentz.dataset import DefocusedDataset, ThroughFocalSeries
 from PyLorentz.io import format_defocus, read_ovf
 from PyLorentz.utils import Microscope
-from PyLorentz.visualize import show_2D, show_3D, show_im
 
 from .comp_phase import LinsupPhase, MansuripurPhase
 from .sim_base import SimBase
-from pathlib import Path
+
 
 class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
+    """
+    A class used to simulate Lorentz Transmission Electron Microscopy (LTEM) images.
+    """
+
     def __init__(
         self,
         mags: np.ndarray,
         scale: float,
         zscale: float,
-        verbose: float | bool = 1,
-        ovf_file: os.PathLike | None = None,
+        verbose: Union[float, bool] = 1,
+        ovf_file: Optional[os.PathLike] = None,
     ):
+        """
+        Initialize the SimLTEM object.
 
+        Args:
+            mags (np.ndarray): Magnetization array.
+            scale (float): Scale factor for the simulation.
+            zscale (float): Z-axis scale factor.
+            verbose (float | bool, optional): Verbosity level. Default is 1.
+            ovf_file (os.PathLike | None, optional): Path to OVF file. Default is None.
+        """
         SimBase.__init__(self, mags, scale, zscale, verbose)
         self._ovf_file = ovf_file
 
         self.get_shape_func()
 
-        return
-
     @classmethod
-    def load_ovf(cls, file, verbose=1):
+    def load_ovf(cls, file: Union[str, os.PathLike], verbose: int = 1) -> "SimLTEM":
+        """
+        Load an OVF file and initialize a SimLTEM object.
+
+        Args:
+            file (str | os.PathLike): Path to the OVF file.
+            verbose (int, optional): Verbosity level. Default is 1.
+
+        Returns:
+            SimLTEM: An instance of the SimLTEM class.
+        """
         file = Path(file).absolute()
         mags, scale, zscale = read_ovf(file, v=verbose)
 
@@ -47,14 +69,26 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
 
     def compute_phase(
         self,
-        method: str | None = "mansuripur",
-        tilt_x: float | None = None,
-        tilt_y: float | None = None,
-        beam_energy=None,
-        device="cpu",
-        multiproc=True,
+        method: Optional[str] = "mansuripur",
+        tilt_x: Optional[float] = None,
+        tilt_y: Optional[float] = None,
+        beam_energy: Optional[float] = None,
+        device: str = "cpu",
+        multiproc: bool = True,
         **kwargs,
-    ):
+    ) -> None:
+        """
+        Compute the phase shift for the simulation.
+
+        Args:
+            method (str | None, optional): Phase computation method. Options are 'mansuripur' or 'linsup'. Default is 'mansuripur'.
+            tilt_x (float | None, optional): Tilt angle in the x direction. Default is None.
+            tilt_y (float | None, optional): Tilt angle in the y direction. Default is None.
+            beam_energy (float | None, optional): Beam energy. Default is None.
+            device (str, optional): Device to use for computation. Default is 'cpu'.
+            multiproc (bool, optional): Whether to use multiprocessing. Default is True.
+            **kwargs: Additional arguments for phase computation.
+        """
         if method is not None or self.phase_method is None:
             self.phase_method = method
         if tilt_x is not None or self.tilt_x is None:
@@ -67,28 +101,41 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
         if self.phase_method == "mansuripur":
             phase_B, phase_E = self._calc_phase_mansuripur(**kwargs)
         elif self.phase_method == "linsup":
-            phase_B, phase_E = self._calc_phase_linsup(multiproc=multiproc, device=device, **kwargs)
+            phase_B, phase_E = self._calc_phase_linsup(
+                multiproc=multiproc, device=device, **kwargs
+            )
             self.get_flat_shape_func()
-            # needed for image simulation, done in mansuripur, and here to prevent mistakes
         else:
             raise ValueError(f"phase_method has bad value somehow: {self.phase_method}")
 
         self._phase_B = phase_B - phase_B.min()
         self._phase_E = phase_E - phase_E.min()
-        return
 
     def sim_images(
         self,
-        defocus_values: float | list,  # single defocus value or list of them
+        defocus_values: Union[
+            float, List[float]
+        ],  # single defocus value or list of them
         scope: Microscope,
-        flip=False,
+        flip: bool = False,
         filter_sigma: float = 1,
-        amorphous_bkg=None,
-        padded_shape=None,
+        amorphous_bkg: Optional[Union[bool, float]] = None,
+        padded_shape: Optional[tuple] = None,
     ) -> DefocusedDataset:
-        # set defvals
-        # defocus_values can be single item or list, will return images for each
-        # if flip, will do image for -phase_B + phase_E
+        """
+        Simulate images at different defocus values.
+
+        Args:
+            defocus_values (float | list): Single defocus value or list of defocus values.
+            scope (Microscope): Microscope object.
+            flip (bool, optional): Whether to flip the phase. Default is False.
+            filter_sigma (float, optional): Sigma value for Gaussian filter. Default is 1.
+            amorphous_bkg (bool | float | None, optional): Amorphous background level. Default is None.
+            padded_shape (tuple | None, optional): Shape for padding. Default is None.
+
+        Returns:
+            DefocusedDataset: A dataset containing simulated defocused images.
+        """
         object_wave = self._generate_object_wave(filter_sigma, amorphous_bkg, flip=flip)
 
         if isinstance(defocus_values, (float, int)):
@@ -119,14 +166,36 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
 
     def sim_TFS(
         self,
-        defocus_values: float | list,  # single defocus value or list of them
+        defocus_values: Union[
+            float, List[float]
+        ],  # single defocus value or list of them
         scope: Microscope,
-        flip=False,
+        flip: bool = False,
         filter_sigma: float = 1,
-        amorphous_bkg=None,
-        padded_shape=None,
+        amorphous_bkg: Optional[Union[bool, float]] = None,
+        padded_shape: Optional[tuple] = None,
     ) -> ThroughFocalSeries:
+        """
+        Simulate a Through Focal Series (TFS).
 
+        for single or set of defocus values, record a through focal series with/without flip
+        one defocus val, flip=False -> [+-, +0, ++]
+        one defocus val, flip=True, -> [[+-, +0, ++], [--, -0, -+]]
+        multiple defocus vals,
+        everything goes into a DefocusedDataset object
+
+
+        Args:
+            defocus_values (float | list): Single defocus value or list of defocus values.
+            scope (Microscope): Microscope object.
+            flip (bool, optional): Whether to flip the phase. Default is False.
+            filter_sigma (float, optional): Sigma value for Gaussian filter. Default is 1.
+            amorphous_bkg (bool | float | None, optional): Amorphous background level. Default is None.
+            padded_shape (tuple | None, optional): Shape for padding. Default is None.
+
+        Returns:
+            ThroughFocalSeries: A series of simulated images at different focal depths.
+        """
         if isinstance(defocus_values, (float, int)):
             full_defvals = [-1 * abs(defocus_values), 0, abs(defocus_values)]
         else:
@@ -142,7 +211,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
             + f"{', '.join([format_defocus(i, spacer=' ') for i in full_defvals])}"
         )
         if flip:
-            self.vprint("Will simulate a tfs for both unflip and flip orientations.")
+            self.vprint("Will simulate a TFS for both unflip and flip orientations.")
 
         seed = np.random.randint(1e9)
         object_wave = self._generate_object_wave(
@@ -163,11 +232,6 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
                     scope.compute_image(object_wave_flip, padded_shape=padded_shape)
                 )
 
-        # for single or set of defocus values, record a through focal series with/without flip
-        # one defocus val, flip=False -> [+-, +0, ++]
-        # one defocus val, flip=True, -> [[+-, +0, ++], [--, -0, -+]]
-        # multiple defocus vals,
-        # everything goes into a DefocusedDataset object
         tfs = ThroughFocalSeries(
             imstack=imstack,
             flipstack=flipstack,
@@ -178,18 +242,27 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
             simulated=True,
             verbose=self._verbose,
         )
-        # tfs.preprocess()
+
         return tfs
 
     def _generate_object_wave(
         self,
         filter_sigma: float = 1,
-        amorphous_bkg=None,
+        amorphous_bkg: Optional[Union[bool, float]] = None,
         flip: bool = False,
-        seed: int | None = None,
-    ):
+        seed: Optional[int] = None,
+    ) -> np.ndarray:
         """
-        generate the object wave used to simulate images
+        Generate the object wave used to simulate images.
+
+        Args:
+            filter_sigma (float, optional): Sigma value for Gaussian filter. Default is 1.
+            amorphous_bkg (bool | float | None, optional): Amorphous background level. Default is None.
+            flip (bool, optional): Whether to flip the phase. Default is False.
+            seed (int | None, optional): Random seed for generating noise. Default is None.
+
+        Returns:
+            np.ndarray: The generated object wave.
         """
         phase_E = self.phase_E.copy()
         if filter_sigma:
@@ -216,13 +289,9 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
             phase_t += random_phase
 
         if self.flat_shape_func is None:
-            # make sure theres no way to have the wrong tilt value used...
-            # if mansuripur done for one tilt value, then linsup for another tilt value, could happen
             print("how the heck did you get here?")
             self.get_flat_shape_func()
 
-        # units of pixels, multiplying by zscale is approximately correct in most cases
-        # for large tilt values, requires zscale + scale
         thk_map = self.flat_shape_func.copy()
         if filter_sigma:
             thk_map = ndi.gaussian_filter(thk_map, sigma=filter_sigma)
@@ -244,5 +313,10 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
         return object_wave
 
     def _add_noise(self):
-        # take dose and add poissan noise, gaussian blurring, etc.
+        """
+        Add noise to the simulated data.
+
+        Raises:
+            NotImplementedError: This method is not implemented.
+        """
         raise NotImplementedError

@@ -9,10 +9,9 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import scipy.ndimage as ndi
 import warnings
-
 import matplotlib as mpl
 
-### Remapping keybindings for interactive matplotlib figures
+# Remapping keybindings for interactive matplotlib figures
 mpl.rcParams["keymap.home"] = ""
 mpl.rcParams["keymap.back"] = ""
 mpl.rcParams["keymap.forward"] = ""
@@ -26,15 +25,10 @@ mpl.rcParams["keymap.xscale"] = ""
 mpl.rcParams["keymap.yscale"] = ""
 mpl.rcParams["keymap.quit"] = "Q"
 
-
-# BaseImage?
-"""
-BaseImage?
-- single image, but have cropping extendable to stacks
-"""
-
-
-class BaseDataset(object):
+class BaseDataset:
+    """
+    A base class for handling datasets, providing common attributes and methods.
+    """
 
     def __init__(
         self,
@@ -43,16 +37,23 @@ class BaseDataset(object):
         scale: float | None = None,
         verbose: int | bool = 1,
     ):
-        # transforms will be rotation -> crop
-        # if imshape is not None:
+        """
+        Initialize the BaseDataset object.
+
+        Args:
+            imshape (tuple | np.ndarray | None, optional): Shape of the image. Default is None.
+            data_dir (os.PathLike | None, optional): Directory for data storage. Default is None.
+            scale (float | None, optional): Scale factor for the dataset. Default is None.
+            verbose (int | bool, optional): Verbosity level. Default is 1.
+        """
         self._shape = imshape
         self.scale = scale
         self._transforms = {
             "rotation": 0,
             "top": 0,
-            "bottom": imshape[0],
+            "bottom": imshape[0] if imshape else None,
             "left": 0,
-            "right": imshape[1],
+            "right": imshape[1] if imshape else None,
         }
         self._filters = {
             "hotpix": False,
@@ -63,22 +64,27 @@ class BaseDataset(object):
             "butterworth_order": None,
         }
         self._verbose = verbose
-
         self.data_dir = data_dir
-        # Keep track of if transforms have been changed but not applied
         self._transforms_modified = False
-        return
 
     @staticmethod
     def _parse_mdata(metadata_file: os.PathLike | dict) -> dict:
+        """
+        Parse metadata from a file or dictionary.
+
+        Args:
+            metadata_file (os.PathLike | dict): Path to the metadata file or dictionary.
+
+        Returns:
+            dict: Parsed metadata.
+        """
         if isinstance(metadata_file, dict):
             mdata = metadata_file
         else:
             mdata = read_json(metadata_file)
+
         keys = mdata.keys()
         if "defocus_values" not in keys:
-            # s = f"`defocus_values` not found in metadata file: {metadata_file}"
-            # raise ValueError(s)
             mdata["defocus_values"] = None
         if "defocus_unit" not in keys:
             print(
@@ -97,30 +103,32 @@ class BaseDataset(object):
         if "beam_energy" not in keys:
             mdata["beam_energy"] = None
 
-        if mdata["defocus_unit"] != "nm":
-            if mdata["defocus_unit"].lower() == "nm":
-                pass
-            elif mdata["defocus_unit"].lower() in ["um", "μm"]:
-                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * 1e3
-            elif mdata["defocus_unit"].lower() == "mm":
-                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * 1e6
-            elif mdata["defocus_unit"].lower() == "m":
-                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * 1e9
+        defocus_unit = mdata["defocus_unit"].lower()
+        if defocus_unit != "nm":
+            unit_conversion = {
+                "um": 1e3,
+                "μm": 1e3,
+                "mm": 1e6,
+                "m": 1e9
+            }
+            conversion_factor = unit_conversion.get(defocus_unit)
+            if conversion_factor:
+                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * conversion_factor
             else:
-                raise NotImplementedError(
-                    f"Unknown defocus unit {mdata['defocus_unit']}"
-                )
+                raise NotImplementedError(f"Unknown defocus unit {mdata['defocus_unit']}")
             mdata["defocus_unit"] = "nm"
 
-        if mdata["scale_unit"] != "nm":
-            if mdata["scale_unit"].lower() == "nm":
-                pass
-            elif mdata["scale_unit"].lower() in ["um", "μm"]:
-                mdata["scale_values"] = mdata["scale"] * 1e3
-            elif mdata["scale_unit"].lower() == "mm":
-                mdata["scale_values"] = mdata["scale"] * 1e6
-            elif mdata["scale_unit"].lower() == "m":
-                mdata["scale_values"] = mdata["scale"] * 1e9
+        scale_unit = mdata["scale_unit"].lower()
+        if scale_unit != "nm":
+            unit_conversion = {
+                "um": 1e3,
+                "μm": 1e3,
+                "mm": 1e6,
+                "m": 1e9
+            }
+            conversion_factor = unit_conversion.get(scale_unit)
+            if conversion_factor:
+                mdata["scale"] = mdata["scale"] * conversion_factor
             else:
                 raise NotImplementedError(f"Unknown scale unit {mdata['scale_unit']}")
             mdata["scale_unit"] = "nm"
@@ -129,64 +137,58 @@ class BaseDataset(object):
 
     @property
     def shape(self):
+        """Get the shape of the image."""
         return self._shape
 
     @property
     def data_dir(self):
+        """Get the data directory."""
         return self._data_dir
 
     @data_dir.setter
     def data_dir(self, p: os.PathLike | None):
+        """Set the data directory."""
         if p is None:
             self._data_dir = p
         else:
             p = Path(p).absolute()
             if not p.exists():
-                warnings.warn(
-                    f"data_dir does not exist, but setting anyways. data_dir = {p}"
-                )
+                warnings.warn(f"data_dir does not exist, but setting anyways. data_dir = {p}")
             self._data_dir = p
 
     @property
     def scale(self):
+        """Get the scale factor."""
         return self._scale
 
     @scale.setter
     def scale(self, val: float | None):
+        """Set the scale factor."""
         if val is None:
             self._scale = None
+        elif val > 0:
+            self._scale = val
         else:
-            if val is None:
-                self._scale = None
-            if val > 0:
-                self._scale = val
-            else:
-                raise ValueError(f"scale must be > 0, received {val}")
+            raise ValueError(f"scale must be > 0, received {val}")
 
     def crop(self):
-
-        return
-
-    # def __len__
+        """Placeholder for crop method."""
+        pass
 
     def _select_ROI(self, image: np.ndarray, print_instructions=True, verbose=True):
-        """Select a rectangular region of interest and rotation angle
-        assign to self._transforms
-        don't do any actual cropping here
+        """
+        Select a rectangular region of interest and rotation angle, and assign to self._transforms.
 
         Args:
-            infocus (bool, optional): Whether to select a region from the infocus image.
-                For some datasets the infocus image will have no contrast, and therefore set
-                infocus=False to select a region from the most underfocused image.
-                Defaults to True.
+            image (np.ndarray): Image to select ROI from.
+            print_instructions (bool, optional): Whether to print instructions. Default is True.
+            verbose (bool, optional): Verbosity level. Default is True.
         """
         vprint = print if verbose >= 1 else lambda *a, **k: None
-        assert (
-            image.shape == self._shape
-        ), f"Incorrect image shape: expected {self._shape} received {image.shape}"
+        assert image.shape == self._shape, f"Incorrect image shape: expected {self._shape} received {image.shape}"
 
         if print_instructions and verbose:
-            s = (
+            instructions = (
                 "Interactive ROI selection:"
                 "\n\tRight click | move closest corner to mouse position"
                 "\n\t'j'/'k'     | rotate the image, shift + 'j'/'k' to increase step size"
@@ -200,35 +202,18 @@ class BaseDataset(object):
                 "\nIf display is not responding, try clicking on the image and ensuring "
                 "you ran %matplotlib widget"
             )
-            print(s)
+            print(instructions)
 
-        # needs to take list as input so it can add them
         fig, ax = plt.subplots()
-
-        # ax.matshow(image, cmap="gray")
         dy, dx = self._shape
 
         start_rotation = self._transforms["rotation"]
-        points = np.array(
-            [
-                [self._transforms["top"], self._transforms["left"]],
-                [self._transforms["bottom"], self._transforms["right"]],
-            ]
-        )
+        points = np.array([[self._transforms["top"], self._transforms["left"]],
+                           [self._transforms["bottom"], self._transforms["right"]]])
         start_points = points.copy()
-
-        vprint("Starting parameters: ")
-        vprint(
-            f"Rotation: {start_rotation} | "
-            f"Points: "
-            + f"({points[0,0]}, {points[0,1]}), ({points[1,0]}, {points[1,1]})"
-            + " | Dimensions (h x w): "
-            + f"{points[1,0]-points[0,0]} x {points[1,1]-points[0,1]}",
-            end="\r",
-        )
         self._temp_rotation = start_rotation
 
-        class plotter:
+        class Plotter:
             def __init__(self, points):
                 self.plot_image(start_rotation)
                 self.scat = None
@@ -239,7 +224,6 @@ class BaseDataset(object):
                     self.plot(points)
 
             def plot(self, points):
-                # moving point left/up by 1 if > 0 to prevent plotting outside of window
                 if self.scat is not None:
                     self.clear()
                 ypoints = points[:, 0][points[:, 0] >= 0]
@@ -251,7 +235,7 @@ class BaseDataset(object):
             def plot_image(self, rotation):
                 im_min = image.min()
                 imrot = ndi.rotate(image.copy(), rotation, reshape=False, order=1)
-                imrot[imrot==0] = im_min
+                imrot[imrot == 0] = im_min
                 ax.matshow(imrot, cmap="gray")
 
             def print_update(self, rotation):
@@ -274,19 +258,18 @@ class BaseDataset(object):
                 self.scat = None
 
         def on_click(event):
-            # make it move closer point not second one always
             if event.button is MouseButton.RIGHT:
                 x, y = event.xdata, event.ydata
-                if np.any(points[0] < 0):  # draw point0
+                if np.any(points[0] < 0):
                     points[0, 0] = y
                     points[0, 1] = x
-                elif np.any(points[1] < 0):  # draw point1
+                elif np.any(points[1] < 0):
                     points[1, 0] = y
                     points[1, 1] = x
-                else:  # redraw closer point
+                else:
                     dist0 = self._points_dist(points[0], [y, x])
                     dist1 = self._points_dist(points[1], [y, x])
-                    if dist0 < dist1:  # change point0
+                    if dist0 < dist1:
                         points[0, 0] = y
                         points[0, 1] = x
                     else:
@@ -507,9 +490,8 @@ class BaseDataset(object):
 
             # else:
             #     print("key: ", event.key)
-
         def on_move(event):
-            if np.any(points < 0):  # only drawing if not all points not placed
+            if np.any(points < 0):
                 if event.xdata is not None and event.ydata is not None:
                     if 0 < event.xdata < dx and 0 < event.ydata < dy:
                         if np.all(points[0] > 0):
@@ -518,22 +500,19 @@ class BaseDataset(object):
                             y0, x0 = points[1]
                         else:
                             return
-
                         x1 = event.xdata
                         y1 = event.ydata
                         p.plotrect([[y0, x0], [y1, x1]])
 
-        p = plotter(points)
-        # p.plot_image()
+        p = Plotter(points)
         binding_id = plt.connect("button_press_event", on_click)
         binding_id2 = plt.connect("motion_notify_event", on_move)
         plt.connect("key_press_event", on_key_press)
         plt.show()
         print("Current parameters:")
-        return
 
     def _reset_transforms(self):
-        """Reset the ptie.crop() region to the full image."""
+        """Reset the ROI to the full image."""
         print("Resetting ROI to unrotated full image.")
         self._transforms["rotation"] = 0
         self._transforms["left"] = 0
@@ -544,24 +523,27 @@ class BaseDataset(object):
 
     @property
     def transforms(self):
+        """Get the transformation parameters."""
         return self._transforms
 
     @transforms.setter
     def transforms(self, d, verbose=True):
+        """Set the transformation parameters."""
         if not hasattr(self, "_transforms"):
             self._transforms = {}
         if not isinstance(d, dict):
             raise TypeError(f"transforms should be dict, not {type(d)}")
         for key, val in d.items():
-            if key.lower() in ["rotation", "rot", "r"]:
+            key_lower = key.lower()
+            if key_lower in ["rotation", "rot", "r"]:
                 self._transforms["rotation"] = val
-            elif key.lower() in ["top", "t"]:
+            elif key_lower in ["top", "t"]:
                 self._transforms["top"] = val
-            elif key.lower() in ["bottom", "bot", "b"]:
+            elif key_lower in ["bottom", "bot", "b"]:
                 self._transforms["bottom"] = val
-            elif key.lower() in ["left", "l"]:
+            elif key_lower in ["left", "l"]:
                 self._transforms["left"] = val
-            elif key.lower() in ["right", "r"]:
+            elif key_lower in ["right", "r"]:
                 self._transforms["right"] = val
             else:
                 s = (
@@ -572,12 +554,8 @@ class BaseDataset(object):
 
         if self._verbose and verbose:
             rotation = self._transforms["rotation"]
-            points = np.array(
-                [
-                    [self._transforms["top"], self._transforms["left"]],
-                    [self._transforms["bottom"], self._transforms["right"]],
-                ]
-            )
+            points = np.array([[self._transforms["top"], self._transforms["left"]],
+                               [self._transforms["bottom"], self._transforms["right"]]])
             print(
                 f"Rotation: {rotation:4} | Points: ({points[0,0]:4}, {points[0,1]:4}), "
                 + f"({points[1,0]:4}, {points[1,1]:4}) | Dimensions (h x w): "
@@ -587,22 +565,8 @@ class BaseDataset(object):
 
     @staticmethod
     def _points_dist(pos1, pos2):
-        """Distance between two 2D points
-
-        Args:
-            pos1 (list): [y1, x1] point 1
-            pos2 (list): [y2, x2] point 2
-
-        Returns:
-            float: Euclidean distance between the two points
         """
-        assert len(pos1) == len(pos2) == 2
-        squared = (pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2
-        return np.sqrt(squared)
-
-    @staticmethod
-    def _do_thing(pos1, pos2):
-        """Distance between two 2D points
+        Calculate the Euclidean distance between two 2D points.
 
         Args:
             pos1 (list): [y1, x1] point 1
@@ -617,10 +581,21 @@ class BaseDataset(object):
 
     @staticmethod
     def _fmt_defocus(defval: float | int, digits: int = 3, spacer: str = " "):
-        """returns a string of defocus value converted to nm, um, or mm as appropriate"""
+        """
+        Format defocus value for display.
+
+        Args:
+            defval (float | int): Defocus value.
+            digits (int, optional): Number of digits. Default is 3.
+            spacer (str, optional): Spacer string. Default is " ".
+
+        Returns:
+            str: Formatted defocus value.
+        """
         return format_defocus(defval, digits, spacer=spacer)
 
     def vprint(self, *args, **kwargs):
+        """Print messages if verbose is enabled."""
         if self._verbose:
             print(*args, **kwargs)
 
@@ -629,13 +604,25 @@ class BaseDataset(object):
         image: np.ndarray,
         q_lowpass: float | None = None,
         q_highpass: float | None = None,
-        filter_type: str = "butterworth",  # butterworth or gaussian
+        filter_type: str = "butterworth",
         butterworth_order: int = 2,
-    ):
+    ) -> np.ndarray:
+        """
+        Apply a bandpass filter to the image.
 
+        Args:
+            image (np.ndarray): Image to filter.
+            q_lowpass (float | None, optional): Low-pass filter cutoff. Default is None.
+            q_highpass (float | None, optional): High-pass filter cutoff. Default is None.
+            filter_type (str, optional): Filter type, "butterworth" or "gaussian". Default is "butterworth".
+            butterworth_order (int, optional): Order of the Butterworth filter. Default is 2.
+
+        Returns:
+            np.ndarray: Filtered image.
+        """
         return bandpass_filter(
             image,
-            sampling=1/self.scale,
+            sampling=1 / self.scale,
             q_lowpass=q_lowpass,
             q_highpass=q_highpass,
             filter_type=filter_type,
@@ -644,4 +631,5 @@ class BaseDataset(object):
 
     @property
     def fov(self):
+        """Get the field of view."""
         return np.array(self.shape) * self.scale

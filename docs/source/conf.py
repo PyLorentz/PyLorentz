@@ -14,12 +14,8 @@ import os
 import sys
 
 # sys.path.insert(0, os.path.abspath('../../PyLorentz/PyTIE'))
-sys.path.append(os.path.abspath(".."))
-sys.path.append(os.path.abspath("../../PyTIE"))
-sys.path.append(os.path.abspath("../../SimLTEM"))
-sys.path.append(os.path.abspath("../../GUI"))
-sys.path.append(os.path.abspath("../.."))
-sys.path.append(os.path.abspath("./"))
+from PyLorentz.dataset import base_dataset, defocused_dataset, through_focal_series
+from PyLorentz.utils import Microscope
 
 
 # -- Project information -----------------------------------------------------
@@ -47,20 +43,24 @@ extensions = [
 ]
 
 autodoc_mock_imports = [
-    "dask",
+    "numpy",
+    "scipy",
+    "numba",
+    "ipympl",
+    "jupyter",
+    "scikit-image",
+    "matplotlib",
+    "ncempy",
+    "colorcet",
+    "black",
+    "tqdm",
+    "pytorch",
+    "cupy",
     "ncempy",
     "skimage",
     "colormap",
-    "numpy",
-    "scipy",
-    "matplotlib",
-    "numba",
-    "sklearn",
-    "mpl_toolkits",
-    "scipy.constants",
     "physcon",
     "ipywidgets",
-    "PySimpleGUI",
     "tifffile",
 ]
 

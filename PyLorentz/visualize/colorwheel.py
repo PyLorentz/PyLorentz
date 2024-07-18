@@ -20,17 +20,21 @@ try:
 except ModuleNotFoundError:
     pass
 
-
 def roll_cmap(
-    cmap,
-    frac,
-    invert=False,
-):
-    """Shifts a matplotlib colormap by rolling.
+    cmap: mpl.colors.Colormap | str,
+    frac: float,
+    invert: bool = False,
+) -> mpl.colors.Colormap:
+    """
+    Shifts a matplotlib colormap by rolling.
 
-    Keyword arguments:
-    cmap -- the colormap to be shifted. Can be a colormap name or a Colormap object
-    frac -- the fraction of the colorbar my which to shift (must be between 0 and 1)
+    Args:
+        cmap (mpl.colors.Colormap | str): The colormap to be shifted. Can be a colormap name or a Colormap object.
+        frac (float): The fraction of the colorbar by which to shift (must be between 0 and 1).
+        invert (bool, optional): Whether to invert the colormap. Defaults to False.
+
+    Returns:
+        mpl.colors.Colormap: The shifted colormap.
     """
     N = 256
     if isinstance(cmap, str):
@@ -43,25 +47,30 @@ def roll_cmap(
     new_cmap = mpl.colors.LinearSegmentedColormap.from_list(f"{n}_s", cmap(out))
     return new_cmap
 
-
 def shift_cmap_center(
-    cmap,
-    vmin=-1,
-    vmax=1,
-    midpointval=0,
-    invert=False,
-):
+    cmap: mpl.colors.Colormap | str,
+    vmin: float = -1,
+    vmax: float = 1,
+    midpointval: float = 0,
+    invert: bool = False,
+) -> mpl.colors.Colormap:
     """
-    Shifts a matplotlib such that the center is moved and the scaling is consistent.
-    """
+    Shifts a matplotlib colormap such that the center is moved and the scaling is consistent.
 
+    Args:
+        cmap (mpl.colors.Colormap | str): The colormap to be shifted. Can be a colormap name or a Colormap object.
+        vmin (float, optional): Minimum value for scaling. Defaults to -1.
+        vmax (float, optional): Maximum value for scaling. Defaults to 1.
+        midpointval (float, optional): Value at the center of the colormap. Defaults to 0.
+        invert (bool, optional): Whether to invert the colormap. Defaults to False.
+
+    Returns:
+        mpl.colors.Colormap: The shifted colormap.
+    """
     assert vmax > vmin
 
     midpoint_loc = (midpointval - vmin) / (vmax - vmin)
-
-    used_ratio = (vmax - vmin) / (
-        2 * max(abs(vmax - midpointval), abs(vmin - midpointval))
-    )
+    used_ratio = (vmax - vmin) / (2 * max(abs(vmax - midpointval), abs(vmin - midpointval)))
     N = round(256 / used_ratio)
 
     if isinstance(cmap, str):
@@ -83,33 +92,34 @@ def shift_cmap_center(
     new_cmap = mpl.colors.LinearSegmentedColormap.from_list(f"{cmap.name}_s", cmap(out))
     return new_cmap
 
-
-def get_cmap(cmap=None, **kwargs):
-    """Take a colormap or string input and return a Colormap object
+def get_cmap(cmap: str | None = None, **kwargs) -> mpl.colors.Colormap:
+    """
+    Take a colormap or string input and return a Colormap object.
 
     Args:
-        cmap (str or Object, optional): string corresponding to a colorcet colormap name,
+        cmap (str | None, optional): String corresponding to a colorcet colormap name,
             a mpl.colors.LinearSegmentedColormap object, or a
-            mpl.colors.ListedColormap object. Defaults to None -> CET_C7
+            mpl.colors.ListedColormap object. Defaults to None -> CET_C7.
+
+    Keyword Args:
+        shift (float, optional): The amount to shift the colormap by in radians. Defaults to 0.
+        invert (bool, optional): Whether to invert the colormap. Defaults to False.
 
     Raises:
-        TypeError:
+        TypeError: If the input type is not recognized.
 
     Returns:
-        Object: matplotlib.colors.colormap object
+        mpl.colors.Colormap: Matplotlib.colors.Colormap object.
     """
     if cmap is None:
         cmap = "linear"
-    elif isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(
-        cmap, colors.ListedColormap
-    ):
+    elif isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(cmap, colors.ListedColormap):
         return cmap
     elif isinstance(cmap, str):
         cmap = cmap.lower()
     else:
-        raise TypeError(
-            f"Unknown input type {type(cmap)}, please input a matplotlib colormap or valid string"
-        )
+        raise TypeError(f"Unknown input type {type(cmap)}, please input a matplotlib colormap or valid string")
+
     shift = kwargs.get("shift", 0)
     invert = kwargs.get("invert", False)
     try:
@@ -161,10 +171,18 @@ def get_cmap(cmap=None, **kwargs):
         cmap = roll_cmap(cmap, shift, invert)
     return cmap
 
-
-def color_im(vx, vy, vz=None, cmap=None, rad=None, background="black", **kwargs):
-    """Make the RGB image from vector maps. Takes 2D array inputs for x, y, (and
-    optionally z) vector components, along with
+def color_im(
+    vx: np.ndarray,
+    vy: np.ndarray,
+    vz: np.ndarray | None = None,
+    cmap: str | mpl.colors.Colormap | None = None,
+    rad: int | None = None,
+    background: str = "black",
+    **kwargs,
+) -> np.ndarray:
+    """
+    Make the RGB image from vector maps. Takes 2D array inputs for x, y, (and
+    optionally z) vector components.
 
     Unless otherwise specified, the color intensity corresponds to the magnitude of the
     in-plane vector component normalized to the vector with the largest in-plane
@@ -173,65 +191,55 @@ def color_im(vx, vy, vz=None, cmap=None, rad=None, background="black", **kwargs)
 
     Good colormaps are notoriously difficult to design [1], and cyclic colormaps
     especially so. We recommend and use colormaps provided by the Colorcet package [2],
-    with the default being CET_C7, a nice 4-fold colorwheel. Other colormaps we suggest
+    with the default being CET_C6, a nice 6-fold improved-hsv colorwheel. Other colormaps we suggest
     include:
-        - C6: Improved 6-fold HSV map
-        - C10: Isoluminescent 4-fold map
-        - C2: Improved classic 4-fold map
-    hese can be specified with strings, e.g. cmap="c2", as detailed in get_cmap().
-    However any matplotlib Colormap object can be passed and will be used here.
+    - C7: A nice 4-fold map
+    - C10: Isoluminescent 4-fold map
+
+    these can be specified with strings as detailed in get_cmap(). Additionally, any matplotlib or
+    colorcet Colormap object can be passed and will be used here.
 
         [1] Kovesi, Peter. "Good colour maps: How to design them."
         arXiv preprint arXiv:1509.03700 (2015).
         [2] https://colorcet.holoviz.org
 
+
     Args:
-        mx (2D array): (M x N) array consisting of the x-component of the vector
-            field.
-        my (2D array): (M x N) array consisting of the y-component of the vector
-            field.
-        mz (2D array): (`optional`) (M x N) array consisting of the z-component of
-            the vector field. If mz is given, black corresponds to z<0 and white to z>0.
-            Default None.
-        cmap (str or Object): (`optional`) Specification for the colormap to be used.
-            This is passed to get_cmap() which returns the colormap object if a string
-            is given. Defaults None -> colorcet.cm.CET_C7.
-        rad (int): (`optional`) Radius of color-wheel in pixels. Set rad = 0 to remove
-            color-wheel. Default None -> height/16
-        background (str):
+        vx (np.ndarray): (M x N) array consisting of the x-component of the vector field.
+        vy (np.ndarray): (M x N) array consisting of the y-component of the vector field.
+        vz (np.ndarray | None, optional): (M x N) array consisting of the z-component of the vector field.
+            If vz is given, black corresponds to z<0 and white to z>0. Default is None.
+        cmap (str | mpl.colors.Colormap | None, optional): Specification for the colormap to be used.
+            This is passed to get_cmap() which returns the colormap object if a string is given.
+            Defaults to None -> colorcet.cm.CET_C7.
+        rad (int | None, optional): Radius of color-wheel in pixels. Set rad = 0 to remove color-wheel.
+            Default is None -> height/16.
+        background (str, optional):
             - 'black' -- (default) magnetization magnitude corresponds to value.
             - 'white' -- magnetization magnitude corresponds to saturation.
-            - if mz is given, this argument will not do anything. Default "black"
+            - if vz is given, this argument will not do anything. Default "black"
 
     Keyword Args:
         one_pi (bool): Whether to map the direction or orientation of the vector field.
             one_pi = True will modulo the vectors by pi. Default False.
-        shift (float): Rotate the colorwheel and orientation map by the specified amount
-            in radians. Default 0.
-        invert (bool): Whether or not to invert the directions of the orientation map.
-            Default False.
-        uni_mag (bool): Normally the color intensity (saturation/value) corresponds to
-            the magnitude of the vector, scaled relative to the largest vector in the
-            image. If uni_mag = True (specifying uniform_magnitude), then all vectors
-            larger with a magnitude larger than uni_mag_cutoff * max_magnitude will be displayed
-            while others will map to background colors or z-direction if mz is given.
-            Default False.
-        uni_mag_cutoff (float): Value [0,1], specifying the magnitude, as a fraction of
-            the maximum vector length in the image, above which a vector will be plotted.
-            Default 0.5.
-        HSL (bool): When give a z-component, this function normally maps vector
-            orientation to hue and vector magnitude to saturation/value, with black/white
-            corresponding to if the vector points in/out of the page. This can cause
-            problems as scaling RGB values can make it appear that there is strong in-plane
-            signal where there really isnt. An improvement is to use a HSL color space
-            and map vector orientation to hue, z-component to lightness, and in-plane
-            magnitude to saturation. Setting HSL=True will use this type of mapping, and
-            set the colormap to a true hsv colormap, as more complex color maps get
-            distorted when changing the saturation and lightness independently.
-            Default False.
+        shift (float): Rotate the colorwheel and orientation map by the specified amount in radians. Default 0.
+        invert (bool): Whether or not to invert the directions of the orientation map. Default False.
+        uni_mag (bool): Normally the color intensity (saturation/value) corresponds to the magnitude of the vector,
+            scaled relative to the largest vector in the image. If uni_mag = True (specifying uniform_magnitude),
+            then all vectors larger with a magnitude larger than uni_mag_cutoff * max_magnitude will be displayed
+            while others will map to background colors or z-direction if vz is given. Default False.
+        uni_mag_cutoff (float): Value [0,1], specifying the magnitude, as a fraction of the maximum vector length
+            in the image, above which a vector will be plotted. Default 0.5.
+        HSL (bool): When give a z-component, this function normally maps vector orientation to hue and vector magnitude
+            to saturation/value, with black/white corresponding to if the vector points in/out of the page.
+            This can cause problems as scaling RGB values can make it appear that there is strong in-plane signal
+            where there really isn't. An improvement is to use a HSL color space and map vector orientation to hue,
+            z-component to lightness, and in-plane magnitude to saturation. Setting HSL=True will use this type of mapping,
+            and set the colormap to a true hsv colormap, as more complex color maps get distorted when changing the
+            saturation and lightness independently. Default False.
 
     Returns:
-        ``ndarray``: Numpy array (M x N x 3) containing the RGB color image.
+        np.ndarray: Numpy array (M x N x 3) containing the RGB color image.
     """
     vx, vy = np.squeeze(vx), np.squeeze(vy)
     assert vx.ndim == vy.ndim == 2
@@ -239,13 +247,15 @@ def color_im(vx, vy, vz=None, cmap=None, rad=None, background="black", **kwargs)
     if vz is not None:
         HSL = kwargs.get("HSL", None)
         if HSL is None:
-            HSL = kwargs.get("HLS", False) # i can never remember if it's HSL or HLS
+            HSL = kwargs.get("HLS", False)  # i can never remember if it's HSL or HLS
     else:
         HSL = False
+
     if HSL:
-        cmap = get_cmap("purehsv", **kwargs)
-    else:
-        cmap = get_cmap(cmap, **kwargs)
+        cmap = "purehsv"
+    elif cmap is None:
+        cmap = "hsv"
+    cmap = get_cmap(cmap, **kwargs)
 
     if rad is None:
         rad = vx.shape[0] // 16
@@ -267,7 +277,7 @@ def color_im(vx, vy, vz=None, cmap=None, rad=None, background="black", **kwargs)
         bkgs = np.where(np.sqrt(vx**2 + vy**2 + vz**2) == 0)
 
     if rad > 0:
-        pad = min(2 * (rad//10), 40)  # padding between edge of image and color-wheel
+        pad = min(2 * (rad // 10), 40)  # padding between edge of image and color-wheel
     else:
         pad = 0
         rad = 0
@@ -332,13 +342,13 @@ def color_im(vx, vy, vz=None, cmap=None, rad=None, background="black", **kwargs)
             wheel = make_colorwheel(
                 rad, cmap, background=wbkg, core=background, **kwargs
             )
-            if background == "black": # have white sidebar
-                cimage[:, dimx-2*rad-pad :] = 1
+            if background == "black":  # have white sidebar
+                cimage[:, dimx - 2 * rad - pad :] = 1
 
         else:
             wheel = make_colorwheelz(rad, cmap, **kwargs)
-            cimage[:, dimx-2*rad-pad :] = 0
-            cimage[:, dimx-2*rad-pad] = 1
+            cimage[:, dimx - 2 * rad - pad :] = 0
+            cimage[:, dimx - 2 * rad - pad] = 1
 
         cimage[
             dimy // 2 - rad : dimy // 2 + rad,
@@ -347,15 +357,21 @@ def color_im(vx, vy, vz=None, cmap=None, rad=None, background="black", **kwargs)
         ] = wheel
         return cimage
 
-
-def make_colorwheel(rad, cmap, background="black", core=None, **kwargs):
-    """Makes a RGB image of a colorwheel for a given colormap.
+def make_colorwheel(
+    rad: int,
+    cmap: mpl.colors.Colormap,
+    background: str = "black",
+    core: str | None = None,
+    **kwargs,
+) -> np.ndarray:
+    """
+    Makes an RGB image of a colorwheel for a given colormap.
 
     Args:
         rad (int): Radius of the colormap in pixels.
-        cmap (Object): Matplotlib Colormap object
+        cmap (mpl.colors.Colormap): Matplotlib Colormap object.
         background (str, optional): Background color. Defaults to "black".
-        core (str, optional): Core color. Defaults to background color.
+        core (str | None, optional): Core color. Defaults to background color.
 
     Keyword Args:
         one_pi (bool): Whether to map the direction or orientation of the vector field.
@@ -363,7 +379,7 @@ def make_colorwheel(rad, cmap, background="black", core=None, **kwargs):
         uni_mag (bool): Ring colormap showing orientation only, no magnitude.
 
     Returns:
-        ``ndarray``: Numpy array (rad*2 x rad*2 x 3) containing the RGB color image.
+        np.ndarray: Numpy array (rad*2 x rad*2 x 3) containing the RGB color image.
     """
     cmap = get_cmap(cmap)
     background = background.lower()
@@ -399,25 +415,29 @@ def make_colorwheel(rad, cmap, background="black", core=None, **kwargs):
 
     return imrgb
 
-
-def make_colorwheelz(rad, cmap, outside="black", **kwargs):
-    """Makes a RGB image of a colorwheel where z-direction corresponds to black/white
+def make_colorwheelz(
+    rad: int,
+    cmap: mpl.colors.Colormap,
+    outside: str = "black",
+    **kwargs,
+) -> np.ndarray:
+    """
+    Makes an RGB image of a colorwheel where z-direction corresponds to black/white.
 
     Args:
         rad (int): Radius of the colormap in pixels.
-        cmap (Object): Matplotlib Colormap object
-        background (str, optional): Background color. Defaults to "black".
+        cmap (mpl.colors.Colormap): Matplotlib Colormap object.
         outside (str, optional): Whether the outside portion of the colormap will be
-            black or white. Inside color will necessarily be the opposite.
-            Defaults to "black".
+            black or white. Inside color will necessarily be the opposite. Defaults to "black".
 
     Keyword Args:
         one_pi (bool): Whether to map the direction or orientation of the vector field.
             one_pi = True will modulo the vectors by pi. Default False.
         uni_mag (bool): Ring colormap showing orientation only, no magnitude.
+        HSL (bool): Use HSL color space for mapping. Defaults to False.
 
     Returns:
-        ``ndarray``: Numpy array (rad*2 x rad*2 x 3) containing the RGB color image.
+        np.ndarray: Numpy array (rad*2 x rad*2 x 3) containing the RGB color image.
     """
     cmap = get_cmap(cmap)
     HSL = kwargs.get("HSL", None)
@@ -474,16 +494,16 @@ def make_colorwheelz(rad, cmap, outside="black", **kwargs):
                 imrgb[:, :, i] = 1 - (1 - imrgb[:, :, i]) * mask
     return imrgb
 
-
-def dist4(dim, norm=False):
-    """Radial distance map that is 4-fold symmetric even at small sizes.
+def dist4(dim: int, norm: bool = False) -> np.ndarray:
+    """
+    Radial distance map that is 4-fold symmetric even at small sizes.
 
     Args:
-        dim (int): desired dimension of output
+        dim (int): Desired dimension of output.
         norm (bool, optional): Normalize maximum of output to 1. Defaults to False.
 
     Returns:
-        ``ndarray``: 2D (dim, dim) array
+        np.ndarray: 2D (dim, dim) array.
     """
     d2 = dim // 2
     a = np.arange(d2)

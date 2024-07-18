@@ -1,7 +1,6 @@
 colorwheel module
 =================
+blah blah colorwheel
 
-.. automodule:: colorwheel
+.. automodule:: PyLorentz.visualize.colorwheel
    :members:
-   :undoc-members:
-   :show-inheritance:
