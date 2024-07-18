@@ -1,8 +1,3 @@
-"""
-Base phase class for TIE plz autodoc
-
-"""
-
 import os
 import warnings
 from datetime import datetime

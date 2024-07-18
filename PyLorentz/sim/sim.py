@@ -11,10 +11,10 @@ from PyLorentz.io import format_defocus, read_ovf
 from PyLorentz.utils import Microscope
 
 from .comp_phase import LinsupPhase, MansuripurPhase
-from .sim_base import SimBase
+from .base_phase import BaseSim
 
 
-class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
+class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
     """
     A class used to simulate Lorentz Transmission Electron Microscopy (LTEM) images.
     """
@@ -37,7 +37,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, SimBase):
             verbose (float | bool, optional): Verbosity level. Default is 1.
             ovf_file (os.PathLike | None, optional): Path to OVF file. Default is None.
         """
-        SimBase.__init__(self, mags, scale, zscale, verbose)
+        BaseSim.__init__(self, mags, scale, zscale, verbose)
         self._ovf_file = ovf_file
 
         self.get_shape_func()

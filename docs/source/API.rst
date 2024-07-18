@@ -6,7 +6,7 @@ Hello there. The API is divided roughly into two sections. All of the code requi
    :maxdepth: 1
 
    phase
-   sim
+   modules/sim
    visualizations
    utils
    io

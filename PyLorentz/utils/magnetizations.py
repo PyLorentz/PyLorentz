@@ -1,14 +1,16 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-from ..visualize.show import show_im
-from .utils import circ4, dist4
+from PyLorentz.visualize.show import show_im
+from PyLorentz.utils.utils import circ4, dist4
 
 
-def hopfion(dim=128,dimz=None, R=None, H=None, wr=None, wh=None, type="bloch", Q=1):
-    """Magnetization pattern for a hopfion with Hopf index +/-
+def hopfion(dim=128, dimz=None, R=None, H=None, wr=None, wh=None, type="bloch", Q=1):
+    """Magnetization pattern for a hopfion with Hopf index +/- 1
+
+    From: Wang, X. S., Qaiumzadeh, A. & Brataas, A. Current-Driven Dynamics of Magnetic Hopfions.
+    Phys. Rev. Lett. 123, 147203 (2019).
 
     Args:
         dim (int): xy dimension. Defaults to 128.
@@ -23,18 +25,19 @@ def hopfion(dim=128,dimz=None, R=None, H=None, wr=None, wh=None, type="bloch", Q
     Returns:
         _type_: _description_
     """
-    # Wang, X. S., Qaiumzadeh, A. & Brataas, A. Current-Driven Dynamics of Magnetic Hopfions. Phys. Rev. Lett. 123, 147203 (2019).
+    if Q != 1 and Q != -1:
+        raise ValueError(f"Hopf index must be +/- 1, not {Q}")
 
     if R is None:
-        R = dim/128*20
+        R = dim / 128 * 20
     if wr is None:
-        wr = dim/128*10
+        wr = dim / 128 * 10
     if dimz is None:
-        dimz = dim//4
+        dimz = dim // 4
     if H is None:
-        H = dim/128*10
+        H = dim / 128 * 10
     if wh is None:
-        wh = dim/128*5
+        wh = dim / 128 * 5
 
     x_ = np.linspace(0, dim - 1, dim) - (dim - 1) / 2
     y_ = np.linspace(0, dim - 1, dim) - (dim - 1) / 2
@@ -42,30 +45,54 @@ def hopfion(dim=128,dimz=None, R=None, H=None, wr=None, wh=None, type="bloch", Q
     z, y, x = np.meshgrid(z_, y_, x_, indexing="ij")
     r = np.sqrt(x**2 + y**2)
 
-    rp = (np.exp(r/wr)-1) / (np.exp(R/wr)-1)
-    zp = np.abs(z)/z *  (np.exp(np.abs(z)/wh)-1) / (np.exp(np.abs(H)/wh)-1)
+    rp = (np.exp(r / wr) - 1) / (np.exp(R / wr) - 1)
+    zp = np.abs(z) / z * (np.exp(np.abs(z) / wh) - 1) / (np.exp(np.abs(H) / wh) - 1)
 
     if type.lower() == "bloch":
         if Q == -1:
-            rp = (np.exp(R/wr)-1) / (np.exp(r/wr)-1)
-            mx = (4*rp*(-2*zp*(x/r) - (y/r)*(rp**2+zp**2-1))) / (1+rp**2+zp**2)**2
-            my = (4*rp*(-2*zp*(y/r) + (x/r)*(rp**2+zp**2-1))) / (1+rp**2+zp**2)**2
-            mz = 1 - (8*(rp**2)) / (1+rp**2+zp**2)**2
+            rp = (np.exp(R / wr) - 1) / (np.exp(r / wr) - 1)
+            mx = (4 * rp * (-2 * zp * (x / r) - (y / r) * (rp**2 + zp**2 - 1))) / (
+                1 + rp**2 + zp**2
+            ) ** 2
+            my = (4 * rp * (-2 * zp * (y / r) + (x / r) * (rp**2 + zp**2 - 1))) / (
+                1 + rp**2 + zp**2
+            ) ** 2
+            mz = 1 - (8 * (rp**2)) / (1 + rp**2 + zp**2) ** 2
         elif Q == +1:
-            rp = (np.exp(r/wr)-1) / (np.exp(R/wr)-1)
-            mx = -1*(4*rp*(-2*zp*(x/r) - (y/r)*(rp**2+zp**2-1))) / (1+rp**2+zp**2)**2
-            my = -1*(4*rp*(-2*zp*(y/r) + (x/r)*(rp**2+zp**2-1))) / (1+rp**2+zp**2)**2
-            mz = 1 - (8*(rp**2)) / (1+rp**2+zp**2)**2
+            rp = (np.exp(r / wr) - 1) / (np.exp(R / wr) - 1)
+            mx = (
+                -1
+                * (4 * rp * (-2 * zp * (x / r) - (y / r) * (rp**2 + zp**2 - 1)))
+                / (1 + rp**2 + zp**2) ** 2
+            )
+            my = (
+                -1
+                * (4 * rp * (-2 * zp * (y / r) + (x / r) * (rp**2 + zp**2 - 1)))
+                / (1 + rp**2 + zp**2) ** 2
+            )
+            mz = 1 - (8 * (rp**2)) / (1 + rp**2 + zp**2) ** 2
     elif type.lower() == "neel":
-        rp = (np.exp(R/wr)-1) / (np.exp(r/wr)-1)
+        rp = (np.exp(R / wr) - 1) / (np.exp(r / wr) - 1)
         if Q == 1:
-            mx = (4*rp*(-2*zp*(y/r) - (x/r)*(rp**2+zp**2-1))) / (1+rp**2+zp**2)**2
-            my = -1*(4*rp*(-2*zp*(x/r) + (y/r)*(rp**2+zp**2-1))) / (1+rp**2+zp**2)**2
-            mz = 1 - (8*(rp**2)) / (1+rp**2+zp**2)**2
+            mx = (4 * rp * (-2 * zp * (y / r) - (x / r) * (rp**2 + zp**2 - 1))) / (
+                1 + rp**2 + zp**2
+            ) ** 2
+            my = (
+                -1
+                * (4 * rp * (-2 * zp * (x / r) + (y / r) * (rp**2 + zp**2 - 1)))
+                / (1 + rp**2 + zp**2) ** 2
+            )
+            mz = 1 - (8 * (rp**2)) / (1 + rp**2 + zp**2) ** 2
         else:
-            mx = -1*(4*rp*(-2*zp*(y/r) + (x/r)*(rp**2+zp**2-1))) / (1+rp**2+zp**2)**2
-            my = (4*rp*(-2*zp*(x/r) - (y/r)*(rp**2+zp**2-1))) / (1+rp**2+zp**2)**2
-            mz = 1 - (8*(rp**2)) / (1+rp**2+zp**2)**2
+            mx = (
+                -1
+                * (4 * rp * (-2 * zp * (y / r) + (x / r) * (rp**2 + zp**2 - 1)))
+                / (1 + rp**2 + zp**2) ** 2
+            )
+            my = (4 * rp * (-2 * zp * (x / r) - (y / r) * (rp**2 + zp**2 - 1))) / (
+                1 + rp**2 + zp**2
+            ) ** 2
+            mz = 1 - (8 * (rp**2)) / (1 + rp**2 + zp**2) ** 2
 
     mags = np.sqrt(mx**2 + my**2 + mz**2)
     assert np.allclose(mags, np.ones_like(mags))
@@ -113,27 +140,21 @@ def hopfion_cylinder(L=32, dim=None, pad=None, background="none"):
 
     prefac = (4 * Xi(z, rho, L) * rho) / ((1 + Lambda(z, rho, L)) ** 2)
 
-    my = prefac * (
-        Omega(z, L) * np.sin(theta) + (Lambda(z, rho, L) - 1) * np.cos(theta)
-    )
+    my = prefac * (Omega(z, L) * np.sin(theta) + (Lambda(z, rho, L) - 1) * np.cos(theta))
 
-    mx = prefac * (
-        Omega(z, L) * np.cos(theta) + (Lambda(z, rho, L) - 1) * np.sin(theta)
-    )
+    mx = prefac * (Omega(z, L) * np.cos(theta) + (Lambda(z, rho, L) - 1) * np.sin(theta))
 
     window = np.where(rho > (dimx - 1) / 2)
     mx[window] = 0
     my[window] = 0
     if background == "pos":
         mz[window] = 1
-    elif background == 'neg':
+    elif background == "neg":
         mz[window] = -1
     else:
         mz[window] = 0
 
     return np.array([mz, my, mx])
-
-
 
 
 def lillihook(dim, rad=None, Q=1, gamma=1.5708, P=1, show=False):
@@ -211,12 +232,8 @@ def lillihook(dim, rad=None, Q=1, gamma=1.5708, P=1, show=False):
     return np.array([mag_z, mag_y, mag_x])
 
 
-def bloch(dim, chirality="cw", pad=True, ir=0, show=False, bkg="pos", sigma=None,
-          empty_bkg=False):
-    """Create a Bloch vortex magnetization structure.
-
-    Unlike Lillihook, this function does not produce a rigorously calculated
-    magnetization structure.
+def bloch(dim, chirality="cw", pad=True, ir=0, show=False, bkg="pos", sigma=None, empty_bkg=False):
+    """Create a Bloch vortex magnetization structure. This function produces a rough approximation of the desired structure.
 
     For the chirality, "cw" vs "ccw" is defined for oring='upper' (y goes dowwn)
 
@@ -239,7 +256,7 @@ def bloch(dim, chirality="cw", pad=True, ir=0, show=False, bkg="pos", sigma=None
     sigma = dim // 40 if sigma is None else sigma
     if pad:
         if isinstance(pad, (float, int)):
-            rad = (dim - 2*pad) // 2
+            rad = (dim - 2 * pad) // 2
         else:
             rad = 3 * dim // 8
     else:
@@ -262,10 +279,7 @@ def bloch(dim, chirality="cw", pad=True, ir=0, show=False, bkg="pos", sigma=None
     dist = np.sqrt(x**2 + y**2)
 
     phi = np.arctan2(y, x)
-    radcurve = (
-        np.sin(np.pi * dist / (rad - ir) - np.pi * (2 * ir - rad) / (rad - ir))
-        * circmask
-    )
+    radcurve = np.sin(np.pi * dist / (rad - ir) - np.pi * (2 * ir - rad) / (rad - ir)) * circmask
     radcurve = gaussian_filter(radcurve, sigma=sigma)
 
     mag_x = -np.sin(phi) * radcurve
@@ -295,9 +309,9 @@ def bloch(dim, chirality="cw", pad=True, ir=0, show=False, bkg="pos", sigma=None
 
     if empty_bkg:
         if bkg != "neg":
-            empties = np.where(mag_z>0.99)
+            empties = np.where(mag_z > 0.99)
         else:
-            empties = np.where(mag_z<-0.99)
+            empties = np.where(mag_z < -0.99)
         mag_x[empties] = 0
         mag_y[empties] = 0
         mag_z[empties] = 0
@@ -317,8 +331,9 @@ def bloch(dim, chirality="cw", pad=True, ir=0, show=False, bkg="pos", sigma=None
 def neel(dim, chirality="io", pad=True, ir=0, show=False):
     """Create a Neel magnetization structure.
 
-    Unlike Lillihook, this function does not produce a rigorously calculated
-    magnetization structure.
+    This function produces a rough approximation of the desired structure. For
+    Neel in particular, this can lead to weird artifacts in simulated LTEM images, and we recommend
+    using micromagnetics simulated input magnetization.
 
     Args:
         dim (int): Dimension of lattice.
@@ -336,10 +351,9 @@ def neel(dim, chirality="io", pad=True, ir=0, show=False):
                  (magz, magy, magx)
 
     """
-    cx, cy = [dim // 2, dim // 2]
     if pad:
         if isinstance(pad, (float, int)):
-            rad = (dim - 2*pad) // 2
+            rad = (dim - 2 * pad) // 2
     else:
         rad = dim // 2
 
@@ -353,21 +367,11 @@ def neel(dim, chirality="io", pad=True, ir=0, show=False):
     circmask -= circ_ir
 
     dist = dist4(dim)
-    mag_y = (
-        -x
-        * np.sin(np.pi * dist / (rad - ir) - np.pi * (2 * ir - rad) / (rad - ir))
-        * circmask
-    )
-    mag_x = (
-        -y
-        * np.sin(np.pi * dist / (rad - ir) - np.pi * (2 * ir - rad) / (rad - ir))
-        * circmask
-    )
+    mag_y = -x * np.sin(np.pi * dist / (rad - ir) - np.pi * (2 * ir - rad) / (rad - ir)) * circmask
+    mag_x = -y * np.sin(np.pi * dist / (rad - ir) - np.pi * (2 * ir - rad) / (rad - ir)) * circmask
     mag_x /= np.max(mag_x)
     mag_y /= np.max(mag_y)
 
-    # b = 1
-    # mag_z = (b - 2*b*dist/rad) * circmask
     mag_z = (-ir - rad + 2 * dist) / (ir - rad) * circmask
 
     mag_z[np.where(zmask == 1)] = 1
@@ -383,11 +387,6 @@ def neel(dim, chirality="io", pad=True, ir=0, show=False):
         mag_y *= -1
 
     if show:
-        # show_im(np.sqrt(mag_x**2 + mag_y**2 + mag_z**2), "mag")
-        # show_im(mag_x, "mag x")
-        # show_im(mag_y, "mag y")
-        # show_im(mag_z, "mag z")
-
         x = np.arange(0, dim, 1)
         fig, ax = plt.subplots()
         ax.plot(x, mag_x[dim // 2], label="x")
@@ -402,9 +401,7 @@ def neel(dim, chirality="io", pad=True, ir=0, show=False):
     return np.array([mag_z, mag_y, mag_x])
 
 
-def blochII(
-    dim, direction="right", pad=True, ir=0, show=False, sigma=None, cp1=None, cp2=None
-):
+def blochII(dim, direction="right", pad=True, ir=0, show=False, sigma=None, cp1=None, cp2=None):
     """Create a type II Bloch bubble.
 
     Args:
@@ -423,11 +420,11 @@ def blochII(
     sigma = dim // 40 if sigma is None else sigma
     cp1 = dim // 200 if cp1 is None else cp1
     cp2 = dim // 100 if cp2 is None else cp2
-    cp2 = max(cp2, cp1+1)
+    cp2 = max(cp2, cp1 + 1)
 
     if pad:
         if isinstance(pad, (float, int)):
-            rad = (dim - 2*pad) // 2
+            rad = (dim - 2 * pad) // 2
     else:
         rad = dim // 2
 
@@ -456,10 +453,7 @@ def blochII(
     phi[cy - cp2 : cy - cp1] = np.linspace(phi[cy - cp2], -np.pi / 2, cp2 - cp1)
     phi[cy + cp1 : cy + cp2] = np.linspace(np.pi / 2, phi[cy + cp2], cp2 - cp1)
 
-    radcurve = (
-        np.sin(np.pi * dist / (rad - ir) - np.pi * (2 * ir - rad) / (rad - ir))
-        * circmask
-    )
+    radcurve = np.sin(np.pi * dist / (rad - ir) - np.pi * (2 * ir - rad) / (rad - ir)) * circmask
     radcurve = gaussian_filter(radcurve, sigma=sigma)
 
     mag_x = -np.sin(phi) * radcurve
@@ -485,7 +479,7 @@ def blochII(
     mag_z /= mag
 
     if direction in ["top", "bottom"]:
-        mag_x, mag_y = -1*np.rot90(mag_y), np.rot90(mag_x)
+        mag_x, mag_y = -1 * np.rot90(mag_y), np.rot90(mag_x)
 
     if direction in ["left", "top"]:
         mag_x *= -1

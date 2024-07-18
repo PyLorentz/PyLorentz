@@ -1,4 +1,3 @@
-import os
 import time
 from typing import Optional, Union
 
@@ -8,7 +7,7 @@ from numba import jit
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
-from .sim_base import SimBase
+from .base_phase import BaseSim
 
 try:
     import cupy as cp
@@ -16,7 +15,7 @@ except (ImportError, ModuleNotFoundError):
     cp = np
 
 
-class LinsupPhase(SimBase):
+class LinsupPhase(BaseSim):
     """
     A class for calculating phase shifts using the linear superposition method.
     """
@@ -208,7 +207,7 @@ def _exp_sum(
     return ephi_k, phase_B_k
 
 
-class MansuripurPhase(SimBase):
+class MansuripurPhase(BaseSim):
     """
     A class for calculating phase shifts using the Mansuripur method.
     """

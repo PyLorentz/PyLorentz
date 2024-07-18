@@ -1,7 +1,11 @@
+"""
+Functions for filtering individual images.
+"""
+
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.ndimage as ndi
-from PyLorentz.visualize.show import show_im, show_im_peaks, show_fft
+from PyLorentz.visualize.show import show_im_peaks
+from typing import Optional
 
 
 def filter_hotpix(
@@ -12,11 +16,24 @@ def filter_hotpix(
     kernel_size: int = 3,
     fast: bool = False,
     _current_iter: int = 0,
-    verbose=False,
+    verbose: bool = False,
 ) -> np.ndarray:
     """
-    look for pixel values with an intensity >thresh std outside of mean of surrounding
-    pixels. If found, replace with median value of those pixels
+    Look for pixel values with an intensity > thresh std outside of the mean of surrounding pixels.
+    If found, replace with the median value of those pixels.
+
+    Args:
+        image (np.ndarray): The input image.
+        thresh (float): Threshold for identifying hot pixels. Default is 30.
+        show (bool): Whether to display the image with hot pixels identified. Default is False.
+        maxiters (int): Maximum number of iterations for filtering. Default is 3.
+        kernel_size (int): Size of the kernel used for local mean calculation. Default is 3.
+        fast (bool): Whether to use a faster, less accurate method. Default is False.
+        _current_iter (int): Current iteration count (for internal use). Default is 0.
+        verbose (bool): Whether to print verbose messages. Default is False.
+
+    Returns:
+        np.ndarray: The filtered image.
     """
     if _current_iter > maxiters:
         if verbose:
@@ -67,7 +84,7 @@ def filter_hotpix(
 
             bad_means = np.all(patches2.mask, axis=(1, 2))  # all masked -> true
             if np.any(bad_means):
-                # for those values, use the median of surounding pixels
+                # for those values, use the median of surrounding pixels
                 means[bad_means] = np.median(
                     patches2.data[bad_means] * ks2_kernel[None, ...], axis=(1, 2)
                 )
@@ -76,7 +93,7 @@ def filter_hotpix(
         elif ratio < 5e-4:
             filtered[bads] = mean[bads]
         else:
-            print(f"Bad thresh chosen in filter_hotpix, increaseing to {thresh*2}")
+            print(f"Bad thresh chosen in filter_hotpix, increasing to {thresh*2}")
             thresh *= 2
 
         filtered = filter_hotpix(
@@ -87,6 +104,7 @@ def filter_hotpix(
             kernel_size=kernel_size,
             fast=fast,
             _current_iter=_current_iter + 1,
+            verbose=verbose,
         )
 
     if show:
@@ -107,7 +125,18 @@ def filter_hotpix(
     return filtered
 
 
-def extract_patches(array, indices, patch_size=3):
+def extract_patches(array: np.ndarray, indices: np.ndarray, patch_size: int = 3) -> np.ndarray:
+    """
+    Extract patches from an array around the given indices.
+
+    Args:
+        array (np.ndarray): The input array.
+        indices (np.ndarray): The indices around which to extract patches.
+        patch_size (int): The size of the patches to extract. Default is 3.
+
+    Returns:
+        np.ndarray: The extracted patches.
+    """
     if patch_size % 2 == 0:
         patch_size += 1
     ys, xs = np.array(indices)
@@ -131,35 +160,34 @@ def extract_patches(array, indices, patch_size=3):
 def bandpass_filter(
     image: np.ndarray,
     sampling: float = 1,
-    q_lowpass: float | None = None,
-    q_highpass: float | None = None,
+    q_lowpass: Optional[float] = None,
+    q_highpass: Optional[float] = None,
     filter_type: str = "butterworth",  # butterworth or gaussian
     butterworth_order: int = 2,
-):
+) -> np.ndarray:
     """
-    image: image to be filtered
-    sampling: scale of image in pix/nm, this allows you to set the filter sizes in nm
-    filt_hotpix: True if you want to filter hot/dead pixels, false otherwise
-    thresh: threshold for hotpix filtering. Higher threshold means fewer pixels
-        will be filtered
-    filter_lf: low-frequency filter std in nm (or pix if no scale)
-    filter_hf: high-frequeuency filter std in nm (or pix if no scale)
-    ret_bkg: will return the subtracted background (no hotpix) if True
+    Apply a bandpass filter to an image.
 
-    returns filtered_im if ret_bkg False
-    returns (filtered_im, background) if ret_bkg True
+    Args:
+        image (np.ndarray): The input image.
+        sampling (float): Scale of the image in pix/nm. Default is 1.
+        q_lowpass (Optional[float]): Low-pass filter cutoff frequency. Default is None.
+        q_highpass (Optional[float]): High-pass filter cutoff frequency. Default is None.
+        filter_type (str): Type of filter to use ("butterworth" or "gaussian"). Default is "butterworth".
+        butterworth_order (int): Order of the Butterworth filter. Default is 2.
+
+    Returns:
+        np.ndarray: The filtered image.
     """
     if filter_type.lower() in ["butterworth", "butter", "b"]:
         filter_type = "butterworth"
     elif filter_type.lower() in ["gaussian", "gauss", "g"]:
         filter_type = "gaussian"
     else:
-        raise ValueError(
-            f"filter_type should be `butterworth` or `gaussian`, not {filter_type}"
-        )
+        raise ValueError(f"filter_type should be `butterworth` or `gaussian`, not {filter_type}")
 
-    qy = np.fft.fftfreq(image.shape[0], 1/sampling)
-    qx = np.fft.fftfreq(image.shape[1], 1/sampling)
+    qy = np.fft.fftfreq(image.shape[0], 1 / sampling)
+    qx = np.fft.fftfreq(image.shape[1], 1 / sampling)
     qxa, qya = np.meshgrid(qx, qy)
     qr = np.sqrt(qxa**2 + qya**2)
 

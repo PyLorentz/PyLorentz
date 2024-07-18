@@ -6,3 +6,6 @@ The phase module stuff
    :maxdepth: 2
 
    modules/tie
+
+AD methods
+-----------

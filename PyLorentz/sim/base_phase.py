@@ -8,12 +8,25 @@ import scipy.ndimage as ndi
 from PyLorentz.visualize import show_2D, show_3D, show_im
 
 
-class SimBase(object):
+class BaseSim(object):
     """
     A base class for simulations, providing common attributes and methods.
     """
 
     _phi0: float = 2.07e7  # Gauss*nm^2 flux quantum
+
+    _default_params = {
+        "phase_method": "mansuripur",
+        "B0": 1e4,
+        "sample_V0": 0.0,
+        "sample_xip0": 50.0,
+        "mem_V0": 0.0,
+        "mem_xip0": 1e3,
+        "mem_thickness": 0.0,
+        "theta_x": 0.0,
+        "tilt_y": 0.0,
+        "beam_energy": 200e3,
+    }
 
     def __init__(
         self,
@@ -23,7 +36,7 @@ class SimBase(object):
         verbose: Union[float, bool] = 1,
     ):
         """
-        Initialize the SimBase object.
+        Initialize the BaseSim object.
 
         Args:
             mags (np.ndarray): Magnetization array.
@@ -46,19 +59,6 @@ class SimBase(object):
 
         self._phase_B = None
         self._phase_E = None
-
-        self._default_params = {
-            "phase_method": "mansuripur",
-            "B0": 1e4,
-            "sample_V0": 0.0,
-            "sample_xip0": 50.0,
-            "mem_V0": 0.0,
-            "mem_xip0": 1e3,
-            "mem_thickness": 0.0,
-            "theta_x": 0.0,
-            "tilt_y": 0.0,
-            "beam_energy": 200e3,
-        }
 
     def vprint(self, *args, **kwargs) -> None:
         """Print messages if verbose is enabled."""
