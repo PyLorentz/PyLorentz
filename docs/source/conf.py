@@ -91,12 +91,9 @@ html_static_path = ["_static"]
 
 master_doc = "index"
 
-# stop throwing wrong warnings
-def ignore_type_errors(app, what, name, obj, options, signature, return_annotation):
-    try:
-        return signature, return_annotation
-    except TypeError:
-        return None, None
 
-def setup(app):
-    app.connect('autodoc-process-signature', ignore_type_errors)
+autodoc_default_options = {
+    "members": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
+}
