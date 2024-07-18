@@ -40,6 +40,7 @@ extensions = [
     "nbsphinx",
     "sphinx.ext.viewcode",
     "sphinx.ext.autosectionlabel",
+    "sphinx_rtd_theme",
 ]
 
 autodoc_mock_imports = [
