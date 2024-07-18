@@ -37,13 +37,13 @@ release = "2.0.0"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx_rtd_theme",
+    "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
-    "nbsphinx",
     "sphinx.ext.viewcode",
-    "sphinx.ext.autosectionlabel",
-    "sphinx_rtd_theme",
+    # "sphinx.ext.autosectionlabel",
 ]
 
 autodoc_mock_imports = [
@@ -97,3 +97,12 @@ autodoc_default_options = {
     "member-order": "bysource",
     "special-members": "__init__",
 }
+
+
+def skip(app, what, name, obj, would_skip, options):
+    if name == "__init__":
+        return False
+    return would_skip
+
+def setup(app):
+    app.connect("autodoc-skip-member", skip)
