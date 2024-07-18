@@ -121,7 +121,7 @@ class SITIE(BaseTIE):
 
         self.vprint(
             f"Performing SITIE reconstruction with defocus "
-            + f"{self._fmt_defocus(self._recon_defval, spacer=" ")}, index = {index}"
+            + f"{self._fmt_defocus(self._recon_defval, spacer=' ')}, index = {index}"
         )
 
         # setup data
