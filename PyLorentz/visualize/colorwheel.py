@@ -10,10 +10,13 @@ Good Colour Maps: How to Design Them, Peter Kovesi (2015) https://arxiv.org/abs/
 Author: Arthur McCray, ANL, 2022.
 """
 
+import colorsys
+from typing import Optional, Union
+
 import matplotlib as mpl
 import numpy as np
 from matplotlib import colors
-import colorsys
+from matplotlib.colors import Colormap
 
 try:
     import colorcet as cc
@@ -21,10 +24,10 @@ except ModuleNotFoundError:
     pass
 
 def roll_cmap(
-    cmap: mpl.colors.Colormap | str,
+    cmap: Union[Colormap, str],
     frac: float,
     invert: bool = False,
-) -> mpl.colors.Colormap:
+) -> Colormap:
     """
     Shifts a matplotlib colormap by rolling.
 
@@ -48,12 +51,12 @@ def roll_cmap(
     return new_cmap
 
 def shift_cmap_center(
-    cmap: mpl.colors.Colormap | str,
+    cmap: Union[Colormap, str],
     vmin: float = -1,
     vmax: float = 1,
     midpointval: float = 0,
     invert: bool = False,
-) -> mpl.colors.Colormap:
+) -> Colormap:
     """
     Shifts a matplotlib colormap such that the center is moved and the scaling is consistent.
 
@@ -92,7 +95,7 @@ def shift_cmap_center(
     new_cmap = mpl.colors.LinearSegmentedColormap.from_list(f"{cmap.name}_s", cmap(out))
     return new_cmap
 
-def get_cmap(cmap: str | None = None, **kwargs) -> mpl.colors.Colormap:
+def get_cmap(cmap: str | None = None, **kwargs) -> Colormap:
     """
     Take a colormap or string input and return a Colormap object.
 
@@ -174,9 +177,9 @@ def get_cmap(cmap: str | None = None, **kwargs) -> mpl.colors.Colormap:
 def color_im(
     vx: np.ndarray,
     vy: np.ndarray,
-    vz: np.ndarray | None = None,
-    cmap: str | mpl.colors.Colormap | None = None,
-    rad: int | None = None,
+    vz: Optional[np.ndarray] = None,
+    cmap: Optional[Union[str, Colormap]] = None,
+    rad: Optional[int] = None,
     background: str = "black",
     **kwargs,
 ) -> np.ndarray:
@@ -417,7 +420,7 @@ def make_colorwheel(
 
 def make_colorwheelz(
     rad: int,
-    cmap: mpl.colors.Colormap,
+    cmap: Colormap,
     outside: str = "black",
     **kwargs,
 ) -> np.ndarray:

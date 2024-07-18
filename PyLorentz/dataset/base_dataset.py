@@ -1,29 +1,37 @@
-import numpy as np
-from pathlib import Path
-from PyLorentz.io.read import read_image, read_json
-from PyLorentz.io.write import write_json, format_defocus
-from PyLorentz.utils.filter import bandpass_filter
 import os
-from matplotlib.backend_bases import MouseButton
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-import scipy.ndimage as ndi
 import warnings
+from pathlib import Path
+from typing import Optional, Union
+
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.ndimage as ndi
+from matplotlib.backend_bases import MouseButton
+from matplotlib.patches import Rectangle
+
+from PyLorentz.io.read import read_image, read_json
+from PyLorentz.io.write import format_defocus, write_json
+from PyLorentz.utils.filter import bandpass_filter
 
 # Remapping keybindings for interactive matplotlib figures
-mpl.rcParams["keymap.home"] = ""
-mpl.rcParams["keymap.back"] = ""
-mpl.rcParams["keymap.forward"] = ""
-mpl.rcParams["keymap.pan"] = ""
-mpl.rcParams["keymap.zoom"] = ""
-mpl.rcParams["keymap.save"] = ""
-mpl.rcParams["keymap.fullscreen"] = ""
-mpl.rcParams["keymap.grid"] = ""
-mpl.rcParams["keymap.grid_minor"] = ""
-mpl.rcParams["keymap.xscale"] = ""
-mpl.rcParams["keymap.yscale"] = ""
-mpl.rcParams["keymap.quit"] = "Q"
+mpl.rcParams.update(
+    {
+        "keymap.home": "",
+        "keymap.back": "",
+        "keymap.forward": "",
+        "keymap.pan": "",
+        "keymap.zoom": "",
+        "keymap.save": "",
+        "keymap.fullscreen": "",
+        "keymap.grid": "",
+        "keymap.grid_minor": "",
+        "keymap.xscale": "",
+        "keymap.yscale": "",
+        "keymap.quit": "Q",
+    }
+)
+
 
 class BaseDataset:
     """
@@ -32,10 +40,10 @@ class BaseDataset:
 
     def __init__(
         self,
-        imshape: tuple | np.ndarray | None = None,
-        data_dir: os.PathLike | None = None,
-        scale: float | None = None,
-        verbose: int | bool = 1,
+        imshape: Optional[Union[tuple, np.ndarray]] = None,
+        data_dir: Optional[os.PathLike] = None,
+        scale: Optional[float] = None,
+        verbose: Union[int, bool] = 1,
     ):
         """
         Initialize the BaseDataset object.
@@ -68,7 +76,7 @@ class BaseDataset:
         self._transforms_modified = False
 
     @staticmethod
-    def _parse_mdata(metadata_file: os.PathLike | dict) -> dict:
+    def _parse_mdata(metadata_file: Union[os.PathLike, dict]) -> dict:
         """
         Parse metadata from a file or dictionary.
 
@@ -105,27 +113,21 @@ class BaseDataset:
 
         defocus_unit = mdata["defocus_unit"].lower()
         if defocus_unit != "nm":
-            unit_conversion = {
-                "um": 1e3,
-                "μm": 1e3,
-                "mm": 1e6,
-                "m": 1e9
-            }
+            unit_conversion = {"um": 1e3, "μm": 1e3, "mm": 1e6, "m": 1e9}
             conversion_factor = unit_conversion.get(defocus_unit)
             if conversion_factor:
-                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * conversion_factor
+                mdata["defocus_values"] = (
+                    np.array(mdata["defocus_values"]) * conversion_factor
+                )
             else:
-                raise NotImplementedError(f"Unknown defocus unit {mdata['defocus_unit']}")
+                raise NotImplementedError(
+                    f"Unknown defocus unit {mdata['defocus_unit']}"
+                )
             mdata["defocus_unit"] = "nm"
 
         scale_unit = mdata["scale_unit"].lower()
         if scale_unit != "nm":
-            unit_conversion = {
-                "um": 1e3,
-                "μm": 1e3,
-                "mm": 1e6,
-                "m": 1e9
-            }
+            unit_conversion = {"um": 1e3, "μm": 1e3, "mm": 1e6, "m": 1e9}
             conversion_factor = unit_conversion.get(scale_unit)
             if conversion_factor:
                 mdata["scale"] = mdata["scale"] * conversion_factor
@@ -146,14 +148,16 @@ class BaseDataset:
         return self._data_dir
 
     @data_dir.setter
-    def data_dir(self, p: os.PathLike | None):
+    def data_dir(self, p: Union[os.PathLike, None]):
         """Set the data directory."""
         if p is None:
             self._data_dir = p
         else:
             p = Path(p).absolute()
             if not p.exists():
-                warnings.warn(f"data_dir does not exist, but setting anyways. data_dir = {p}")
+                warnings.warn(
+                    f"data_dir does not exist, but setting anyways. data_dir = {p}"
+                )
             self._data_dir = p
 
     @property
@@ -162,7 +166,7 @@ class BaseDataset:
         return self._scale
 
     @scale.setter
-    def scale(self, val: float | None):
+    def scale(self, val: Union[float, None]):
         """Set the scale factor."""
         if val is None:
             self._scale = None
@@ -185,7 +189,9 @@ class BaseDataset:
             verbose (bool, optional): Verbosity level. Default is True.
         """
         vprint = print if verbose >= 1 else lambda *a, **k: None
-        assert image.shape == self._shape, f"Incorrect image shape: expected {self._shape} received {image.shape}"
+        assert (
+            image.shape == self._shape
+        ), f"Incorrect image shape: expected {self._shape} received {image.shape}"
 
         if print_instructions and verbose:
             instructions = (
@@ -208,8 +214,12 @@ class BaseDataset:
         dy, dx = self._shape
 
         start_rotation = self._transforms["rotation"]
-        points = np.array([[self._transforms["top"], self._transforms["left"]],
-                           [self._transforms["bottom"], self._transforms["right"]]])
+        points = np.array(
+            [
+                [self._transforms["top"], self._transforms["left"]],
+                [self._transforms["bottom"], self._transforms["right"]],
+            ]
+        )
         start_points = points.copy()
         self._temp_rotation = start_rotation
 
@@ -490,6 +500,7 @@ class BaseDataset:
 
             # else:
             #     print("key: ", event.key)
+
         def on_move(event):
             if np.any(points < 0):
                 if event.xdata is not None and event.ydata is not None:
@@ -554,8 +565,12 @@ class BaseDataset:
 
         if self._verbose and verbose:
             rotation = self._transforms["rotation"]
-            points = np.array([[self._transforms["top"], self._transforms["left"]],
-                               [self._transforms["bottom"], self._transforms["right"]]])
+            points = np.array(
+                [
+                    [self._transforms["top"], self._transforms["left"]],
+                    [self._transforms["bottom"], self._transforms["right"]],
+                ]
+            )
             print(
                 f"Rotation: {rotation:4} | Points: ({points[0,0]:4}, {points[0,1]:4}), "
                 + f"({points[1,0]:4}, {points[1,1]:4}) | Dimensions (h x w): "
@@ -580,12 +595,12 @@ class BaseDataset:
         return np.sqrt(squared)
 
     @staticmethod
-    def _fmt_defocus(defval: float | int, digits: int = 3, spacer: str = " "):
+    def _fmt_defocus(defval: Union[float, int], digits: int = 3, spacer: str = " "):
         """
         Format defocus value for display.
 
         Args:
-            defval (float | int): Defocus value.
+            defval (Union[):,efocus] value.
             digits (int, optional): Number of digits. Default is 3.
             spacer (str, optional): Spacer string. Default is " ".
 
@@ -602,8 +617,8 @@ class BaseDataset:
     def _bandpass_filter(
         self,
         image: np.ndarray,
-        q_lowpass: float | None = None,
-        q_highpass: float | None = None,
+        q_lowpass: Optional[float] = None,
+        q_highpass: Optional[float] = None,
         filter_type: str = "butterworth",
         butterworth_order: int = 2,
     ) -> np.ndarray:

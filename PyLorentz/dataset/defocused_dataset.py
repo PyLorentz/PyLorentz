@@ -1,17 +1,20 @@
-import numpy as np
-from pathlib import Path
-from PyLorentz.io import read_image, read_json, write_json, format_defocus
-from .base_dataset import BaseDataset
-from .data_legacy import legacy_load
 import os
-import scipy.ndimage as ndi
-from PyLorentz.utils.filter import filter_hotpix
-from tqdm import tqdm
 import time
+from pathlib import Path
+from typing import Optional, Union
 from warnings import warn
+
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.ndimage as ndi
+from tqdm import tqdm
+
+from PyLorentz.io import format_defocus, read_image, read_json, write_json
+from PyLorentz.utils.filter import filter_hotpix
 from PyLorentz.visualize import show_im
 
+from .base_dataset import BaseDataset
+from .data_legacy import legacy_load
 
 """
 Recommended file structure
@@ -53,12 +56,12 @@ class DefocusedDataset(BaseDataset):
     def __init__(
         self,
         images: np.ndarray,
-        scale: float | None = None,
-        defvals: np.ndarray | None = None,
-        beam_energy: float | None = None,
+        scale: Optional[float] = None,
+        defvals: Optional[np.ndarray] = None,
+        beam_energy: Optional[float] = None,
         data_files: list[os.PathLike] = [],
         simulated: bool = False,
-        verbose: int | bool = 1,
+        verbose: Union[int, bool] = 1,
     ):
         images = np.array(images).astype(np.float64)
         if np.ndim(images) == 2:
@@ -111,8 +114,8 @@ class DefocusedDataset(BaseDataset):
     @classmethod
     def load(
         cls,
-        images: np.ndarray | os.PathLike | list[os.PathLike],
-        metadata: os.PathLike | dict | None = None,
+        images: Union[np.ndarray, os.PathLike, list[os.PathLike]],
+        metadata: Optional[Union[os.PathLike, dict]] = None,
         **kwargs,
     ):
         """
@@ -219,7 +222,7 @@ class DefocusedDataset(BaseDataset):
             raise ValueError(f"energy must be > 0, not {val}")
         self._beam_energy = float(val)
 
-    def select_ROI(self, idx: int = 0, image: np.ndarray | None = None):
+    def select_ROI(self, idx: int = 0, image: Optional[np.ndarray] = None):
         # select image as infocus orig image if none given
         if image is not None:
             image = np.shape(image)
@@ -287,7 +290,7 @@ class DefocusedDataset(BaseDataset):
     def preprocess(
         self,
         hotpix: bool = True,
-        median_filter_size: int | None = None,
+        median_filter_size: Optional[int] = None,
         fast: bool = True,
         **kwargs,
     ):
@@ -332,13 +335,13 @@ class DefocusedDataset(BaseDataset):
 
     def filter(
         self,
-        q_lowpass: float | None = None,
-        q_highpass: float | None = None,
+        q_lowpass: Optional[float] = None,
+        q_highpass: Optional[float] = None,
         filter_type: str = "butterworth",  # butterworth or gaussian
         butterworth_order: int = 2,
-        idx: int | None | list[int] = None,
+        idx: Optional[ Union[int, list[int]]] = None,
         show: bool = False,
-        v: int | None = None,
+        v: Optional[int] = None,
     ):
         v = self._verbose if v is None else v
         if idx is None:

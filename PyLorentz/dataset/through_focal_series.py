@@ -1,17 +1,19 @@
-import numpy as np
-from pathlib import Path
-from PyLorentz.io import read_image, read_json, write_json, format_defocus
-from .base_dataset import BaseDataset
-from .data_legacy import legacy_load
 import os
-import scipy.ndimage as ndi
-from PyLorentz.utils.filter import filter_hotpix
-from tqdm import tqdm
 import time
-from warnings import warn
+from pathlib import Path
+from typing import Optional, Union
+
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.ndimage as ndi
+from tqdm import tqdm
+
+from PyLorentz.io import format_defocus, read_image, write_json
+from PyLorentz.utils.filter import filter_hotpix
 from PyLorentz.visualize import show_im
 
+from .base_dataset import BaseDataset
+from .data_legacy import legacy_load
 
 """
 Recommended file structure
@@ -50,16 +52,16 @@ class ThroughFocalSeries(BaseDataset):
     def __init__(
         self,
         imstack: np.ndarray,
-        flipstack: np.ndarray | None = None,
-        flip: bool = False,
-        scale: float | None = None,
-        defvals: np.ndarray | None = None,
-        beam_energy: float | None = None,
-        use_mask: bool = True,
-        simulated: bool = False,
+        flipstack: Optional[np.ndarray] = None,
+        flip: Optional[bool] = False,
+        scale: Optional[float] = None,
+        defvals: Optional[np.ndarray] = None,
+        beam_energy: Optional[float] = None,
+        use_mask: Optional[bool] = True,
+        simulated: Optional[bool] = False,
         data_dir: os.PathLike | None = None,
         data_files: list[os.PathLike] = [],
-        verbose: int | bool = 1,
+        verbose: Optional[int] = 1,
     ):
         imstack = np.array(imstack)
         assert np.ndim(imstack) == 3, f"Bad input shape {imstack.shape}"
@@ -121,15 +123,15 @@ class ThroughFocalSeries(BaseDataset):
         aligned_file: str | os.PathLike,
         aligned_flip_file: str | os.PathLike | None = None,
         metadata_file: str | os.PathLike | None = None,
-        flip: bool = False,
-        scale: float | None = None,
+        flip: Optional[bool] = False,
+        scale: Optional[float] = None,
         defocus_values: list | None = None,
-        beam_energy: float | None = None,
-        dump_metadata: bool = True,
-        use_mask: bool = True,
+        beam_energy: Optional[float] = None,
+        dump_metadata: Optional[bool] = True,
+        use_mask: Optional[bool] = True,
         legacy_data_loc: str | os.PathLike | None = None,
         legacy_fls_filename: str | os.PathLike | None = None,
-        verbose: int | bool = True,
+        verbose: int | Optional[bool] = True,
     ):
         """
         relevant metadata:
@@ -442,9 +444,9 @@ class ThroughFocalSeries(BaseDataset):
 
     def preprocess(
         self,
-        hotpix: bool = True,
+        hotpix: Optional[bool] = True,
         median_filter_size: int | None = None,
-        fast: bool = True,
+        fast: Optional[bool] = True,
         **kwargs,
     ):
         self._make_mask(self._use_mask)
@@ -485,11 +487,11 @@ class ThroughFocalSeries(BaseDataset):
 
     def filter(
         self,
-        q_lowpass: float | None = None,
-        q_highpass: float | None = None,
+        q_lowpass: Optional[float] = None,
+        q_highpass: Optional[float] = None,
         filter_type: str = "butterworth",  # butterworth or gaussian
         butterworth_order: int = 2,
-        show: bool = False,
+        show: Optional[bool] = False,
         v: int | None = None,
     ):
         """
@@ -522,14 +524,16 @@ class ThroughFocalSeries(BaseDataset):
             )
             if self.flip:
                 filtered_flipstack[i] = self._bandpass_filter(
-                    input_flipstack[i], q_lowpass, q_highpass, filter_type, butterworth_order
+                    input_flipstack[i],
+                    q_lowpass,
+                    q_highpass,
+                    filter_type,
+                    butterworth_order,
                 )
 
         if show:
-            fig, axs = plt.subplots(
-                ncols=3, nrows=3, figsize=(12, 10)
-            )
-            inds = [0, len(self)//2, -1]
+            fig, axs = plt.subplots(ncols=3, nrows=3, figsize=(12, 10))
+            inds = [0, len(self) // 2, -1]
             for a0 in range(3):
                 show_im(
                     input_imstack[inds[a0]],
@@ -563,10 +567,9 @@ class ThroughFocalSeries(BaseDataset):
             self.flipstack = filtered_flipstack
             self._orig_flipstack_filtered = filtered_flipstack
 
-
         return
 
-    def _make_mask(self, use_mask: bool = True, threshold: float = 0):
+    def _make_mask(self, use_mask: Optional[bool] = True, threshold: float = 0):
         """Sets self.mask to be a binary bounding mask from imstack and flipstack.
 
         Makes all images binary using a threshold value, and multiplies these arrays.
@@ -639,7 +642,7 @@ class ThroughFocalSeries(BaseDataset):
             flipstack = flipstack[:, top:bottom, left:right]
             self._flipstack_crop = flipstack.copy()
 
-        if self._filtered: # reapply filters
+        if self._filtered:  # reapply filters
             for a0 in range(len(imstack)):
                 imstack[a0] = self._bandpass_filter(
                     imstack[a0],
@@ -669,7 +672,7 @@ class ThroughFocalSeries(BaseDataset):
         self._cropped = True
         return
 
-    def select_ROI(self, image: np.ndarray | None = None):
+    def select_ROI(self, image: Optional[np.ndarray] = None):
         # select image as infocus orig image if none given
         if image is None:
             inf_ind = self.len_tfs // 2
@@ -715,7 +718,7 @@ class ThroughFocalSeries(BaseDataset):
         """
         return cls(filepath)
 
-    def save_DD(self, filepath="", copy_data: bool = False):
+    def save_DD(self, filepath="", copy_data: Optional[bool] = False):
         """
         Save self dict as json and either list of filepaths, or full datasets as specified
         make sure includes crop and such.
@@ -735,7 +738,7 @@ class ThroughFocalSeries(BaseDataset):
             axs = axs[None,]
 
         inf_idx = len(self.defvals) // 2
-        ref_image = self.imstack[[inf_idx - 1,inf_idx+1]]
+        ref_image = self.imstack[[inf_idx - 1, inf_idx + 1]]
         vmin_infocus = np.min(ref_image)
         vmax_infocus = np.max(ref_image)
 
@@ -746,7 +749,7 @@ class ThroughFocalSeries(BaseDataset):
             im_un = self.imstack[a0]
             show_im(
                 im_un,
-                figax=(fig, axs[0,a0]),
+                figax=(fig, axs[0, a0]),
                 title=f"{format_defocus(df)}",
                 simple=True,
                 cmap=kwargs.get("cmap", "gray"),
@@ -768,9 +771,8 @@ class ThroughFocalSeries(BaseDataset):
                 )
 
         if self.flip:
-            axs[0,0].set_ylabel("Unflip")
-            axs[1,0].set_ylabel("Flip")
-
+            axs[0, 0].set_ylabel("Unflip")
+            axs[1, 0].set_ylabel("Flip")
 
         return
 

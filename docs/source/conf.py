@@ -12,6 +12,9 @@
 #
 import os
 import sys
+import logging
+from sphinx.ext.autodoc import between
+
 
 # sys.path.insert(0, os.path.abspath('../../PyLorentz/PyTIE'))
 # from PyLorentz.dataset import base_dataset, defocused_dataset, through_focal_series
@@ -25,7 +28,7 @@ copyright = "2020, CD Phatak"
 author = "Arthur McCray, Tim Cote, CD Phatak"
 
 # The full version, including alpha/beta/rc tags
-release = "1.0.0"
+release = "2.0.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -87,3 +90,13 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 master_doc = "index"
+
+# stop throwing wrong warnings
+def ignore_type_errors(app, what, name, obj, options, signature, return_annotation):
+    try:
+        return signature, return_annotation
+    except TypeError:
+        return None, None
+
+def setup(app):
+    app.connect('autodoc-process-signature', ignore_type_errors)

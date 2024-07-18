@@ -2,14 +2,15 @@ import os
 import warnings
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, Union
 
 import numpy as np
 import scipy.constants as physcon
 from scipy.signal import convolve2d
 
-from PyLorentz.io.write import format_defocus, overwrite_rename, write_json, write_tif
+from PyLorentz.io.write import format_defocus, write_tif
 from PyLorentz.visualize import show_2D, show_im
-from PyLorentz.visualize.colorwheel import color_im, get_cmap
+from PyLorentz.visualize.colorwheel import color_im
 
 
 def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
@@ -19,15 +20,27 @@ def warning_on_one_line(message, category, filename, lineno, file=None, line=Non
 warnings.formatwarning = warning_on_one_line
 
 
-class BasePhaseReconstruction(object):
+class BasePhaseReconstruction:
+    """
+    A base class for phase reconstruction, providing common attributes and methods.
+    """
 
     def __init__(
         self,
-        save_dir: os.PathLike | None = None,
-        name: str | None = None,
-        scale: float | None = None,
-        verbose: int | bool = 1,
+        save_dir: Optional[os.PathLike] = None,
+        name: Optional[str] = None,
+        scale: Optional[float] = None,
+        verbose: Union[int, bool] = 1,
     ):
+        """
+        Initialize the BasePhaseReconstruction object.
+
+        Args:
+            save_dir (Optional[os.PathLike], optional): Directory to save results. Default is None.
+            name (Optional[str], optional): Name for the reconstruction. Default is None.
+            scale (Optional[float], optional): Scale factor for the dataset. Default is None.
+            verbose (Union[int, bool], optional): Verbosity level. Default is 1.
+        """
         self.save_dir = save_dir
         self.name = name
         self._save_name = name
@@ -41,14 +54,14 @@ class BasePhaseReconstruction(object):
             "phase_B": None,
         }
 
-        return
-
     @property
     def scale(self):
+        """Get the scale factor."""
         return self._scale
 
     @scale.setter
-    def scale(self, val):
+    def scale(self, val: float):
+        """Set the scale factor."""
         if not isinstance(val, (float, int)):
             raise TypeError(f"scale must be float/int, not {type(val)}")
         if val <= 0:
@@ -57,46 +70,57 @@ class BasePhaseReconstruction(object):
 
     @property
     def name(self):
+        """Get the name."""
         return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
+        """Set the name."""
         self._name = str(name)
 
     @property
     def results(self):
+        """Get the results."""
         return self._results
 
     @property
     def By(self):
+        """Get the y-component of the magnetic induction."""
         return self.results["By"]
 
     @property
     def Bx(self):
+        """Get the x-component of the magnetic induction."""
         return self.results["Bx"]
 
     @property
     def Bmag(self):
-        return np.sqrt(self.results["Bx"]**2 + self.results["By"]**2)
+        """Get the magnitude of the magnetic induction."""
+        return np.sqrt(self.results["Bx"] ** 2 + self.results["By"] ** 2)
 
     @property
     def B(self):
+        """Get the magnetic induction."""
         return np.array([self.results["By"], self.results["Bx"]])
 
     @property
     def phase_B(self):
+        """Get the magnetic component of the phase shift."""
         return self.results["phase_B"]
 
     def vprint(self, *args, **kwargs):
+        """Print messages if verbose is enabled."""
         if self._verbose:
             print(*args, **kwargs)
 
     @property
     def save_dir(self):
+        """Get the save directory."""
         return self._save_dir
 
     @save_dir.setter
-    def save_dir(self, p: os.PathLike | None):
+    def save_dir(self, p: Optional[os.PathLike]):
+        """Set the save directory."""
         if p is None:
             self._save_dir = None
         else:
@@ -107,8 +131,16 @@ class BasePhaseReconstruction(object):
                 self._save_dir = p
 
     def _save_keys(
-        self, keys, defval: float | None = None, overwrite: bool | None = None, **kwargs
+        self, keys, defval: Optional[float] = None, overwrite: Optional[bool] = None, **kwargs
     ):
+        """
+        Save the specified keys as TIFF images.
+
+        Args:
+            keys (list): List of keys to save.
+            defval (Optional[float], optional): Defocus value. Default is None.
+            overwrite (Optional[bool], optional): Whether to overwrite existing files. Default is None.
+        """
         ovr = overwrite if overwrite is not None else self._overwrite
         for key in keys:
             if defval is not None:
@@ -134,62 +166,64 @@ class BasePhaseReconstruction(object):
                 overwrite=ovr,
                 color="color" in key,
             )
-        return
 
     @staticmethod
-    def _fmt_defocus(defval: float | int, digits: int = 3, spacer=""):
-        "returns a string of defocus value converted to nm, um, or mm as appropriate"
-        return format_defocus(defval, digits, spacer=spacer)
-
-    def induction_from_phase(self, phase):
-        """Gives integrated induction in T*nm from a magnetic phase shift
+    def _fmt_defocus(defval: Union[float, int], digits: int = 3, spacer=""):
+        """
+        Format defocus value for display.
 
         Args:
-            phi (ndarray): 2D numpy array of size (dimy, dimx), magnetic component of the
-                phase shift in radians
-            del_px (float): in-plane scale of the image in nm/pixel
+            defval (Union[float, int]): Defocus value.
+            digits (int, optional): Number of digits. Default is 3.
+            spacer (str, optional): Spacer string. Default is "".
 
         Returns:
-            tuple: (By, Bx) where each By, Bx is a 2D numpy array of size (dimy, dimx)
-                corresponding to the y/x component of the magnetic induction integrated
-                along the z-direction. Has units of T*nm (assuming del_px given in units
-                of nm/pixel)
+            str: Formatted defocus value.
+        """
+        return format_defocus(defval, digits, spacer=spacer)
+
+    def induction_from_phase(self, phase: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate the integrated induction from a magnetic phase shift.
+
+        Args:
+            phase (np.ndarray): 2D array of magnetic component of the phase shift in radians.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: (By, Bx), y and x components of the magnetic induction integrated along the z-direction.
         """
         grad_y, grad_x = np.gradient(np.squeeze(phase), edge_order=2)
         pre_B = physcon.hbar / (physcon.e * self.scale) * 10**18  # T*nm^2
         Bx = pre_B * grad_y
         By = -1 * pre_B * grad_x
-        return (By, Bx)
+        return By, Bx
 
     def show_B(self, show_scale=False, **kwargs):
         """
-        show induction
+        Show the magnetic induction.
+
+        Args:
+            show_scale (bool, optional): Whether to show the scale. Default is False.
         """
-        dname = (
-            self.name
-            if self.name is not None
-            else self._save_name if self._save_name is not None else ""
-        )
+        dname = self.name if self.name else self._save_name if self._save_name else ""
         sc = self.scale if show_scale else None
         show_2D(
             self.Bx,
             self.By,
             scale=sc,
-            title=kwargs.pop("title", f"{dname} B      "),
+            title=kwargs.pop("title", f"{dname} B"),
             title_fontsize=kwargs.pop("title_fontsize", 10),
             **kwargs,
         )
-        return
 
     def show_phase_B(self, show_scale=True, **kwargs):
         """
-        show induction
+        Show the magnetic component of the phase shift.
+
+        Args:
+            show_scale (bool, optional): Whether to show the scale. Default is True.
         """
-        dname = (
-            self.name
-            if self.name is not None
-            else self._save_name if self._save_name is not None else ""
-        )
+        dname = self.name if self.name else self._save_name if self._save_name else ""
         ticks_off = not show_scale
         show_im(
             self.phase_B,
@@ -200,11 +234,16 @@ class BasePhaseReconstruction(object):
             title_fontsize=kwargs.pop("title_fontsize", 10),
             **kwargs,
         )
-        return
 
-    def _check_save_name(
-        self, save_dir: os.PathLike | None, name: str | None, mode: str = ""
-    ):
+    def _check_save_name(self, save_dir: Optional[os.PathLike], name: Optional[str], mode: str = ""):
+        """
+        Check and set the save name.
+
+        Args:
+            save_dir (Optional[os.PathLike]): Directory to save results.
+            name (Optional[str]): Name for the reconstruction.
+            mode (str, optional): Mode for the save name. Default is "".
+        """
         if save_dir is None:
             if self.save_dir is None:
                 raise ValueError(f"save_dir not specified, is None")
@@ -223,32 +262,47 @@ class BasePhaseReconstruction(object):
 
 
 class BaseTIE(BasePhaseReconstruction):
+    """
+    A base class for Transport of Intensity Equation (TIE) reconstruction.
+    """
 
     def __init__(
         self,
-        save_dir: os.PathLike | None = None,
-        scale: float | None = None,
-        beam_energy: float | None = None,
-        name: str | None = None,
+        save_dir: Optional[os.PathLike] = None,
+        scale: Optional[float] = None,
+        beam_energy: Optional[float] = None,
+        name: Optional[str] = None,
         sym: bool = False,
-        qc: float | None = None,
-        verbose: int | bool = 1,
+        qc: Optional[float] = None,
+        verbose: Union[int, bool] = 1,
     ):
-        BasePhaseReconstruction.__init__(self, save_dir, name, scale, verbose)
+        """
+        Initialize the BaseTIE object.
+
+        Args:
+            save_dir (Optional[os.PathLike], optional): Directory to save results. Default is None.
+            scale (Optional[float], optional): Scale factor for the dataset. Default is None.
+            beam_energy (Optional[float], optional): Beam energy for the reconstruction. Default is None.
+            name (Optional[str], optional): Name for the reconstruction. Default is None.
+            sym (bool, optional): Whether to symmetrize the images. Default is False.
+            qc (Optional[float], optional): Tikhonov regularization parameter. Default is None.
+            verbose (Union[int, bool], optional): Verbosity level. Default is 1.
+        """
+        super().__init__(save_dir, name, scale, verbose)
         self._sym = sym
         self._qc = qc
         self._qi = None
         self._pbcs = True
         self.beam_energy = beam_energy
 
-        return
-
     @property
     def sym(self):
+        """Get the symmetrization flag."""
         return self._sym
 
     @sym.setter
-    def sym(self, val):
+    def sym(self, val: bool):
+        """Set the symmetrization flag."""
         if isinstance(val, bool):
             self._sym = val
         else:
@@ -256,10 +310,12 @@ class BaseTIE(BasePhaseReconstruction):
 
     @property
     def qc(self):
+        """Get the Tikhonov regularization parameter."""
         return self._qc
 
     @qc.setter
-    def qc(self, val):
+    def qc(self, val: Optional[float]):
+        """Set the Tikhonov regularization parameter."""
         if val is None:
             self._qc = 0
         elif isinstance(val, (float, int)):
@@ -269,7 +325,14 @@ class BaseTIE(BasePhaseReconstruction):
         else:
             raise ValueError(f"qc must be float, not {type(val)}")
 
-    def _make_qi(self, shape: tuple, qc: float | None = None):
+    def _make_qi(self, shape: tuple, qc: Optional[float] = None):
+        """
+        Create the frequency response function for Tikhonov regularization.
+
+        Args:
+            shape (tuple): Shape of the arrays.
+            qc (Optional[float], optional): Tikhonov regularization parameter. Default is None.
+        """
         if qc is None:
             qc = self.qc
         ny, nx = shape
@@ -282,16 +345,24 @@ class BaseTIE(BasePhaseReconstruction):
             self.vprint(f"Using a Tikhonov frequency [1/nm]: {qc:.1e}")
             qi = q**2 / (q**2 + (qc * self.scale) ** 2) ** 2  # qc in 1/pix
         else:
-            # self.vprint("Reconstructing with normal Laplacian method")
             qi = 1 / q**2
         qi[0, 0] = 0
         self._qi = qi  # saves the freq dist
-        return
 
-    def _reconstruct_phase(self, infocus: np.ndarray, dIdZ: np.ndarray, defval: float):
+    def _reconstruct_phase(self, infocus: np.ndarray, dIdZ: np.ndarray, defval: float) -> np.ndarray:
+        """
+        Reconstruct the phase using the Transport of Intensity Equation (TIE).
+
+        Args:
+            infocus (np.ndarray): In-focus image.
+            dIdZ (np.ndarray): Longitudinal derivative of the intensity.
+            defval (float): Defocus value.
+
+        Returns:
+            np.ndarray: Reconstructed phase.
+        """
         dimy, dimx = dIdZ.shape
 
-        # Fourier transform of longitudinal derivatives
         fft1 = np.fft.fft2(dIdZ)
         # applying 2/3 qc cutoff mask (see de Graef 2003)
         gy, gx = np.ogrid[-dimy // 2 : dimy // 2, -dimx // 2 : dimx // 2]
@@ -317,7 +388,6 @@ class BaseTIE(BasePhaseReconstruction):
             grad_y2 = convolve2d(grad_y1, ky, mode="same", boundary="wrap")
             grad_x2 = convolve2d(grad_x1, kx, mode="same", boundary="wrap")
             tot = grad_y2 + grad_x2
-
         else:
             raise NotImplementedError
 
@@ -332,18 +402,15 @@ class BaseTIE(BasePhaseReconstruction):
 
         return phase
 
-    def _pre_Lap(self, def_step=1):
-        """Scaling prefactor used in the TIE reconstruction.
+    def _pre_Lap(self, def_step=1) -> float:
+        """
+        Calculate the scaling prefactor used in the TIE reconstruction.
 
         Args:
-            pscope (``Microscope`` object): Microscope object from
-                microscopes.py
-            def_step (float): The defocus value for which is being
-                reconstructed. If using a longitudinal derivative, def_step
-                should be 1.
+            def_step (float, optional): Defocus value for the reconstruction. Default is 1.
 
         Returns:
-            float: Numerical prefactor
+            float: Numerical prefactor.
         """
         if self._beam_energy is None:
             raise ValueError("beam_energy must be set, is currently None.")
@@ -353,15 +420,17 @@ class BaseTIE(BasePhaseReconstruction):
             * 1.0e9
             / np.sqrt(2.0 * physcon.m_e * physcon.e)
             / np.sqrt(self._beam_energy + epsilon * self._beam_energy**2)
-        )  # electron wavelength
+        )
         return -1 * self.scale**2 / (16 * np.pi**3 * lam * def_step)
 
     @property
     def beam_energy(self):
+        """Get the beam energy."""
         return self._beam_energy
 
     @beam_energy.setter
-    def beam_energy(self, val: float | None):
+    def beam_energy(self, val: Optional[float]):
+        """Set the beam energy."""
         if val is None:
             warnings.warn(
                 "BaseTIE has beam_energy=None, this must be set before reconstructing"
@@ -374,19 +443,21 @@ class BaseTIE(BasePhaseReconstruction):
                 raise ValueError(f"energy must be > 0, not {val}")
             self._beam_energy = float(val)
 
-    def _symmetrize(self, imstack, mode="even"):
-        """Makes the even symmetric extension of an image (4x as large).
+    def _symmetrize(self, imstack: np.ndarray, mode="even") -> np.ndarray:
+        """
+        Make the even symmetric extension of an image (4x as large).
 
         Args:
-            image (2D array): input image (M,N)
+            imstack (np.ndarray): Input image or stack of images.
+            mode (str, optional): Symmetrization mode, "even" or "odd". Default is "even".
 
         Returns:
-            ``ndarray``: Numpy array of shape (2M,2N)
+            np.ndarray: Symmetrized image or stack of images.
         """
         imstack = np.array(imstack)
         if imstack.ndim == 2:
             imstack = imstack[None,]
-            d2 = True  # want output to be same shape as input always
+            d2 = True
         else:
             assert imstack.ndim == 3, (
                 "symmetrize only supports 2D images or 3D stacks, "
@@ -404,7 +475,4 @@ class BaseTIE(BasePhaseReconstruction):
             imi[..., :, dimx:] = -1 * np.flip(imi[..., :, :dimx], axis=2)
         else:
             raise ValueError(f"`mode` should be `even` or `odd`, not `{mode}`")
-        if d2:
-            return imi[0]
-        else:
-            return imi
+        return imi[0] if d2 else imi
