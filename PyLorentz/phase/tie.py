@@ -1,28 +1,44 @@
-import numpy as np
-from PyLorentz.dataset.through_focal_series import ThroughFocalSeries
 import os
-from PyLorentz.phase.base_tie import BaseTIE
-from pathlib import Path
 import warnings
+from pathlib import Path
+
 import matplotlib.pyplot as plt
-from PyLorentz.visualize import show_im, show_2D
-from PyLorentz.visualize.colorwheel import make_colorwheel
+import numpy as np
+
+from PyLorentz.dataset.through_focal_series import ThroughFocalSeries
 from PyLorentz.io.write import write_json
-from datetime import datetime
+from PyLorentz.phase.base_tie import BaseTIE
+from PyLorentz.visualize import show_2D, show_im
+from typing import Optional, Union, List
 
 
 class TIE(BaseTIE):
+    """
+    Class for performing Transport of Intensity Equation (TIE) phase reconstruction.
+    """
 
     def __init__(
         self,
         tfs: ThroughFocalSeries,
-        save_dir: os.PathLike | None = None,
-        name: str | None = None,
+        save_dir: Optional[os.PathLike] = None,
+        name: Optional[str] = None,
         sym: bool = False,
-        qc: float | None = None,
-        beam_energy: float | None = None,
+        qc: Optional[float] = None,
+        beam_energy: Optional[float] = None,
         verbose: int = 1,
     ):
+        """
+        Initialize the TIE object.
+
+        Args:
+            tfs (ThroughFocalSeries): Through Focal Series dataset.
+            save_dir (Optional[os.PathLike], optional): Directory to save results. Default is None.
+            name (Optional[str], optional): Name for the reconstruction. Default is None.
+            sym (bool, optional): Whether to symmetrize the images. Default is False.
+            qc (Optional[float], optional): Tikhonov regularization parameter. Default is None.
+            beam_energy (Optional[float], optional): Beam energy for the reconstruction. Default is None.
+            verbose (int, optional): Verbosity level. Default is 1.
+        """
         self.tfs = tfs
         if save_dir is None:
             if tfs.data_dir is not None:
@@ -32,8 +48,7 @@ class TIE(BaseTIE):
             else:
                 self.save_dir = None
 
-        BaseTIE.__init__(
-            self,
+        super().__init__(
             save_dir=save_dir,
             scale=tfs.scale,
             name=name,
@@ -55,26 +70,41 @@ class TIE(BaseTIE):
         if not self.tfs._preprocessed:
             if not self.tfs._simulated:
                 warnings.warn(
-                    "experimental dataset has not been preprocessed "
-                    + "creating uniform mask."
+                    "Experimental dataset has not been preprocessed. Creating uniform mask."
                 )
             self.tfs.mask = np.ones(self.tfs.shape, dtype=np.float32)
 
-        return
-
     def reconstruct(
         self,
-        index: int | None = None,
-        name: str | None = None,
+        index: Optional[int] = None,
+        name: Optional[str] = None,
         sym: bool = False,
-        qc: float | None = None,
-        flip: bool | None = None,
-        save_mode: bool | str | list[str] = False,
-        save_dir: os.PathLike | None = None,
-        verbose: int | bool = 1,
-        pbcs: bool | None = None,
+        qc: Optional[float] = None,
+        flip: Optional[bool] = None,
+        save_mode: Union[bool, str, List[str]] = False,
+        save_dir: Optional[os.PathLike] = None,
+        verbose: Union[int, bool] = 1,
+        pbcs: Optional[bool] = None,
         overwrite: bool = False,
-    ):
+    ) -> 'TIE':
+        """
+        Perform TIE reconstruction.
+
+        Args:
+            index (Optional[int], optional): Index of the image to reconstruct. Default is None.
+            name (Optional[str], optional): Name for the reconstruction. Default is None.
+            sym (bool, optional): Whether to symmetrize the images. Default is False.
+            qc (Optional[float], optional): Tikhonov regularization parameter. Default is None.
+            flip (Optional[bool], optional): Whether to use flip images. Default is None.
+            save_mode (Union[bool, str, List[str]], optional): Whether and what to save. Default is False.
+            save_dir (Optional[os.PathLike], optional): Directory to save results. Default is None.
+            verbose (Union[int, bool], optional): Verbosity level. Default is 1.
+            pbcs (Optional[bool], optional): Whether to apply periodic boundary conditions. Default is None.
+            overwrite (bool, optional): Whether to overwrite existing files. Default is False.
+
+        Returns:
+            TIE: The TIE instance after reconstruction.
+        """
         index = self._check_index(index)
         self._recon_defval_index = index
         self._recon_defval = self.tfs.defvals_index[index]
@@ -98,10 +128,10 @@ class TIE(BaseTIE):
         )
         if self.flip:
             self.vprint(
-                f"Reconstructing with two TFS flip/unflip to seperate phase_B and phase_E"
+                "Reconstructing with two TFS flip/unflip to separate phase_B and phase_E"
             )
         else:
-            self.vprint(f"Reconstructing with a single TFS")
+            self.vprint("Reconstructing with a single TFS")
 
         # setup data
         dimy, dimx = self.tfs.shape
@@ -129,16 +159,6 @@ class TIE(BaseTIE):
         assert dimy, dimx == recon_stack.shape[1:]
         if np.min(recon_stack) < 0:
             pass
-            # print("\n*** bad neg value figure out *** \n")
-            # print('min: ', recon_stack.min())
-            # recon_stack -= recon_stack.min()
-            # infocus_im -= infocus_im.min()
-            # recon_stack += 1e-9
-            # infocus_im += 1e-9
-            # print('min: ', recon_stack.min())
-        # assert np.min(recon_stack) >= 0
-
-        # self.vprint("Calling TIE solver")
 
         phase_B = self._reconstruct_phase(infocus_im, dIdZ_B, self._recon_defval)
         self._results["phase_B"] = phase_B - phase_B.min()
@@ -154,15 +174,27 @@ class TIE(BaseTIE):
         if save_mode:
             self.save_results(save_mode=save_mode, overwrite=overwrite)
 
-        return self  # self or None?
+        return self
 
     def save_results(
         self,
-        save_mode: bool | str | list[str] = True,
-        save_dir: os.PathLike | None = None,
-        name: str | None = None,
+        save_mode: Union[bool, str, List[str]] = True,
+        save_dir: Optional[os.PathLike] = None,
+        name: Optional[str] = None,
         overwrite: bool = False,
-    ) -> ThroughFocalSeries:
+    ) -> 'TIE':
+        """
+        Save the reconstruction results.
+
+        Args:
+            save_mode (Union[bool, str, List[str]], optional): Keys to save. Default is True.
+            save_dir (Optional[os.PathLike], optional): Directory to save results. Default is None.
+            name (Optional[str], optional): Name for the reconstruction. Default is None.
+            overwrite (bool, optional): Whether to overwrite existing files. Default is False.
+
+        Returns:
+            TIE: The TIE instance.
+        """
         self._check_save_name(save_dir, name=name, mode="TIE")
 
         if isinstance(save_mode, bool):
@@ -180,9 +212,7 @@ class TIE(BaseTIE):
                     save_keys.append("phase_E")
             elif save_mode.lower() == "all":
                 save_keys = list(self.results.keys())
-
         elif hasattr(save_mode, "__iter__"):
-            # is list or tuple of keys
             save_keys = [str(k) for k in save_mode]
 
         self.save_dir.mkdir(exist_ok=True)
@@ -190,7 +220,13 @@ class TIE(BaseTIE):
         self._save_log(overwrite)
         return self
 
-    def _save_log(self, overwrite: bool | None = None):
+    def _save_log(self, overwrite: Optional[bool] = None):
+        """
+        Save the reconstruction log.
+
+        Args:
+            overwrite (Optional[bool], optional): Whether to overwrite existing files. Default is None.
+        """
         log_dict = {
             "name": self.name,
             "_save_name": self._save_name,
@@ -212,9 +248,19 @@ class TIE(BaseTIE):
         name = f"{self._save_name}_{self._fmt_defocus(self.recon_defval)}_log.json"
         self._log = log_dict
         write_json(log_dict, self.save_dir / name, overwrite=ovr, v=self._verbose)
-        return
 
-    def _get_derivatives(self, stack, mask, flip):
+    def _get_derivatives(self, stack: np.ndarray, mask: np.ndarray, flip: bool) -> tuple:
+        """
+        Compute the derivatives of the intensity along the z-axis.
+
+        Args:
+            stack (np.ndarray): Stack of images.
+            mask (np.ndarray): Mask for the images.
+            flip (bool): Whether to use flip images.
+
+        Returns:
+            tuple: (dIdZ_B, dIdZ_E) where dIdZ_B is the magnetic component and dIdZ_E is the electrostatic component.
+        """
         if flip:
             assert len(stack) == 5, f"Expect stack len 5 with flip, got {len(stack)}"
             dIdZ_B = 0.5 * ((stack[3] - stack[0]) - (stack[4] - stack[1]))
@@ -235,11 +281,13 @@ class TIE(BaseTIE):
 
         return dIdZ_B, dIdZ_E
 
-    def _select_images(self):
-        # if ptie.flip == True: returns [ +- , -- , 0 , ++ , -+ ]
-        # elif ptie.flip == False: returns [+-, 0, ++]
-        # where first +/- is unflip/flip, second +/- is over/underfocus.
+    def _select_images(self) -> tuple:
+        """
+        Select the images for the reconstruction.
 
+        Returns:
+            tuple: (stack, infocus) where stack is the stack of images and infocus is the infocus image.
+        """
         under_ind = self.tfs.len_tfs // 2 - (self._recon_defval_index + 1)
         over_ind = self.tfs.len_tfs // 2 + (self._recon_defval_index + 1)
 
@@ -264,20 +312,20 @@ class TIE(BaseTIE):
         stack = self._scale_stack(stack) + 1e-9
 
         # inverting background of infocus because dividing by it
-        # stack[len(stack) // 2] += 1 - self.dd.mask
         infocus = stack[len(stack) // 2]
         infocus += 1 - self.tfs.mask
 
         return stack, infocus
 
-    def _scale_stack(self, stack):
-        """Scale a stack of images so all have the same total intensity.
+    def _scale_stack(self, stack: np.ndarray) -> np.ndarray:
+        """
+        Scale a stack of images so all have the same total intensity.
 
         Args:
-            imstack (list): List of 2D arrays.
+            stack (np.ndarray): Stack of images.
 
         Returns:
-            list: List of same shape as imstack
+            np.ndarray: Scaled stack of images.
         """
         imstack = stack.copy()
         tots = np.sum(imstack, axis=(1, 2))
@@ -286,54 +334,74 @@ class TIE(BaseTIE):
         return imstack / np.max(imstack)
 
     @property
-    def _valid_def_inds(self):
+    def _valid_def_inds(self) -> int:
+        """
+        Get the number of valid defocus indices.
+
+        Returns:
+            int: Number of valid defocus indices.
+        """
         return len(self.tfs.defvals_index)
 
     @property
-    def recon_defval(self):
+    def recon_defval(self) -> Optional[float]:
+        """
+        Get the defocus value used for reconstruction.
+
+        Returns:
+            Optional[float]: Defocus value.
+        """
         if self._recon_defval is None:
-            print(f"defval is None or has not yet been specified with an index")
+            print("defval is None or has not yet been specified with an index")
         return self._recon_defval
 
     @property
-    def flip(self):
+    def flip(self) -> bool:
+        """
+        Get the flip status.
+
+        Returns:
+            bool: Flip status.
+        """
         return self._flip
 
     @flip.setter
-    def flip(self, val: bool | None):
+    def flip(self, val: Optional[bool]):
         if val is None:
             self._flip = self.tfs.flip
-            return
         elif not isinstance(val, bool):
             raise TypeError(f"flip must be bool, not {type(val)}")
-        if self.tfs.flip:
+        elif self.tfs.flip:
             if not val:
-                warnings.warn(
-                    f"Setting flip=False even though dataset has flip/unflip tfs"
-                )
+                warnings.warn("Setting flip=False even though dataset has flip/unflip TFS")
             self._flip = val
         else:
             if val:
-                raise ValueError(
-                    f"Cannot set flip=True because dataset has only only one TFS"
-                )
-            else:
-                self._flip = val
+                raise ValueError("Cannot set flip=True because dataset has only one TFS")
+            self._flip = val
 
     @property
-    def phase_E(self):
+    def phase_E(self) -> np.ndarray:
+        """
+        Get the electrostatic phase shift.
+
+        Returns:
+            np.ndarray: Electrostatic phase shift.
+        """
         if self.flip:
             return self.results["phase_E"]
+        elif self.results["phase_E"] is not None:
+            self.vprint("Returning old phase_E as currently flip=False")
         else:
-            if self.results["phase_E"] is not None:
-                self.vprint("Returning old phase_E as currently flip=False")
-            else:
-                raise ValueError(f"phase_E does not exist because flip=False")
+            raise ValueError("phase_E does not exist because flip=False")
 
-    def visualize(self, cbar=False, plot_scale: bool | str = True):
+    def visualize(self, cbar: bool = False, plot_scale: Union[bool, str] = True):
         """
-        show phase + induction, if flip then show phase_e too
-        options to save
+        Visualize the phase and induction maps.
+
+        Args:
+            cbar (bool, optional): Whether to display a colorbar. Default is False.
+            plot_scale (Union[bool, str], optional): Whether and what scale to plot. Default is True.
         """
         if self.flip:
             ncols = 3
@@ -357,6 +425,7 @@ class TIE(BaseTIE):
         else:
             ticks1 = False
             ticks2 = ticks3 = True
+
         show_im(
             self.phase_B,
             title="Magnetic phase shift",
@@ -391,8 +460,7 @@ class TIE(BaseTIE):
             figax=(fig, axs[-1]),
             scale=self.scale,
             ticks_off=ticks3,
-            title="Integrated induction map      ",
-            # rad=0,
+            title="Integrated induction map",
         )
         axs[-1].axis("off")
         # cax = fig.add_subplot(5,5,15, aspect='equal', anchor="SE")
@@ -407,12 +475,20 @@ class TIE(BaseTIE):
 
         plt.tight_layout()
         plt.show()
-        return
 
-    def _check_index(self, index: int):
+    def _check_index(self, index: Optional[int]) -> int:
+        """
+        Check and adjust the index.
+
+        Args:
+            index (Optional[int]): Index to check.
+
+        Returns:
+            int: Validated index.
+        """
         if index is None:
             index = self._valid_def_inds - 1
-        elif abs(index + 1) > self._valid_def_inds or index < -1 * self._valid_def_inds:
+        elif abs(index + 1) > self._valid_def_inds or index < -self._valid_def_inds:
             raise ValueError(
                 f"index {index} is out of bounds for defvals_index with size {self._valid_def_inds}"
             )
@@ -421,9 +497,12 @@ class TIE(BaseTIE):
         index = index % self._valid_def_inds
         return index
 
-    def show_phase_E(self, show_scale=True, **kwargs):
+    def show_phase_E(self, show_scale: bool = True, **kwargs):
         """
-        show induction
+        Show the electrostatic phase shift.
+
+        Args:
+            show_scale (bool, optional): Whether to show the scale. Default is True.
         """
         dname = (
             self.name
@@ -441,4 +520,3 @@ class TIE(BaseTIE):
             title_fontsize=kwargs.pop("title_fontsize", 10),
             **kwargs,
         )
-        return
