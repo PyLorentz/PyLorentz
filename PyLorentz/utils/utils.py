@@ -1,6 +1,8 @@
 from typing import Optional, Union
 
 import numpy as np
+from skimage.metrics import structural_similarity
+
 
 
 def dist4(dim, norm=False) -> np.ndarray:
@@ -52,3 +54,4 @@ def norm_image(image: Union[np.ndarray, list]):
         image = image - np.min(image)
         image = image / np.max(image)
     return image
+

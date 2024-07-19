@@ -100,7 +100,7 @@ class DIP_NN(nn.Module):
 
         self.cu2p = conv2dblock(1, nb_filters, nb_filters, use_batchnorm=batch_norm)
 
-        self.upsample_block1p = upsample_block(nb_filters, 1, mode=upsampling_mode)
+        self.upsample_block1p = upsample_block(nb_filters, self.num_images, mode=upsampling_mode)
 
         self.maxpool = F.max_pool2d
         self.concat = torch.cat

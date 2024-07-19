@@ -135,6 +135,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             DefocusedDataset: A dataset containing simulated defocused images.
         """
         object_wave = self._generate_object_wave(filter_sigma, amorphous_bkg, flip=flip)
+        self._object_wave = object_wave
 
         if isinstance(defocus_values, (float, int)):
             defocus_values = [defocus_values]

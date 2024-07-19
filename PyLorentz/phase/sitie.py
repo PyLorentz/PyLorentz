@@ -119,7 +119,7 @@ class SITIE(BaseTIE):
         qc: Optional[float] = None,
         save: Union[bool, str, List[str]] = False,
         save_dir: Optional[os.PathLike] = None,
-        verbose: Union[int, bool] = 1,
+        verbose: Optional[int] = None,
         pbcs: Optional[bool] = None,
         overwrite: bool = False,
     ) -> "SITIE":
@@ -158,7 +158,7 @@ class SITIE(BaseTIE):
             self.qc = qc
         if pbcs is not None:
             self._pbcs = pbcs
-        self._verbose = verbose
+        self._verbose = verbose if verbose is None else self._verbose
         if save:
             self._check_save_name(save_dir, name, mode="SITIE")
             self._overwrite = overwrite if overwrite is not None else self._overwrite

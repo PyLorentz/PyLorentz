@@ -9,7 +9,7 @@ import scipy.constants as physcon
 from PyLorentz.io.write import format_defocus, write_tif
 from PyLorentz.visualize import show_2D, show_im
 from PyLorentz.visualize.colorwheel import color_im
-
+from PyLorentz.utils import metrics
 
 class BasePhaseReconstruction:
     """
@@ -67,7 +67,10 @@ class BasePhaseReconstruction:
     @name.setter
     def name(self, name: str):
         """Set the name."""
-        self._name = str(name)
+        if name is not None:
+            self._name = str(name)
+        else:
+            self._name = None
 
     @property
     def results(self):
@@ -98,6 +101,14 @@ class BasePhaseReconstruction:
     def phase_B(self):
         """Get the magnetic component of the phase shift."""
         return self.results["phase_B"]
+
+    @phase_B.setter
+    def phase_B(self, val):
+        """Set the magnetic component of the phase shift and induction components."""
+        self.results["phase_B"] = val - val.min()
+        By, Bx = self.induction_from_phase(val)
+        self._results["By"] = By
+        self._results["Bx"] = Bx
 
     def vprint(self, *args, **kwargs):
         """Print messages if verbose is enabled."""
@@ -202,7 +213,7 @@ class BasePhaseReconstruction:
             self.Bx,
             self.By,
             scale=sc,
-            title=kwargs.pop("title", f"{dname} B"),
+            title=kwargs.pop("title", f"{dname} B         "),
             title_fontsize=kwargs.pop("title_fontsize", 10),
             **kwargs,
         )
@@ -215,7 +226,7 @@ class BasePhaseReconstruction:
             show_scale (bool, optional): Whether to show the scale. Default is True.
         """
         dname = self.name if self.name else self._save_name if self._save_name else ""
-        ticks_off = not show_scale
+        ticks_off = kwargs.pop("ticks_off", not show_scale)
         show_im(
             self.phase_B,
             scale=kwargs.pop("scale", self.scale),
@@ -250,4 +261,47 @@ class BasePhaseReconstruction:
                 self._save_name = self.name
         else:
             self._save_name = name
+
+    def calc_phase_metrics(self, t_phase, r_phase):
+        # calc accuracy, SSRI, PSNR for recon vs truth,
+        # phase and B
+        r_phase = self._to_numpy(r_phase)
+        r_By, r_Bx = self.induction_from_phase(r_phase)
+        r_Bmag = np.sqrt(r_By**2 + r_Bx**2)
+
+        t_phase = self._to_numpy(t_phase)
+        t_By, t_Bx = self.induction_from_phase(t_phase)
+        t_Bmag = np.sqrt(t_By**2 + t_Bx**2)
+
+        keys = [
+            "phase", "By", "Bx", "Bmag",
+        ]
+        ssim_dict = {}
+        acc_dict = {}
+        psnr_dict = {}
+        trues = [t_phase, t_By, t_Bx, t_Bmag]
+        tests = [r_phase, r_By, r_Bx, r_Bmag]
+        for key, tru, test in zip(keys, trues, tests):
+            ssim_dict[f"SSIM_{key}"] = metrics.ssim(tru, test)
+            acc_dict[f"acc_{key}"] = metrics.accuracy(tru, test)
+            psnr_dict[f"PSNR_{key}"] = metrics.psnr(tru, test)
+
+        ssim_dict["SSIM_Bave"] = 0.5 * (ssim_dict["SSIM_By"] + ssim_dict["SSIM_Bx"])
+        acc_dict["acc_Bave"] = 0.5 * (acc_dict["acc_By"] + acc_dict["acc_Bx"])
+        psnr_dict["PSNR_Bave"] = 0.5 * (psnr_dict["PSNR_By"] + psnr_dict["PSNR_Bx"])
+
+        results = ssim_dict | acc_dict | psnr_dict # combine dicts, should be no overlap in keys
+        return results
+
+    @staticmethod
+    def _to_numpy(arr):
+        module = arr.__class__.__module__
+        if module == "torch":
+            return arr.cpu().detach().numpy()
+        elif module == "cupy":
+            return arr.get()
+        else:
+            return np.array(arr)
+
+
 

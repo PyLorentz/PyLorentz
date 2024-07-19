@@ -119,11 +119,9 @@ class ImageNoiser:
         Returns:
             np.ndarray: Noised image.
         """
-        print("new poisson")
         offset = np.min(image)
         ptp = np.ptp(image)
         im = (image - offset) / ptp  # norm image
-        print(im.max(), im.min(), im.sum())
         noisy = np.random.poisson(im * self.poisson / im.sum())
         return (noisy * ptp) + offset
 
