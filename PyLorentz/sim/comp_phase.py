@@ -7,7 +7,7 @@ from numba import jit
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
-from .base_phase import BaseSim
+from .base_sim import BaseSim
 
 try:
     import cupy as cp

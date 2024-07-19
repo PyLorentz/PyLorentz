@@ -1,8 +1,3 @@
-"""A class for microscope objects.
-
-Author: CD Phatak, ANL, 20.Feb.2015.
-"""
-
 import numpy as np
 import scipy.constants as physcon
 import scipy.ndimage as ndimage
@@ -199,7 +194,7 @@ class Microscope(object):
         dampenv = np.exp(-arg)
         return dampenv
 
-    def get_transfer_function(self):
+    def get_transfer_function(self, scale=None, shape=None):
         """Generate the full transfer function in reciprocal space
 
         Args:
@@ -207,6 +202,11 @@ class Microscope(object):
         Returns:
             ``ndarray``: Transfer function. 2D array.
         """
+        if scale is not None:
+            self.scale = scale
+        if shape is not None:
+            self._get_qq(shape)
+
         chiq = self._get_chiQ()
         dampenv = self._get_damping_envelope()
         tf = (np.cos(chiq) - 1j * np.sin(chiq)) * dampenv * self.aperture

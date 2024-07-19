@@ -11,7 +11,7 @@ from PyLorentz.io import format_defocus, read_ovf
 from PyLorentz.utils import Microscope
 
 from .comp_phase import LinsupPhase, MansuripurPhase
-from .base_phase import BaseSim
+from .base_sim import BaseSim
 
 
 class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
@@ -113,9 +113,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
 
     def sim_images(
         self,
-        defocus_values: Union[
-            float, List[float]
-        ],  # single defocus value or list of them
+        defocus_values: Union[float, List[float]],  # single defocus value or list of them
         scope: Microscope,
         flip: bool = False,
         filter_sigma: float = 1,
@@ -155,20 +153,19 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
 
         dd = DefocusedDataset(
             images=images,
-            defvals=defocus_values,
+            defval=defocus_values,
             scale=self.scale,
             beam_energy=scope.E,
             simulated=True,
             verbose=self._verbose,
+            data_files=self._ovf_file,
         )
 
         return dd
 
     def sim_TFS(
         self,
-        defocus_values: Union[
-            float, List[float]
-        ],  # single defocus value or list of them
+        defocus_values: Union[float, List[float]],  # single defocus value or list of them
         scope: Microscope,
         flip: bool = False,
         filter_sigma: float = 1,
@@ -202,9 +199,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             defocus_values = np.sort(np.unique(np.abs(defocus_values)))
             if defocus_values[0] == 0:
                 defocus_values = defocus_values[1:]
-            full_defvals = np.concatenate(
-                [-1 * defocus_values[::-1], [0], defocus_values]
-            )
+            full_defvals = np.concatenate([-1 * defocus_values[::-1], [0], defocus_values])
 
         self.vprint(
             f"Simulating images for defocus values: "
@@ -228,9 +223,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             scope.defocus = defval
             imstack.append(scope.compute_image(object_wave, padded_shape=padded_shape))
             if flip:
-                flipstack.append(
-                    scope.compute_image(object_wave_flip, padded_shape=padded_shape)
-                )
+                flipstack.append(scope.compute_image(object_wave_flip, padded_shape=padded_shape))
 
         tfs = ThroughFocalSeries(
             imstack=imstack,
@@ -280,12 +273,8 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
                 bkg_amount = amorphous_bkg / 1000
             seed = np.random.randint(1e9) if seed is None else seed
             rng = np.random.default_rng(seed=seed)
-            random_phase = rng.uniform(
-                low=-1 * bkg_amount, high=bkg_amount, size=phase_t.shape
-            )
-            random_phase = ndi.gaussian_filter(
-                random_phase, 5 / self.scale, mode="wrap"
-            )
+            random_phase = rng.uniform(low=-1 * bkg_amount, high=bkg_amount, size=phase_t.shape)
+            random_phase = ndi.gaussian_filter(random_phase, 5 / self.scale, mode="wrap")
             phase_t += random_phase
 
         if self.flat_shape_func is None:
@@ -303,7 +292,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
                 + thk_map * self.zscale / self.sample_xip0
             )
         )
-        if np.ptp(amplitude) == 0 and np.max(amplitude) < 0.01:
+        if np.ptp(amplitude) == 0 and np.max(amplitude) < 0.05:
             warn(
                 f"Amplitude is uniform and has a low value: {amplitude.max()}. "
                 + "Consider increasing sample xip0 or decreasing sample thickness. "

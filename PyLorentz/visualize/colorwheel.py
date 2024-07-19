@@ -15,6 +15,7 @@ import matplotlib as mpl
 import numpy as np
 from matplotlib import colors
 from matplotlib.colors import Colormap
+import matplotlib.pyplot as plt
 
 try:
     import colorcet as cc
@@ -125,9 +126,9 @@ def get_cmap(cmap: str | None = None, **kwargs) -> Colormap:
     invert = kwargs.get("invert", False)
     try:
         if cmap in ["linear", "lin", ""]:
-            cmap = mpl.cm.get_cmap("gray")
+            cmap = plt.get_cmap("gray")
         elif cmap in ["diverging", "div"]:
-            cmap = mpl.cm.get_cmap("coolwarm")
+            cmap = plt.get_cmap("coolwarm")
         elif cmap in ["linear_cbl", "cbl", "lin_cbl"]:
             cmap = cc.cm.CET_CBL1
         elif cmap in ["diverging_cbl", "div_cbl"]:
@@ -138,7 +139,7 @@ def get_cmap(cmap: str | None = None, **kwargs) -> Colormap:
             cmap = cc.cm.CET_C2
             shift += -np.pi / 2  # matching directions of legacy 4-fold
         elif cmap in ["purehsv", "legacyhsv"]:
-            cmap = mpl.cm.get_cmap("hsv")
+            cmap = plt.get_cmap("hsv")
             invert = not invert
             shift += np.pi / 2
         elif cmap in ["cet_c6", "c6", "cet_6", "6fold", "sixfold", "hsv", "cyclic"]:
@@ -154,8 +155,8 @@ def get_cmap(cmap: str | None = None, **kwargs) -> Colormap:
             cmap = cc.cm.CET_C10
         elif cmap in ["cet_c11", "c11", "cet_11"]:
             cmap = cc.cm.CET_C11
-        elif cmap in mpl.pyplot.colormaps():
-            cmap = mpl.cm.get_cmap(cmap)
+        elif cmap in plt.colormaps():
+            cmap = plt.get_cmap(cmap)
         else:
             print(f"Unknown colormap input '{cmap}'.")
             print("You can also pass a colormap object directly.")
@@ -163,7 +164,7 @@ def get_cmap(cmap: str | None = None, **kwargs) -> Colormap:
             cmap = cc.cm.CET_C7
     except NameError:
         print("Colorcet not installed, proceeding with hsv from mpl")
-        cmap = mpl.cm.get_cmap("hsv")
+        cmap = plt.get_cmap("hsv")
         invert = not invert
         shift -= np.pi / 2
     if shift != 0:  # given as radian convert to [0,1]

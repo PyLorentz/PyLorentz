@@ -57,7 +57,7 @@ class DefocusedDataset(BaseDataset):
         self,
         images: np.ndarray,
         scale: Optional[float] = None,
-        defvals: Optional[np.ndarray] = None,
+        defval: Optional[np.ndarray] = None,
         beam_energy: Optional[float] = None,
         data_files: list[os.PathLike] = [],
         simulated: bool = False,
@@ -66,8 +66,8 @@ class DefocusedDataset(BaseDataset):
         images = np.array(images).astype(np.float64)
         if np.ndim(images) == 2:
             images = images[None,]
-        if isinstance(defvals, (float, int)):
-            defvals = np.array([defvals])
+        if isinstance(defval, (float, int)):
+            defval = np.array([defval])
         if isinstance(data_files, (list, np.ndarray)) and np.size(data_files) > 0:
             self.data_files = [Path(f).absolute() for f in data_files]
             self.data_dirs = [f.parents[0] for f in self.data_files]
@@ -91,7 +91,7 @@ class DefocusedDataset(BaseDataset):
         self._orig_images_preprocessed = None
         self._images_cropped = None
         self._images_filtered = None
-        self.defvals = defvals
+        self.defvals = defval
         self.beam_energy = beam_energy
         self._simulated = simulated
         self._verbose = verbose

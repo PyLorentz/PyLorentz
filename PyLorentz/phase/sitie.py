@@ -1,12 +1,14 @@
-import numpy as np
-from PyLorentz.dataset.defocused_dataset import DefocusedDataset
 import os
-from PyLorentz.phase.base_tie import BaseTIE
 from pathlib import Path
+from typing import List, Optional, Union
+
 import matplotlib.pyplot as plt
-from PyLorentz.visualize import show_im, show_2D
+import numpy as np
+
+from PyLorentz.dataset.defocused_dataset import DefocusedDataset
 from PyLorentz.io.write import write_json
-from typing import Union, Optional, List
+from PyLorentz.phase.base_tie import BaseTIE
+from PyLorentz.visualize import show_2D, show_im
 
 
 class SITIE(BaseTIE):
@@ -62,7 +64,7 @@ class SITIE(BaseTIE):
         cls,
         image: np.ndarray,
         scale: Union[float, int, None] = None,
-        defvals: Optional[List[float]] = None,
+        defval: Optional[List[float]] = None,
         beam_energy: Optional[float] = None,
         name: Optional[str] = None,
         sym: bool = False,
@@ -89,11 +91,9 @@ class SITIE(BaseTIE):
         Returns:
             SITIE: An instance of the SITIE class.
         """
-        images = np.array(image)
-
         dd = DefocusedDataset(
-            images=images,
-            defvals=defvals,
+            images=image,
+            defval=defval,
             scale=scale,
             beam_energy=beam_energy,
             simulated=simulated,

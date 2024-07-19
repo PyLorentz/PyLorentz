@@ -15,8 +15,8 @@ setup(
     author_email="arthurmccray95@gmail.com",
     license="MIT",
     install_requires=[
-        "numpy >= 1.15",
-        "scipy >= 1.1",
+        "numpy",
+        "scipy",
         "numba",
         "ipympl",
         "jupyter",

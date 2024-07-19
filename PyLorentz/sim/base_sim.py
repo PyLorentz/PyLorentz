@@ -19,7 +19,7 @@ class BaseSim(object):
         "phase_method": "mansuripur",
         "B0": 1e4,
         "sample_V0": 0.0,
-        "sample_xip0": 50.0,
+        "sample_xip0": 5e2,
         "mem_V0": 0.0,
         "mem_xip0": 1e3,
         "mem_thickness": 0.0,

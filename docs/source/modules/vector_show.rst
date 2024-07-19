@@ -6,3 +6,10 @@ blah blah vectors
    :members:
    :undoc-members:
    :show-inheritance:
+
+colorwheel functions
+-----------------
+.. automodule:: PyLorentz.visualize.colorwheel
+   :members:
+   :undoc-members:
+   :show-inheritance:

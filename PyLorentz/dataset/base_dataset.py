@@ -2,6 +2,7 @@ import os
 import warnings
 from pathlib import Path
 from typing import Optional, Union
+import copy
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt

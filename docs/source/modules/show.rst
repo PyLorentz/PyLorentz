@@ -1,5 +1,5 @@
-Displaying 2D images
-=======================
+Displaying scalar images
+=========================
 blah blah show
 
 .. automodule:: PyLorentz.visualize.show

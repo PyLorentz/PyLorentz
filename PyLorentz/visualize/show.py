@@ -10,16 +10,16 @@ from matplotlib import colors
 def show_im(
     image,
     title=None,
-    simple=False,
-    origin="upper",
-    cbar=None,
-    cbar_title=None,
     scale=None,
+    simple=False,
     save=None,
-    roi=None,
     cmap="gray",
     figax=None,
+    roi=None,
+    cbar_title=None,
+    cbar=None,
     intensity_range="minmax",
+    origin="upper",
     **kwargs,
 ):
     """Display an image.
@@ -62,6 +62,8 @@ def show_im(
     image = np.array(image)
     if image.dtype == "bool":
         image = image.astype("int")
+    else:
+        image = image.astype(np.float64) # weird scalebar stuff can happen for int32
     if cbar is None:
         cbar = not simple
     ndim = np.ndim(image)
