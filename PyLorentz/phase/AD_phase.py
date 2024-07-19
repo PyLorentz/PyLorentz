@@ -21,6 +21,11 @@ from PyLorentz.visualize import show_im
 
 class ADPhase(BasePhaseReconstruction):
 
+    sample_params = {
+        "dirt_V0": 20,
+        "dirt_xip0": 10,
+    }
+
     def __init__(
         self,
         dd: DefocusedDataset,
@@ -29,6 +34,7 @@ class ADPhase(BasePhaseReconstruction):
         name: Optional[str] = None,
         verbose: bool = 1,
         scope=None,
+        sample_params: dict = {},
         rng_seed: int | None = None,
     ):
         self.dd = dd
@@ -39,7 +45,10 @@ class ADPhase(BasePhaseReconstruction):
 
         super().__init__(save_dir, name, dd.scale, verbose)
 
-        self.device = device  # TODO
+        self.sample_params = self.sample_params | sample_params
+
+        self.device = device
+        self.inp_ims = torch.tensor(self.dd.images, device=self.device, dtype=torch.float32)
         self.defvals = dd.defvals
         self.scope = scope
         self.shape = dd.shape
@@ -48,6 +57,8 @@ class ADPhase(BasePhaseReconstruction):
         # to be set later:
         self._guess_phase = None
         self._runtype = None
+        self.recon_amp = None
+        self.recon_phase = None
 
         self.TFs = self.get_TFs()
 
@@ -76,7 +87,8 @@ class ADPhase(BasePhaseReconstruction):
 
     @TFs.setter
     def TFs(self, arr):
-        arr = torch.tensor(arr, device=self.device)
+        if not isinstance(arr, torch.Tensor):
+            arr = torch.tensor(arr, device=self.device, dtype=torch.complex64)
         assert len(arr.shape) == 3, f"Bad TF shape: {arr.shape}, should be {self.dd.images.shape}"
         assert len(arr) == len(self.dd), f"len TFs {len(arr)} != # defvals {len(self.dd)}"
         self._TFs = arr
@@ -189,6 +201,7 @@ class ADPhase(BasePhaseReconstruction):
         reset=True,
         print_every=-1,
         verbose=None,
+        scale_amplitude=False,
         **kwargs,  # scheduler params
     ):
         self._num_pretrain_iter = num_pretrain_iter
@@ -211,6 +224,7 @@ class ADPhase(BasePhaseReconstruction):
             self._LR_iterations = []
 
             if model:
+                self._use_DIP = True
                 inp_noise = self._rng.random((1, *self.shape)) * 2 - 1
                 self.input_noise = torch.tensor(
                     inp_noise, device=self.device, dtype=torch.float32, requires_grad=False
@@ -236,39 +250,91 @@ class ADPhase(BasePhaseReconstruction):
                     self.optimizer = torch.optim.Adam(
                         [{"params": DIP_phase.parameters(), "lr": LRs["phase"]}]
                     )
+                    self.recon_amp = self.guess_amp.copy()
+                    self.recon_amp.requires_grad = False
 
                 ## pretrain DIP
                 self._pretrain_DIP(DIP_phase, DIP_amp)
             else:
-                self._runtype = "DIP"
+                self._use_DIP = False
                 self.recon_phase = self.guess_phase.copy()
                 self.recon_phase.requires_grad = True
-                self.optimizer = torch.optim.Adam(
-                    [{"params": self.recon_phase, "lr": LRs["phase"]}]
-                )
+                if solve_amp:
+                    self.recon_amp = self.guess_amp.copy()
+                    self.recon_amp.requires_grad = True
+                    self._runtype = "AD-amp"
+                    self.optimizer = torch.optim.Adam(
+                        [
+                            {"params": self.recon_phase, "lr": LRs["phase"]},
+                            {"params": self.recon_amp, "lr": LRs["amp"]},
+                        ]
+                    )
+                else:
+                    self._runtype = "AD"
+                    self.optimizer = torch.optim.Adam(
+                        [{"params": self.recon_phase, "lr": LRs["phase"]}]
+                    )
 
             self.scheduler = self._get_scheduler(scheduler_type, LRs, self.optimizer, **kwargs)
         else:
             # check make sure everything exists maybe
             pass
 
-        self._recon_loop(num_iter, print_every)
+        self._recon_loop(num_iter, print_every, DIP_phase)  # maybe have loop_amp
 
         ## add a num_iters or len function that looks at errors to get total iters run
 
         return
 
-    def _recon_loop(self, num_iter, print_every):
+    def _recon_loop(self, num_iter, print_every, DIP_phase:nn.Module|None):
+        # not including amp stuff for now
         stime = datetime.now()
+
+        self._amp_phase = self._amp_to_phi(self.recon_amp)
+        self._amp_phase -= self._amp_phase.min()
+
         for a0 in range(num_iter):
             if self._noise_frac >= 0:
                 # have way of rng this? reproducible
-                self.input_noise = self.input_noise + torch.randn()
+                self.input_noise = self.input_noise + self._noise_frac * torch.randn(
+                    self.input_noise.shape, device=self.device
+                )
+            if DIP_phase is not None:
+                self.recon_phase = DIP_phase.forward(self.input_noise)[0]
+
+            loss = self._compute_loss()
 
             pass
 
         return
 
+    def _sim_images(self):
+        obj_waves = self.recon_amp * torch.exp(1.j * self.recon_phase)
+        img_waves = torch.fft.ifft2(torch.fft.fft2(obj_waves) * self.TFs)
+        images = torch.abs(img_waves)**2
+        return images
+
+    def _compute_loss(self):
+        guess_ims = self._sim_images()
+        MSE_loss = torch.mean((guess_ims - self.inp_ims)**2)
+        if self._use_DIP or (self.LRs["TV_phase_weight"] == 0 and self.LRs["TV_amp_weight"] == 0):
+            return MSE_loss
+        else:
+            TV_loss = self._calc_TV_loss_PBC()
+        return
+
+    def _calc_TV_loss_PBC():
+        #TODO write this func
+        pass
+
+    @property
+    def amp2phi(self):
+        return self.sample_params["dirt_V0"] * self.scope.sigma * self.sample_params["dirt_xip0"]
+
+    def _amp_to_phi(self, amp):
+        a = -1 * torch.log(amp)
+        b = a - torch.min(a)
+        return b * self.amp2phi
 
     def _pretrain_DIP(self, DIP_phase: nn.Module, DIP_amp: nn.Module | None):
         if self._num_pretrain_iter >= 0:
@@ -370,8 +436,8 @@ class ADPhase(BasePhaseReconstruction):
         return
 
     def get_TFs(self):
-        tfs = [self._get_TF(df) for df in self.defvals]
-        return torch.tensor(tfs, device=self.device, dtype=torch.float32)
+        tfs = np.array([self._get_TF(df) for df in self.defvals])
+        return torch.tensor(tfs, device=self.device, dtype=torch.complex64)
 
     def _get_TF(self, defocus):
         self.scope.defocus = defocus
