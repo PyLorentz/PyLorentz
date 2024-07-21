@@ -27,8 +27,8 @@ class ImageNoiser:
 
     def __init__(
         self,
-        gauss: float = 0,
         poisson: float = 0,
+        gauss: float = 0,
         salt_and_pepper: float = 0,
         blur: float = 0,
         jitter: float = 0,
@@ -39,8 +39,8 @@ class ImageNoiser:
         """
         Initialize image noising parameters.
         """
-        self.gauss = gauss
         self.poisson = poisson
+        self.gauss = gauss
         self.salt_and_pepper = salt_and_pepper
         self.blur = blur
         self.jitter = jitter
@@ -74,10 +74,10 @@ class ImageNoiser:
             raise ValueError(f"Expected array of dimension 2, got image of shape {image.shape}")
         self.h, self.w = image.shape
 
-        if self.gauss != 0:
-            image = self.apply_gauss(image)
         if self.poisson != 0:
             image = self.apply_poisson(image)
+        if self.gauss != 0:
+            image = self.apply_gauss(image)
         if self.salt_and_pepper != 0:
             image = self.apply_salt_and_pepper(image)
         if self.blur != 0:
@@ -122,8 +122,8 @@ class ImageNoiser:
         offset = np.min(image)
         ptp = np.ptp(image)
         im = (image - offset) / ptp  # norm image
-        noisy = np.random.poisson(im * self.poisson / im.sum())
-        return (noisy * ptp) + offset
+        noisy = np.random.poisson(im * self.poisson / im.size)
+        return (noisy /self.poisson * im.size * ptp) + offset
 
     def apply_salt_and_pepper(self, image: np.ndarray) -> np.ndarray:
         """
@@ -141,7 +141,7 @@ class ImageNoiser:
             (image - minval) / imfac,
             mode="s&p",
             amount=self.salt_and_pepper * 1e-3,
-            seed=self.seed,
+            rng=self.seed,
         )
         im_sp = (im_sp * imfac) + minval
         return im_sp
@@ -183,7 +183,7 @@ class ImageNoiser:
             np.ndarray: Image with adjusted contrast.
         """
         if self.contrast == 0:
-            raise ValueError("Contrast should not be 0.")
+            self.contrast == None
         return exposure.adjust_gamma(image, self.contrast)
 
     def apply_bkg(self, image: np.ndarray) -> np.ndarray:

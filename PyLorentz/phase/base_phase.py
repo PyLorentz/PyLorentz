@@ -53,7 +53,7 @@ class BasePhaseReconstruction:
     @scale.setter
     def scale(self, val: float):
         """Set the scale factor."""
-        if not isinstance(val, (float, int)):
+        if not isinstance(val, (float, int, np.number)):
             raise TypeError(f"scale must be float/int, not {type(val)}")
         if val <= 0:
             raise ValueError(f"scale must be >0, not {val}")

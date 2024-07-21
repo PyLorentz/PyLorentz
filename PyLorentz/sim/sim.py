@@ -1,3 +1,4 @@
+import copy
 import os
 from pathlib import Path
 from typing import List, Optional, Union
@@ -10,8 +11,8 @@ from PyLorentz.dataset import DefocusedDataset, ThroughFocalSeries
 from PyLorentz.io import format_defocus, read_ovf
 from PyLorentz.utils import Microscope
 
-from .comp_phase import LinsupPhase, MansuripurPhase
 from .base_sim import BaseSim
+from .comp_phase import LinsupPhase, MansuripurPhase
 
 
 class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
@@ -154,7 +155,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
 
         dd = DefocusedDataset(
             images=images,
-            defval=defocus_values,
+            defvals=defocus_values,
             scale=self.scale,
             beam_energy=scope.E,
             simulated=True,
@@ -310,3 +311,8 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             NotImplementedError: This method is not implemented.
         """
         raise NotImplementedError
+
+
+    def copy(self):
+        """Returns a deep copy of itself."""
+        return copy.deepcopy(self)

@@ -63,7 +63,7 @@ def show_im(
     if image.dtype == "bool":
         image = image.astype("int")
     else:
-        image = image.astype(np.float64) # weird scalebar stuff can happen for int32
+        image = image.astype(np.float64) # weird scalebar stuff can happen for float32
     if cbar is None:
         cbar = not simple
     ndim = np.ndim(image)

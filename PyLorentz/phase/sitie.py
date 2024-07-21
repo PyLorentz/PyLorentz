@@ -93,7 +93,7 @@ class SITIE(BaseTIE):
         """
         dd = DefocusedDataset(
             images=image,
-            defval=defval,
+            defvals=defval,
             scale=scale,
             beam_energy=beam_energy,
             simulated=simulated,
