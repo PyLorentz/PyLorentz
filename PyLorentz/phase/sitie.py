@@ -158,7 +158,7 @@ class SITIE(BaseTIE):
             self.qc = qc
         if pbcs is not None:
             self._pbcs = pbcs
-        self._verbose = verbose if verbose is None else self._verbose
+        self._verbose = verbose if verbose is not None else self._verbose
         if save:
             self._check_save_name(save_dir, name, mode="SITIE")
             self._overwrite = overwrite if overwrite is not None else self._overwrite
@@ -194,33 +194,50 @@ class SITIE(BaseTIE):
         self._results["Bx"] = Bx
 
         if save:
-            self._save_results(save, overwrite)
+            self.save_results(save, overwrite)
 
         return self  # self or None?
 
-    def _save_results(self, save: Union[bool, str, List[str]], overwrite: Optional[bool] = None):
+    def save_results(
+        self,
+        save_mode: Union[bool, str, List[str]] = True,
+        save_dir: Optional[os.PathLike] = None,
+        name: Optional[str] = None,
+        overwrite: bool = False,
+    ) -> 'SITIE':
         """
         Save the reconstruction results.
 
         Args:
-            save (Union[bool, str, List[str]]): Keys to save.
-            overwrite (Optional[bool], optional): Whether to overwrite existing files. Default is None.
+            save_mode (Union[bool, str, List[str]], optional): Keys to save. Default is True.
+            save_dir (Optional[os.PathLike], optional): Directory to save results. Default is None.
+            name (Optional[str], optional): Name for the reconstruction. Default is None.
+            overwrite (bool, optional): Whether to overwrite existing files. Default is False.
+
+        Returns:
+            TIE: The TIE instance.
         """
-        if isinstance(save, bool):
+        self._check_save_name(save_dir, name=name, mode="SITIE")
+
+        if isinstance(save_mode, bool):
+            if not save_mode:
+                return self
             save_keys = ["phase_B", "Bx", "By", "color", "input_image"]
-        elif isinstance(save, str):
-            if save.lower() in ["b", "induction", "ind"]:
+        elif isinstance(save_mode, str):
+            if save_mode.lower() in ["b", "induction"]:
                 save_keys = ["Bx", "By", "color"]
-            elif save.lower() in ["phase"]:
+            elif save_mode.lower() in ["phase"]:
                 save_keys = ["phase_B"]
-            elif save.lower() == "all":
-                save_keys = list(self._results.keys())
-        elif hasattr(save, "__iter__"):
-            save_keys = [str(k) for k in save]
+            elif save_mode.lower() == "all":
+                # save_keys = list(self.results.keys()) # doesnt have color
+                save_keys = ["phase_B", "Bx", "By", "color", "input_image"]
+        elif hasattr(save_mode, "__iter__"):
+            save_keys = [str(k) for k in save_mode]
 
         self.save_dir.mkdir(exist_ok=True)
         self._save_keys(save_keys, self.recon_defval, overwrite)
         self._save_log(overwrite)
+        return self
 
     def _save_log(self, overwrite: Optional[bool] = None):
         """
@@ -280,7 +297,7 @@ class SITIE(BaseTIE):
         Returns:
             SITIE: The SITIE instance.
         """
-        fig, axs = plt.subplots(ncols=2, figsize=(6, 3))
+        fig, axs = plt.subplots(ncols=2, figsize=(8, 4))
 
         if isinstance(plot_scale, str):
             if plot_scale == "all":

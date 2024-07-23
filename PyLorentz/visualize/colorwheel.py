@@ -521,3 +521,17 @@ def dist4(dim: int, norm: bool = False) -> np.ndarray:
     sym_dist[:d2, d2:] = np.flipud(quarter)
     sym_dist[:d2, :d2] = np.flipud(np.fliplr(quarter))
     return sym_dist
+
+
+def _white_to_transparent(image, magz=None):
+    rgba_image = np.ones((image.shape[0], image.shape[1], 4), dtype=float)
+    rgba_image[:, :, :3] = image[:, :, :3]  # Convert RGB values to 0-255 range
+    if magz is not None:
+        alpha = np.where(magz > 0, 1 - magz**10, 1)
+    else:
+        print(rgba_image[:,:,:2].sum(axis=2).min(), rgba_image[:,:,:2].sum(axis=2).max())
+        alpha = np.where(rgba_image[:,:,:2].sum(axis=2)==0, 0, 1).astype('float')
+        # alpha = rgba_image[:,:,:2].sum(axis=2)
+        # return alpha
+    rgba_image[:, :, 3] = alpha
+    return rgba_image

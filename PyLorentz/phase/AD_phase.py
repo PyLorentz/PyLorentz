@@ -1,28 +1,30 @@
 import os
-from datetime import datetime, timedelta
 import warnings
-from typing import Optional, Union
-from PyLorentz.dataset.defocused_dataset import DefocusedDataset
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import List, Optional, Union
-from matplotlib.ticker import FormatStrFormatter
 
-import torch
-from torch import nn
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.constants as physcon
+import scipy.ndimage as ndi
+import torch
+import torch.nn.functional as F
+import torchvision.transforms as TvT
+from matplotlib.ticker import FormatStrFormatter
 from scipy.signal import convolve2d
-from pathlib import Path
+from torch import nn
+from tqdm import tqdm
 
+from PyLorentz.dataset.defocused_dataset import DefocusedDataset
+from PyLorentz.io.write import write_json
 from PyLorentz.phase.base_phase import BasePhaseReconstruction
 from PyLorentz.utils import Microscope
-from .sitie import SITIE
+from PyLorentz.visualize import show_2D, show_im
+
 from .DIP_NN import weight_reset
-from PyLorentz.visualize import show_im
-import torch.nn.functional as F
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import scipy.ndimage as ndi
-import torchvision.transforms as TvT
+from .sitie import SITIE
+
 
 class ADPhase(BasePhaseReconstruction):
 
@@ -35,6 +37,7 @@ class ADPhase(BasePhaseReconstruction):
         "phase": 2e-4,  # 2e-4 for DIP, 0.2 otherwise
         "amp": 2e-4,  # 2e-4 for DIP, 0.02 otherwise
         "amp_scale": 0.1,  # used when not solve_amp
+        "amp2phi_scale": 1,
         "TV_phase_weight": 5e-3,  # only used if reconstructing without DIPs
         "TV_amp_weight": 5e-3,  # only used if reconstructing without DIPs
     }
@@ -55,10 +58,14 @@ class ADPhase(BasePhaseReconstruction):
         gaussian_sigma=1,
     ):
         self.dd = dd
+        if len(dd) == 1:
+            self._mode = "SIPRAD"
+        else:
+            self._mode == "ADPhase"
         if save_dir is None and dd.data_dir is not None:
             topdir = Path(dd.data_dir)
             if topdir.exists():
-                save_dir = topdir / "ADPhase_outputs"
+                save_dir = topdir / f"{self._mode}_outputs"
 
         super().__init__(save_dir, name, dd.scale, verbose)
 
@@ -84,8 +91,11 @@ class ADPhase(BasePhaseReconstruction):
         self._solve_amp_scale: bool = None
         self._best_phase: torch.Tensor = None
         self._best_amp: torch.Tensor | None = None
-        self.phase_iterations: list[torch.Tensor] = None
-        self.amp_iterations: list[torch.Tensor] = None
+        self._best_iter: int | None = None
+        self._phase_iterations: list[torch.Tensor] = []
+        self._amp_iterations: list[torch.Tensor] = []
+        self.phase_iterations: np.ndarray = None
+        self.amp_iterations: np.ndarray = None
         self.loss_iterations = []
         self.LR_iterations = []
 
@@ -131,6 +141,11 @@ class ADPhase(BasePhaseReconstruction):
         else:
             return None
 
+    def set_best_phase(self, iter_ind=-1):
+        self._best_phase, iter = self._phase_iterations[iter_ind]
+        self._best_iter = iter
+        self.phase_B = self.best_phase
+
     @property
     def best_amp(self):
         if self._best_amp is not None:
@@ -138,6 +153,7 @@ class ADPhase(BasePhaseReconstruction):
             return amp
         else:
             return None
+
     @property
     def gaussian_sigma(self):
         return self._gaussian_sigma
@@ -152,10 +168,11 @@ class ADPhase(BasePhaseReconstruction):
         elif val < 0:
             raise ValueError(f"gaussian_sigma musbe >= 0 or None, received {val}")
         else:
-            self._blurrer = TvT.GaussianBlur(kernel_size=(9,9), sigma=(val, val))
+            self._blurrer = TvT.GaussianBlur(kernel_size=(9, 9), sigma=(val, val))
             self._gaussian_sigma = val
         if self.best_phase is not None:
             self.phase_B = self.best_phase
+        self._set_recon_iterations()
 
     @property
     def recon_amp(self):
@@ -198,24 +215,35 @@ class ADPhase(BasePhaseReconstruction):
     def device(self, dev: Union[int, str, torch.device]):
         # accept multiple input types, make sure is allowed for num available gpus
         if isinstance(dev, torch.device):
-            self._device = dev
-            ind = dev.index
+            if dev.type == "gpu":
+                self._device = dev
+                ind = dev.index
+            elif dev.type == "cuda":
+                self._device = dev
+            else:
+                raise TypeError(
+                    f"Unknown device type: {dev.type} This can likely be fixed easily."
+                )
         elif isinstance(dev, (str, int, float)):
             if dev in ["cpu", "CPU"]:
                 warnings.warn("Setting device to cpu, this will be slow and might fail.")
                 ind = "cpu"
+            elif dev in ["gpu", "GPU"]:
+                assert torch.cuda.is_available(), f"No GPUs available"
+                ind = 0
             else:
+                assert torch.cuda.is_available(), f"No GPUs available"
                 ind = int(dev)
                 if ind >= torch.cuda.device_count():
                     raise ValueError(
                         f"device must be < num_devices, which is {torch.cuda.device_count()}. Received device {ind}"
                     )
+            self._device = torch.device(ind)
+            if isinstance(ind, int):
+                self.vprint(f"Proceeding with GPU {ind}: {torch.cuda.get_device_name(ind)}")
+
         else:
             raise TypeError(f"Device should be int, str, or torch.device. Received {type(dev)}")
-
-        self._device = torch.device(ind)
-        if isinstance(ind, int):
-            self.vprint(f"Proceeding with GPU {ind}: {torch.cuda.get_device_name(ind)}")
 
     @property
     def model_input(self):
@@ -340,8 +368,8 @@ class ADPhase(BasePhaseReconstruction):
             self._set_guess_amp(guess_amp)
             self.loss_iterations = []
             self.LR_iterations = []
-            self.phase_iterations = []
-            self.amp_iterations = []
+            self._phase_iterations = []
+            self._amp_iterations = []
             self._amp_scale = torch.tensor([1.0], dtype=torch.float32, device=self.device)
             self._amp2phi_scale = torch.tensor(
                 [self._get_amp2phi_scale()], dtype=torch.float32, device=self.device
@@ -377,87 +405,89 @@ class ADPhase(BasePhaseReconstruction):
             self.LR_iterations = list(self.LR_iterations)
             self.loss_iterations = list(self.loss_iterations)
 
-
         # reinitializing optimizer here so have chance to change scheduler, LRs, etc.
-        if self._use_DIP:
-            DIP_phase = DIP_phase.to(self.device)
-            self.optimizer = torch.optim.Adam(
-                [{"params": DIP_phase.parameters(), "lr": self.LRs["phase"]}],
-            )
-
-            if solve_amp:
-                self._solve_amp = True
-                DIP_amp = DIP_amp.to(self.device)
-                self.optimizer.add_param_group(
-                    {"params": DIP_amp.parameters(), "lr": self.LRs["amp"]},
+        if reset or scheduler_type != "continue":
+            if self._use_DIP:
+                DIP_phase = DIP_phase.to(self.device)
+                self.optimizer = torch.optim.Adam(
+                    [{"params": DIP_phase.parameters(), "lr": self.LRs["phase"]}],
                 )
+
+                if solve_amp:
+                    self._solve_amp = True
+                    DIP_amp = DIP_amp.to(self.device)
+                    self.optimizer.add_param_group(
+                        {"params": DIP_amp.parameters(), "lr": self.LRs["amp"]},
+                    )
+                else:
+                    self._solve_amp = False
+                    DIP_amp = None
+                    self._recon_amp = self.guess_amp.clone()
+                    self._recon_amp.requires_grad = False
+
             else:
-                self._solve_amp = False
-                DIP_amp = None
-                self._recon_amp = self.guess_amp.clone()
-                self._recon_amp.requires_grad = False
-
-        else:
-            DIP_phase = DIP_amp = None
-            self._recon_phase.requires_grad = True
-            self.optimizer = torch.optim.Adam(
-                [{"params": self._recon_phase, "lr": self.LRs["phase"]}]
-            )
-            if solve_amp:
-                self._solve_amp = True
-                self._recon_amp.requires_grad = True
-                self.optimizer = self.optimizer.add_param_group(
-                    {"params": self._recon_amp, "lr": self.LRs["amp"]},
+                DIP_phase = DIP_amp = None
+                self._recon_phase.requires_grad = True
+                self.optimizer = torch.optim.Adam(
+                    [{"params": self._recon_phase, "lr": self.LRs["phase"]}]
                 )
-            else:
-                self._solve_amp = False
-                self._recon_amp = self.guess_amp.clone()
-                self._recon_amp.requires_grad = False
+                if solve_amp:
+                    self._solve_amp = True
+                    self._recon_amp.requires_grad = True
+                    self.optimizer = self.optimizer.add_param_group(
+                        {"params": self._recon_amp, "lr": self.LRs["amp"]},
+                    )
+                else:
+                    self._solve_amp = False
+                    self._recon_amp = self.guess_amp.clone()
+                    self._recon_amp.requires_grad = False
 
-        if self._solve_amp_scale:
-            self.optimizer.add_param_group(
-                {"params": self._amp_scale, "lr": self.LRs["amp_scale"]}
-            )
-            self._amp_scale.requires_grad = True
-            if self._recon_amp.min() != self._recon_amp.max():
-                amp2phi_LR = self.LRs.get("amp2phi_scale", self.LRs["amp_scale"])
+            if self._solve_amp_scale:
                 self.optimizer.add_param_group(
-                    {"params": self._amp2phi_scale, "lr": amp2phi_LR}
+                    {"params": self._amp_scale, "lr": self.LRs["amp_scale"]}
                 )
-                self._amp2phi_scale.requires_grad = True
+                self._amp_scale.requires_grad = True
+                if self._recon_amp.min() != self._recon_amp.max():
+                    amp2phi_LR = self.LRs.get("amp2phi_scale", self.LRs["amp_scale"])
+                    self.optimizer.add_param_group(
+                        {"params": self._amp2phi_scale, "lr": amp2phi_LR}
+                    )
+                    self._amp2phi_scale.requires_grad = True
 
-        else:
-            self._amp_scale.requires_grad = False
+            else:
+                self._amp_scale.requires_grad = False
 
-        self.scheduler = self._get_scheduler(**kwargs)
+            self.scheduler = self._get_scheduler(**kwargs)
 
+            if save_dir is not None or self.save_dir is not None:
+                self._check_save_name(save_dir, name, mode=f"{self._mode}_{self._runtype}")
 
         ### Recon
         self.vprint("Reconstructing")
-        if self._solve_amp:
-            self.vprint("Solving for amplitude")
-            self._recon_loop_amp(
-                num_iter, print_every, DIP_phase, DIP_amp, save, store_iters_every
-            )
-        else:
-            self._recon_loop_noamp(
-                num_iter, print_every, DIP_phase, save, store_iters_every
-            )
+        self._recon_loop(num_iter, print_every, DIP_phase, DIP_amp, save, store_iters_every)
 
         ttime = timedelta(seconds=(datetime.now() - self._start_time).seconds)
         print(f"total time (h:m:s) = {ttime}")
         self._recon_phase -= self._recon_phase.min()
         if self._best_phase is not None:
             self._best_phase -= self._best_phase.min()
-            self.phase_B = self.best_phase\
-
+            self.phase_B = self.best_phase
+        else:
+            warnings.warn("Was unable to find a best_phase, recon likely failed.")
         self.LR_iterations = np.array(self.LR_iterations)
         self.loss_iterations = np.array(self.loss_iterations)
+        self._set_recon_iterations()
 
         return self
 
-    def _recon_loop_noamp(
-        self, num_iter, print_every, DIP_phase: nn.Module | None, save, store_iters_every
+    def _recon_loop(
+        self,
+        num_iter,
+        print_every,
+        DIP_phase: nn.Module | None,
+        DIP_amp: nn.Module | None,
+        save,
+        store_iters_every,
     ):
 
         stime = self._start_time
@@ -469,6 +499,11 @@ class ADPhase(BasePhaseReconstruction):
                 )
             if DIP_phase is not None:
                 self._recon_phase = DIP_phase.forward(self.input_DIP)[0]
+                if self._solve_amp and DIP_amp is not None:
+                    self._recon_amp = torch.abs(DIP_amp.forward(self.input_DIP)[0])
+                    if a0 + 1 % 100 == 0:
+                        print(f"a0 {a0} applying amp constraints")
+                        self._apply_amp_constraints()
 
             loss = self._compute_loss()
             loss.backward()
@@ -485,77 +520,20 @@ class ADPhase(BasePhaseReconstruction):
                 stime = datetime.now()
 
             if (a0 == 0 or (a0 + 1) % store_iters_every == 0) and store_iters_every > 0:
-                self.phase_iterations.append(self._recon_phase.detach().clone())
+                self._phase_iterations.append([self._recon_phase.detach().clone(), a0 + 1])
                 if self._solve_amp:
-                    self.amp_iterations.append(self._recon_amp.detach().clone())
+                    self._amp_iterations.append([self._recon_amp.detach().clone(), a0 + 1])
                 if self._verbose >= 2 and a0 != 0:
                     self.show_final()
 
             if a0 > 100 and loss.item() < min(self.loss_iterations[:-1]):
                 self._best_phase = self._recon_phase.detach().clone()
+                self._best_iter = a0 + 1
+                self.phase_B = self.best_phase
                 if self._solve_amp:
                     self._best_amp = self._recon_amp.detach().clone()
                 if save:
-                    # TODO add a checkpoint save function (once made save function)
-                    raise NotImplementedError
-
-            if self.scheduler is not None:
-                if hasattr(self.scheduler, "cooldown"):  # is plateau
-                    self.scheduler.step(loss.item())
-                else:
-                    self.scheduler.step()
-
-        return
-
-
-    def _recon_loop_amp(
-        self, num_iter, print_every, DIP_phase: nn.Module | None, DIP_amp: nn.Module | None, save, store_iters_every
-    ):
-
-        stime = self._start_time
-        for a0 in tqdm(range(num_iter)):
-            if self._noise_frac >= 0:
-                # have way of rng this? reproducible
-                self.input_DIP = self.input_DIP + self._noise_frac * torch.randn(
-                    self.input_DIP.shape, device=self.device
-                )
-            if DIP_phase is not None and DIP_amp is not None:
-                self._recon_phase = DIP_phase.forward(self.input_DIP)[0]
-                self._recon_amp = torch.abs(
-                    DIP_amp.forward(self.input_DIP)[0]
-                )
-                if a0+1 % 100 == 0:
-                    print(f"a0 {a0} applying amp constraints")
-                    self._apply_amp_constraints()
-
-
-            loss = self._compute_loss()
-            loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-            self.loss_iterations.append(loss.item())
-            self.LR_iterations.append([pg["lr"] for pg in self.optimizer.param_groups])
-
-            if (a0 == 0 or (a0 + 1) % print_every == 0) and print_every > 0:
-                lrs = [f"{pg['lr']:.2e}" for pg in self.optimizer.param_groups]
-                lrsp = ", ".join(lrs)
-                ctime = timedelta(seconds=(datetime.now() - stime).seconds)
-                self.vprint(f"{a0+1}/{num_iter} | {ctime} | loss {loss.item():.3e} | LR {lrsp}")
-                stime = datetime.now()
-
-            if (a0 == 0 or (a0 + 1) % store_iters_every == 0) and store_iters_every > 0:
-                self.phase_iterations.append(self._recon_phase.detach().clone())
-                if self._solve_amp:
-                    self.amp_iterations.append(self._recon_amp.detach().clone())
-                if self._verbose >= 2 and a0 != 0:
-                    self.show_final()
-
-            if a0 > 100 and loss.item() < min(self.loss_iterations[:-1]):
-                self._best_phase = self._recon_phase.detach().clone()
-                if self._solve_amp:
-                    self._best_amp = self._recon_amp.detach().clone()
-                if save:
-                    # TODO add a checkpoint save function (once made save function)
+                    # TODO maybe add a checkpoint save function (once made save function)
                     raise NotImplementedError
 
             if self.scheduler is not None:
@@ -570,12 +548,14 @@ class ADPhase(BasePhaseReconstruction):
         if mode == "binary":
             ampr = self._recon_amp.ravel()
             highval = torch.mode(torch.round(ampr, decimals=2))[0]
-            threshval = highval * 3/4
-            lowval = torch.sort(ampr)[len(ampr)//10]
+            threshval = highval * 3 / 4
+            lowval = torch.sort(ampr)[len(ampr) // 10]
             amp = torch.where(self._recon_amp > threshval, highval, lowval)
             if self._blurrer is not None:
                 amp = self._blurrer(amp[None])[0]
             self._recon_amp = amp
+        else:
+            raise NotImplementedError
 
     def _sim_images(self):
         obj_waves = (
@@ -593,8 +573,10 @@ class ADPhase(BasePhaseReconstruction):
         """
         guess_ims = self._sim_images()
         MSE_loss = torch.mean((guess_ims - self.inp_ims) ** 2)
-        if self.LRs["TV_phase_weight"] == 0 and self.LRs["TV_amp_weight"] == 0:
-        # if self._use_DIP or (self.LRs["TV_phase_weight"] == 0 and self.LRs["TV_amp_weight"] == 0):
+        if self.LRs["TV_phase_weight"] == 0 and (
+            self.LRs["TV_amp_weight"] == 0 or not self._solve_amp
+        ):
+            # if self._use_DIP or (self.LRs["TV_phase_weight"] == 0 and self.LRs["TV_amp_weight"] == 0):
             if return_seperate:
                 return MSE_loss, None
             else:
@@ -633,9 +615,22 @@ class ADPhase(BasePhaseReconstruction):
         else:
             return TV_phase
 
-    # @property
-    # def amp2phi_scale(self):
-    #     return self._amp2phi_scale.cpu().detach().numpy()[0]
+    def _set_recon_iterations(self):
+        "update phase_iterations and amp_iterations with the filtered tensors converted to np arrays"
+        if len(self._phase_iterations) > 0:
+            self.phase_iterations = []
+            for iter in self._phase_iterations:
+                ph = ndi.gaussian_filter(iter[0].cpu().detach().numpy(), self._gaussian_sigma)
+                ph -= ph.min()
+                self.phase_iterations.append((ph, iter[1]))
+
+        if len(self._amp_iterations) > 0:
+            self.amp_iterations = []
+            for iter in self._amp_iterations:
+                amp = ndi.gaussian_filter(iter[0].cpu().detach().numpy(), self._gaussian_sigma)
+                self.amp_iterations.append((amp, iter[1]))
+
+        return
 
     def _get_amp2phi_scale(self):
         return self.sample_params["dirt_V0"] * self.scope.sigma * self.sample_params["dirt_xip0"]
@@ -682,23 +677,23 @@ class ADPhase(BasePhaseReconstruction):
         elif mode == "cyclic":
             scheduler = torch.optim.lr_scheduler.CyclicLR(
                 self.optimizer,
-                base_lr=LR / 4,
-                max_lr=LR * 4,
-                step_size_up=100,
-                mode="triangular2",
-                cycle_momentum=False,
+                base_lr=kwargs.get("scheduler_base_lr", LR / 4),
+                max_lr=kwargs.get("scheduler_max_lr", LR * 4),
+                step_size_up=kwargs.get("scheduler_step_size_up", 100),
+                mode=kwargs.get("scheduler_mode", "triangular2"),
+                cycle_momentum=kwargs.get("scheduler_momentum", False),
             )
         elif mode.startswith("plat"):
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,
                 mode="min",
-                factor=0.75,
-                patience=kwargs.get("plateau_patience", 100),
-                threshold=1e-4,
-                min_lr=LR / 20,
+                factor=kwargs.get("scheduler_factor", 0.75),
+                patience=kwargs.get("scheduler_patience", 100),
+                threshold=kwargs.get("scheduler_threshold", 1e-4),
+                min_lr=kwargs.get("scheduler_min_lr", LR / 20),
             )
         elif mode in ["exp", "gamma"]:
-            gamma = 0.9997
+            gamma = kwargs.get("scheduler_gamma", 0.9997)
             scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=gamma)
         else:
             raise ValueError(f"Unknown scheduler type: {mode}")
@@ -757,13 +752,6 @@ class ADPhase(BasePhaseReconstruction):
 
         return
 
-    def set_scheduler():
-
-        return
-
-    def visualize():
-        return
-
     def get_TFs(self):
         tfs = np.array([self._get_TF(df) for df in self.defvals])
         return torch.tensor(tfs, device=self.device, dtype=torch.complex64)
@@ -772,55 +760,105 @@ class ADPhase(BasePhaseReconstruction):
         self.scope.defocus = defocus
         return self.scope.get_transfer_function(self.scale, self.shape)
 
-    def show_best(self, **kwargs):
-        minloss_iter = np.argmin(self.loss_iterations)
+    def show_best(self, crop=5, **kwargs):
+        minloss_iter = self._best_iter  # np.argmin(self.loss_iterations)
+        ph = self.best_phase
+        By, Bx = self.induction_from_phase(ph)
+        if crop > 0:
+            crop = int(crop)
+            ph = ph[crop:-crop, crop:-crop]
+            Bx = Bx[crop:-crop, crop:-crop]
+            By = By[crop:-crop, crop:-crop]
+
         if self._solve_amp:
-            fig, axs = plt.subplots(ncols=2, figsize=(8, 4))
+            fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
             show_im(
-                self.best_phase,
+                ph,
                 title=f"best phase: iter {minloss_iter} / {len(self.loss_iterations)}",
                 figax=(fig, axs[0]),
                 cbar_title="rad",
+            )
+            show_2D(
+                Bx,
+                By,
+                title=f"Best B: iter {minloss_iter} / {len(self.loss_iterations)}",
+                figax=(fig, axs[1]),
             )
             show_im(
                 self.best_amp,
                 title=f"best amp: iter {minloss_iter} / {len(self.loss_iterations)}",
-                figax=(fig, axs[1]),
+                figax=(fig, axs[2]),
             )
             plt.tight_layout()
             plt.show()
         else:
+            fig, axs = plt.subplots(ncols=2, figsize=(8, 4))
             show_im(
-                self.best_phase,
+                ph,
                 title=f"best phase: iter {minloss_iter} / {len(self.loss_iterations)}",
                 scale=self.scale,
                 cbar_title="rad",
-            )
-
-    def show_final(self, **kwargs):
-        if self._solve_amp:
-            fig, axs = plt.subplots(ncols=2, figsize=(8, 4))
-            show_im(
-                self.recon_phase,
-                title=f"Recon phase iter {len(self.loss_iterations)}",
                 figax=(fig, axs[0]),
             )
-            show_im(
-                self.recon_amp,
-                title=f"Recon amp iter {len(self.loss_iterations)}",
+            show_2D(
+                Bx,
+                By,
+                title=f"Best B: iter {minloss_iter} / {len(self.loss_iterations)}",
                 figax=(fig, axs[1]),
             )
             plt.tight_layout()
             plt.show()
-        else:
+
+    def show_final(self, crop=5, **kwargs):
+        minloss_iter = np.argmin(self.loss_iterations)
+        ph = self.recon_phase
+        By, Bx = self.induction_from_phase(ph)
+        if crop > 0:
+            crop = int(crop)
+            ph = ph[crop:-crop, crop:-crop]
+            Bx = Bx[crop:-crop, crop:-crop]
+            By = By[crop:-crop, crop:-crop]
+
+        if self._solve_amp:
+            fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
             show_im(
-                self.recon_phase,
-                title=f"Recon phase iter {len(self.loss_iterations)}",
-                scale=self.scale,
+                ph,
+                title=f"Recon phase: iter {len(self.loss_iterations)}",
+                figax=(fig, axs[0]),
                 cbar_title="rad",
             )
+            show_2D(
+                Bx,
+                By,
+                title=f"Recon B: iter {len(self.loss_iterations)}",
+                figax=(fig, axs[1]),
+            )
+            show_im(
+                self.recon_amp,
+                title=f"Recon amp: iter {len(self.loss_iterations)}",
+                figax=(fig, axs[2]),
+            )
+            plt.tight_layout()
+            plt.show()
+        else:
+            fig, axs = plt.subplots(ncols=2, figsize=(8, 4))
+            show_im(
+                ph,
+                title=f"Recon phase: iter {len(self.loss_iterations)}",
+                scale=self.scale,
+                cbar_title="rad",
+                figax=(fig, axs[0]),
+            )
+            show_2D(
+                Bx,
+                By,
+                title=f"Recon B: iter {len(self.loss_iterations)}",
+                figax=(fig, axs[1]),
+            )
+            plt.tight_layout()
+            plt.show()
 
-    def visualize(self):
+    def visualize(self, crop=5):
         """
         Plot phase, B, loss plot with LRs
         """
@@ -828,10 +866,9 @@ class ADPhase(BasePhaseReconstruction):
         if self._solve_amp:
             fig = plt.figure(figsize=(12, 8))
             ax1 = fig.add_subplot(231)
-            self.show_phase_B(figax=(fig, ax1), cbar_title=None)
-            # self.show_recon(figax=(fig, ax1))
+            self.show_phase_B(figax=(fig, ax1), cbar_title=None, crop=crop)
             ax2 = fig.add_subplot(232)
-            self.show_B(figax=(fig, ax2))
+            self.show_B(figax=(fig, ax2), crop=crop)
             ax2p5 = fig.add_subplot(233)
             show_im(self.best_amp, figax=(fig, ax2p5), ticks_off=True, title="amp")
             ax3 = fig.add_subplot(212)
@@ -850,10 +887,9 @@ class ADPhase(BasePhaseReconstruction):
         else:
             fig = plt.figure(figsize=(8, 8))
             ax1 = fig.add_subplot(221)
-            self.show_phase_B(figax=(fig, ax1), cbar_title=None)
-            # self.show_recon(figax=(fig, ax1))
+            self.show_phase_B(figax=(fig, ax1), cbar_title=None, crop=crop)
             ax2 = fig.add_subplot(222)
-            self.show_B(figax=(fig, ax2))
+            self.show_B(figax=(fig, ax2), crop=crop)
             ax3 = fig.add_subplot(212)
             l1 = ax3.semilogy(self.loss_iterations, color="tab:blue", label="loss")
             ax3.set_xlabel("iterations")
@@ -874,3 +910,67 @@ class ADPhase(BasePhaseReconstruction):
 
     def __len__(self):
         return len(self.loss_iterations)
+
+    def save_results(
+        self,
+        iter_ind=None,
+        save_dir: Optional[os.PathLike] = None,
+        name: Optional[str] = None,
+        overwrite: bool = False,
+        crop:int=5,
+    ):
+        if save_dir is not None or name is not None:
+            # don't want to overwrite original name with timestamp
+            self._check_save_name(save_dir, name=name, default_name=False)
+
+        if iter_ind is not None:
+            phase, iter = self.phase_iterations[iter_ind]
+            By, Bx = self.induction_from_phase(phase)
+        else:
+            iter = self._best_iter
+            phase = self.best_phase
+            Bx = self.Bx
+            By = self.By
+
+        results = {
+            "phase_B": phase,
+            "By": By,
+            "Bx": Bx,
+            "color": None,
+        }
+        if self._mode == "SIPRAD":
+            results["input_image"] = self.dd.image
+        else:
+            raise NotImplementedError("need to figure out how saving defocus vals")
+
+        save_name_no_iter = "_".join(self._save_name.split("_")[:3])
+        self._save_name = save_name_no_iter + f"_i{iter}"
+
+        self.save_dir.mkdir(exist_ok=True)
+        self._save_keys(list(results.keys()), self.defvals[0], overwrite, res_dict=results)
+        self._save_log(overwrite)
+
+
+    def _save_log(self, overwrite: Optional[bool] = None):
+        """
+        Save the reconstruction log.
+
+        Args:
+            overwrite (Optional[bool], optional): Whether to overwrite existing files. Default is None.
+        """
+        log_dict = {
+            "name": self.name,
+            "_save_name": self._save_name,
+            "defval": self.defvals.squeeze(),
+            "scale": self.scale,
+            "transforms": self.dd.transforms,
+            "filters": self.dd._filters,
+            "beam_energy": self.dd.beam_energy,
+            "simulated": self.dd._simulated,
+            "data_dir": self.dd.data_dir,
+            "data_files": self.dd.data_files,
+            "save_dir": self._save_dir,
+        }
+        ovr = overwrite if overwrite is not None else self._overwrite
+        name = f"{self._save_name}_{self._fmt_defocus(self.defvals[0])}_log.json"
+        write_json(log_dict, self.save_dir / name, overwrite=ovr, v=self._verbose)

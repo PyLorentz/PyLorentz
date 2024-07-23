@@ -11,6 +11,7 @@ from PyLorentz.visualize import show_2D, show_im
 from PyLorentz.visualize.colorwheel import color_im
 from PyLorentz.utils import metrics
 
+
 class BasePhaseReconstruction:
     """
     A base class for phase reconstruction, providing common attributes and methods.
@@ -133,7 +134,12 @@ class BasePhaseReconstruction:
                 self._save_dir = p
 
     def _save_keys(
-        self, keys, defval: Optional[float] = None, overwrite: Optional[bool] = None, **kwargs
+        self,
+        keys,
+        defval: Optional[float] = None,
+        overwrite: Optional[bool] = None,
+        res_dict: Optional[dict] = None,
+        **kwargs,
     ):
         """
         Save the specified keys as TIFF images.
@@ -144,6 +150,7 @@ class BasePhaseReconstruction:
             overwrite (Optional[bool], optional): Whether to overwrite existing files. Default is None.
         """
         ovr = overwrite if overwrite is not None else self._overwrite
+        results = res_dict if res_dict is not None else self.results
         for key in keys:
             if defval is not None:
                 name = f"{self._save_name}_{self._fmt_defocus(defval)}_{key}.tiff"
@@ -153,12 +160,12 @@ class BasePhaseReconstruction:
 
             if "color" in key:
                 image = color_im(
-                    self.results["By"],
-                    self.results["Bx"],
+                    results["By"],
+                    results["Bx"],
                     **kwargs,
                 )
             else:
-                image = self.results[key]
+                image = results[key]
 
             write_tif(
                 image,
@@ -200,7 +207,7 @@ class BasePhaseReconstruction:
         By = -1 * pre_B * grad_x
         return By, Bx
 
-    def show_B(self, show_scale=False, **kwargs):
+    def show_B(self, show_scale=False, crop=0, **kwargs):
         """
         Show the magnetic induction.
 
@@ -209,16 +216,24 @@ class BasePhaseReconstruction:
         """
         dname = self.name if self.name else self._save_name if self._save_name else ""
         sc = self.scale if show_scale else None
+        if self.Bx is None or self.By is None:
+            raise ValueError(f"B is None")
+        if crop > 0:  # crop to eliminate edge artifacts
+            crop = int(crop)
+            Bx = self.Bx[crop:-crop, crop:-crop]
+            By = self.By[crop:-crop, crop:-crop]
+        else:
+            Bx, By = self.Bx, self.By
         show_2D(
-            self.Bx,
-            self.By,
+            Bx,
+            By,
             scale=sc,
             title=kwargs.pop("title", f"{dname} B         "),
             title_fontsize=kwargs.pop("title_fontsize", 10),
             **kwargs,
         )
 
-    def show_phase_B(self, show_scale=True, **kwargs):
+    def show_phase_B(self, show_scale=True, crop=0, **kwargs):
         """
         Show the magnetic component of the phase shift.
 
@@ -227,8 +242,13 @@ class BasePhaseReconstruction:
         """
         dname = self.name if self.name else self._save_name if self._save_name else ""
         ticks_off = kwargs.pop("ticks_off", not show_scale)
+        if crop > 0:
+            crop = int(crop)
+            phase_B = self.phase_B[crop:-crop, crop:-crop]
+        else:
+            phase_B = self.phase_B
         show_im(
-            self.phase_B,
+            phase_B,
             scale=kwargs.pop("scale", self.scale),
             cbar_title=kwargs.pop("cbar_title", "rad"),
             title=kwargs.pop("title", f"{dname} phase_B"),
@@ -237,7 +257,13 @@ class BasePhaseReconstruction:
             **kwargs,
         )
 
-    def _check_save_name(self, save_dir: Optional[os.PathLike], name: Optional[str], mode: str = ""):
+    def _check_save_name(
+        self,
+        save_dir: Optional[os.PathLike],
+        name: Optional[str],
+        mode: str = "",
+        default_name: bool = True,
+    ):
         """
         Check and set the save name.
 
@@ -251,7 +277,7 @@ class BasePhaseReconstruction:
                 raise ValueError(f"save_dir not specified, is None")
         else:
             self.save_dir = save_dir  # checks while setting that parents exist
-        if name is None:
+        if name is None and default_name:
             if self.name is None:
                 now = datetime.now().strftime("%y%m%d-%H%M%S")
                 if len(mode) > 0:
@@ -274,7 +300,10 @@ class BasePhaseReconstruction:
         t_Bmag = np.sqrt(t_By**2 + t_Bx**2)
 
         keys = [
-            "phase", "By", "Bx", "Bmag",
+            "phase",
+            "By",
+            "Bx",
+            "Bmag",
         ]
         ssim_dict = {}
         acc_dict = {}
@@ -290,7 +319,7 @@ class BasePhaseReconstruction:
         acc_dict["acc_Bave"] = 0.5 * (acc_dict["acc_By"] + acc_dict["acc_Bx"])
         psnr_dict["PSNR_Bave"] = 0.5 * (psnr_dict["PSNR_By"] + psnr_dict["PSNR_Bx"])
 
-        results = ssim_dict | acc_dict | psnr_dict # combine dicts, should be no overlap in keys
+        results = ssim_dict | acc_dict | psnr_dict  # combine dicts, should be no overlap in keys
         return results
 
     @staticmethod
@@ -302,6 +331,3 @@ class BasePhaseReconstruction:
             return arr.get()
         else:
             return np.array(arr)
-
-
-

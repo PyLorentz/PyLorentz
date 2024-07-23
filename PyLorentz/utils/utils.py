@@ -47,7 +47,7 @@ def circ4(dim: int, rad: float):
 
 def norm_image(image: Union[np.ndarray, list]):
     """Normalize image intensities to between 0 and 1. Returns copy"""
-    image = np.ndarray(image)
+    image = np.array(image)
     if image.max() == image.min():
         image = image - np.max(image)
     else:

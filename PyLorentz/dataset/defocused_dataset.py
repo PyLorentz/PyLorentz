@@ -156,13 +156,14 @@ class DefocusedDataset(BaseDataset):
 
         filepaths = mdata.get("data_files", mdata.get("filepath"))
         # will overwrite metadata file values with specified values
+        print("mdata: ", mdata)
         dd = cls(
             images=images,
             scale=kwargs.pop("scale", mdata.get("scale")),
             defvals=defvals,
             beam_energy=kwargs.pop("beam_energy", mdata.get("beam_energy")),
             data_files=kwargs.pop("data_files", filepaths),
-            simulated=kwargs.pop("simulated", mdata.get("simulated")),
+            simulated=kwargs.pop("simulated", mdata.get("simulated", False)),
             **kwargs,
         )
 
@@ -259,7 +260,7 @@ class DefocusedDataset(BaseDataset):
             images = self._orig_images.copy()
 
         if self._transforms["rotation"] != 0:
-            for a0 in tqdm(range(len(images)), disable=v < 1):
+            for a0 in tqdm(range(len(images)), disable=self._verbose < 1):
                 images[a0] = ndi.rotate(
                     images[a0], self._transforms["rotation"], reshape=False
                 )

@@ -24,7 +24,6 @@ def show_2D(
     figax=None,
     rad=None,
     scale=None,
-    whitetotransparent=False,
     **kwargs,
 ):
     """Display a 2D vector arrow plot.
@@ -115,9 +114,6 @@ def show_2D(
             rad=rad,
             **kwargs,
         )
-        if whitetotransparent and Vz is not None:
-            print("making transparent")
-            cim = _white_to_transparent(cim, Vz)
 
         show_bbox = kwargs.get("show_bbox")
         if show_bbox is None:
@@ -167,9 +163,9 @@ def show_2D(
         dpi = kwargs.get("dpi", max(dimy, dimx) * 5 / sz_inches)
         # sets dpi to 5 times original image dpi so arrows are reasonably sharp
         if title is None:  # for no padding
-            plt.savefig(save, dpi=dpi, bbox_inches=0, transparent=whitetotransparent)
+            plt.savefig(save, dpi=dpi, bbox_inches=0, transparent=True)
         else:
-            plt.savefig(save, dpi=dpi, bbox_inches="tight", transparent=whitetotransparent)
+            plt.savefig(save, dpi=dpi, bbox_inches="tight", transparent=True)
 
     return
 
@@ -315,10 +311,3 @@ def show_3D(
     ax.set_zlabel("z", c=tcolor)
     plt.show()
 
-
-def _white_to_transparent(image, magz):
-    rgba_image = np.ones((image.shape[0], image.shape[1], 4), dtype=float)
-    rgba_image[:, :, :3] = image[:, :, :3]  # Convert RGB values to 0-255 range
-    alpha = np.where(magz > 0, 1 - magz**10, 1)
-    rgba_image[:, :, 3] = alpha
-    return rgba_image
