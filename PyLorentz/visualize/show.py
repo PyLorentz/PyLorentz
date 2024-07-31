@@ -1,11 +1,14 @@
+import warnings
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from ipywidgets import interact
-from scipy import ndimage
-from PyLorentz.visualize.colorwheel import color_im, get_cmap
-from matplotlib import colors
 
+from PyLorentz.visualize.colorwheel import get_cmap
+
+warnings.filterwarnings("error") # plt.tight_layout() sometimes throws a UserWarning
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 def show_im(
     image,
@@ -165,9 +168,8 @@ def show_im(
 
             ylim = ax.get_ylim()
             ymax = ylim[0] if origin == "upper" else ylim[1]
-            ndig_y = len(str(round(ymax))) - 1
-            floor_fov_y = np.floor(fov_y / 10**ndig_y) * 10**ndig_y
-            # floor_fov_y = np.floor(fov_y/(10**ndig_y*(num_ticks_y)))*(10**ndig_y*(num_ticks_y))
+            nround_y = len(str(round(ymax*scale))) - 2
+            floor_fov_y = np.floor(fov_y / 10**nround_y) * 10**nround_y
             yticks = np.linspace(0, floor_fov_y / scale, int(num_ticks_y))
             if origin == "lower":
                 yticks = yticks[1:]
@@ -180,8 +182,8 @@ def show_im(
             ticks_label = unit
 
             _, xmax = ax.get_xlim()
-            ndig_x = len(str(round(xmax))) - 1
-            floor_fov_x = np.floor(fov_x / 10**ndig_x) * 10**ndig_x
+            nround_x = len(str(round(xmax*scale))) - 2
+            floor_fov_x = np.floor(fov_x / 10**nround_x) * 10**nround_x
             xticks = np.linspace(0, floor_fov_x / scale, int(num_ticks_x))[1:]
             ax.set_xticks(xticks - 0.5)
             xlabs, unit = tick_label_formatter(
@@ -251,7 +253,10 @@ def show_im(
             plt.savefig(save, dpi=dpi, bbox_inches="tight")
 
     if figax is None:
-        plt.tight_layout()
+        try:
+            plt.tight_layout()
+        except (UserWarning, RuntimeWarning):
+            pass
         plt.show()
     return
 

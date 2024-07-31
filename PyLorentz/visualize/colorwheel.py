@@ -222,15 +222,15 @@ def color_im(
             - if vz is given, this argument will not do anything. Default "black"
 
     Keyword Args:
-        one_pi (bool): Whether to map the direction or orientation of the vector field.
-            one_pi = True will modulo the vectors by pi. Default False.
+        modulo (bool): Whether to map the direction or orientation of the vector field.
+            modulo = True will modulo the vectors by pi. Default False.
         shift (float): Rotate the colorwheel and orientation map by the specified amount in radians. Default 0.
         invert (bool): Whether or not to invert the directions of the orientation map. Default False.
-        uni_mag (bool): Normally the color intensity (saturation/value) corresponds to the magnitude of the vector,
-            scaled relative to the largest vector in the image. If uni_mag = True (specifying uniform_magnitude),
-            then all vectors larger with a magnitude larger than uni_mag_cutoff * max_magnitude will be displayed
+        mag_cutoff (bool): Normally the color intensity (saturation/value) corresponds to the magnitude of the vector,
+            scaled relative to the largest vector in the image. If mag_cutoff = True (specifying uniform_magnitude),
+            then all vectors larger with a magnitude larger than mag_cutoff_cutoff * max_magnitude will be displayed
             while others will map to background colors or z-direction if vz is given. Default False.
-        uni_mag_cutoff (float): Value [0,1], specifying the magnitude, as a fraction of the maximum vector length
+            Value [0,1], specifying the magnitude, as a fraction of the maximum vector length
             in the image, above which a vector will be plotted. Default 0.5.
         HSL (bool): When give a z-component, this function normally maps vector orientation to hue and vector magnitude
             to saturation/value, with black/white corresponding to if the vector points in/out of the page.
@@ -270,9 +270,13 @@ def color_im(
         mags = raw_inp_mags - np.min(raw_inp_mags)
         mags = mags / np.max(mags)  # normalize [0,1]
 
-    if kwargs.get("uni_mag", False):
-        cutoff = kwargs.get("uni_mag_cutoff", 0.5)
+
+    cutoff = kwargs.get("mag_cutoff")
+    if cutoff:
+        if not isinstance(cutoff, float):
+            cutoff = 0.4
         mags = np.where(mags > cutoff, 1, 0)
+
     if vz is None:
         bkgs = np.where(mags == 0)
     else:
@@ -291,8 +295,9 @@ def color_im(
     cimage = np.zeros((dimy, dimx, 3))
 
     # azimuth maps to hue
-    if kwargs.get("one_pi", False):
-        azimuth = np.mod((np.arctan2(vx, vy) + np.pi), np.pi) / np.pi
+    if kwargs.get("modulo", False):
+        mod = kwargs.get("modulo")
+        azimuth = np.mod((np.arctan2(vx, vy) + np.pi), mod) / mod
     else:
         azimuth = (np.arctan2(vx, vy) + np.pi) / (2 * np.pi)
 
@@ -323,12 +328,12 @@ def color_im(
                 for i in range(np.shape(vx)[1]):
                     imrgb[j, i, :] = colorsys.hls_to_rgb(H[j, i], L[j, i], S[j, i])
         else:
-            if kwargs.get("uni_mag", False):
+            if kwargs.get("mag_cutoff", False):
                 pos = np.where((np.sin(theta) > 0) & (mags == 0), 0, 1)
                 neg = np.where((np.sin(theta) < 0) & (mags == 0), 0, 1)
             else:
-                neg = np.where(theta < 0, np.cos(theta), 1)
-                pos = np.where(theta > 0, np.cos(theta), 1)
+                neg = np.where(theta < 0, np.cos(theta)**2, 1)
+                pos = np.where(theta > 0, np.cos(theta)**2, 1)
             for i in range(3):
                 imrgb[:, :, i] = 1 - (1 - imrgb[:, :, i]) * pos
                 imrgb[:, :, i] *= neg
@@ -376,9 +381,9 @@ def make_colorwheel(
         core (str | None, optional): Core color. Defaults to background color.
 
     Keyword Args:
-        one_pi (bool): Whether to map the direction or orientation of the vector field.
-            one_pi = True will modulo the vectors by pi. Default False.
-        uni_mag (bool): Ring colormap showing orientation only, no magnitude.
+        modulo (bool): Whether to map the direction or orientation of the vector field.
+            modulo = True will modulo the vectors by pi. Default False.
+        mag_cutoff (bool): Cutoff value (0-1) for colormap showing orientation only, no magnitude.
 
     Returns:
         np.ndarray: Numpy array (rad*2 x rad*2 x 3) containing the RGB color image.
@@ -386,8 +391,9 @@ def make_colorwheel(
     cmap = get_cmap(cmap)
     background = background.lower()
     X, Y = np.mgrid[-rad:rad, -rad:rad]
-    if kwargs.get("one_pi", False):
-        azimuth = np.mod((np.arctan2(Y, X) + np.pi), np.pi) / np.pi
+    if kwargs.get("modulo", False):
+        mod = kwargs.get("modulo")
+        azimuth = np.mod((np.arctan2(Y, X) + np.pi), mod) / mod
     else:
         azimuth = (np.arctan2(Y, X) + np.pi) / (2 * np.pi)
     imrgb = cmap(azimuth)[..., :3]
@@ -395,8 +401,10 @@ def make_colorwheel(
     mask = np.where(rr < rad, 1, 0)
     rr *= mask
     rr /= np.max(rr)
-    if kwargs.get("uni_mag", False):
-        cutoff = 0.4
+    cutoff = kwargs.get("mag_cutoff")
+    if cutoff:
+        if not isinstance(cutoff, float):
+            cutoff = 0.4
         rr = np.where(rr > cutoff, 1, 0)
 
     if core is None:
@@ -433,9 +441,9 @@ def make_colorwheelz(
             black or white. Inside color will necessarily be the opposite. Defaults to "black".
 
     Keyword Args:
-        one_pi (bool): Whether to map the direction or orientation of the vector field.
-            one_pi = True will modulo the vectors by pi. Default False.
-        uni_mag (bool): Ring colormap showing orientation only, no magnitude.
+        modulo (bool): Whether to map the direction or orientation of the vector field.
+            modulo = True will modulo the vectors by pi. Default False.
+        mag_cutoff (bool): Ring colormap showing orientation only, no magnitude.
         HSL (bool): Use HSL color space for mapping. Defaults to False.
 
     Returns:
@@ -446,8 +454,9 @@ def make_colorwheelz(
     if HSL is None:
         HSL = kwargs.get("HLS", False)
     X, Y = np.mgrid[-rad:rad, -rad:rad]
-    if kwargs.get("one_pi", False):
-        azimuth = np.mod((np.arctan2(Y, X) + np.pi), np.pi) / np.pi
+    if kwargs.get("modulo", False):
+        mod = kwargs.get("modulo")
+        azimuth = np.mod((np.arctan2(Y, X) + np.pi), mod) / mod
     else:
         azimuth = (np.arctan2(Y, X) + np.pi) / (2 * np.pi)
     imrgb = cmap(azimuth)[..., :3]
@@ -457,7 +466,7 @@ def make_colorwheelz(
     rr /= np.max(rr)
 
     theta = (rr - 0.5) * np.pi
-    if kwargs.get("uni_mag", False):
+    if kwargs.get("mag_cutoff", False):
         cutoff = np.pi * 0.25
         inner = np.where(theta + cutoff < 0, 0, 1)
         outer = np.where(theta - cutoff > 0, 0, 1)
@@ -483,8 +492,8 @@ def make_colorwheelz(
                     imrgb[:, :, i] += 1 - mask
 
         else:
-            inner = np.where(theta < 0, np.cos(theta), 1)
-            outer = np.where(theta > 0, np.cos(theta), 1)
+            inner = np.where(theta < 0, np.cos(theta)**2, 1)
+            outer = np.where(theta > 0, np.cos(theta)**2, 1)
     if not HSL:
         for i in range(3):
             if outside == "black":

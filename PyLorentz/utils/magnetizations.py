@@ -212,7 +212,8 @@ def lillihook(
         show (bool): If True, will plot the x, y, z components.
 
     Returns:
-        np.ndarray: Array of shape [3, dim, dim], representing the magnetization components.
+        np.ndarray: Array of shape [3, dim, dim], representing the magnetization components,
+        [mag_z, mag_y, mag_x].
 
     References:
         1) Lilliehöök, D., Lejnell, K., Karlhede, A. & Sondhi, S.
@@ -290,7 +291,8 @@ def bloch(
         empty_bkg (bool): If True, will empty the background. Defaults to False.
 
     Returns:
-        np.ndarray: Array of shape [3, dim, dim], representing the magnetization components.
+        np.ndarray: Array of shape [3, dim, dim], representing the magnetization components,
+        [mag_z, mag_y, mag_x].
     """
     cx, cy = [dim // 2, dim // 2]
     sigma = dim // 40 if sigma is None else sigma
@@ -388,7 +390,8 @@ def neel(
         show (bool): If True, will show the x, y, z components in plot form.
 
     Returns:
-        np.ndarray: Array of shape [3, dim, dim], representing the magnetization components.
+        np.ndarray: Array of shape [3, dim, dim], representing the magnetization components,
+        [mag_z, mag_y, mag_x].
     """
     if pad:
         if isinstance(pad, (float, int)):
@@ -465,7 +468,8 @@ def blochII(
         cp2 (Optional[int]): Control point 2 for defining middle section. Defaults to None.
 
     Returns:
-        np.ndarray: Array of shape [3, dim, dim], representing the magnetization components.
+        np.ndarray: Array of shape [3, dim, dim], representing the magnetization components,
+        [mag_z, mag_y, mag_x].
     """
     cy, cx = [dim // 2, dim // 2]
     sigma = dim // 40 if sigma is None else sigma

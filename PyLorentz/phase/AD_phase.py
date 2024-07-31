@@ -354,6 +354,7 @@ class ADPhase(BasePhaseReconstruction):
                 now = self._start_time.strftime("%y%m%d-%H%M%S")
                 if len(self.dd) == 1:
                     mode = "SIPRAD"
+                    self._results["input_image"] = self.dd.images[0]
                 else:
                     mode = f"N{len(self.dd)}AD"
             self._check_save_name(save_dir, name=f"{now}_{mode}")
@@ -526,9 +527,9 @@ class ADPhase(BasePhaseReconstruction):
                 if self._verbose >= 2 and a0 != 0:
                     self.show_final()
 
-            if a0 > 100 and loss.item() < min(self.loss_iterations[:-1]):
+            if len(self.loss_iterations) > 100 and loss.item() < min(self.loss_iterations[:-1]):
                 self._best_phase = self._recon_phase.detach().clone()
-                self._best_iter = a0 + 1
+                self._best_iter = len(self.loss_iterations)
                 self.phase_B = self.best_phase
                 if self._solve_amp:
                     self._best_amp = self._recon_amp.detach().clone()

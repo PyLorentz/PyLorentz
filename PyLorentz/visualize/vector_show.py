@@ -18,7 +18,6 @@ def show_2D(
     title=None,
     color=True,
     cmap='hsv',
-    cbar=True,
     origin="upper",
     save=None,
     figax=None,
@@ -75,6 +74,8 @@ def show_2D(
     V = Vy
 
     sz_inches = kwargs.pop("figsize", 5)
+    if isinstance(sz_inches, (list, tuple, np.ndarray)):
+        sz_inches = sz_inches[0] # aspect ratio is rad dependent so just take one value
     if color:
         if rad is None:
             rad = Vx.shape[0] // 16
@@ -93,14 +94,14 @@ def show_2D(
         aspect = dimy / dimx
 
     if figax is None:
-        if save is not None:  # and title is None: # to avoid white border when saving
-            fig = plt.figure()
-            size = (sz_inches, sz_inches * aspect)
-            fig.set_size_inches(size)
-            ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
-            fig.add_axes(ax)
-        else:
-            fig, ax = plt.subplots()
+        # if save is not None:  # and title is None: # to avoid white border when saving
+        fig = plt.figure()
+        size = (sz_inches, sz_inches * aspect)
+        fig.set_size_inches(size)
+        ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
+        fig.add_axes(ax)
+        # else:
+            # fig, ax = plt.subplots()
         ax.set_aspect(aspect)
     else:
         fig, ax = figax
@@ -115,14 +116,16 @@ def show_2D(
             **kwargs,
         )
 
-        show_bbox = kwargs.get("show_bbox")
+        show_bbox = kwargs.pop("show_bbox", None)
         if show_bbox is None:
-            show_bbox = kwargs.get("background") == "white"
+            if title is None:
+                show_bbox = kwargs.get("background") == "white"
+            else:
+                show_bbox = True
         show_im(
             cim,
             cmap=cmap,
             origin=origin,
-            cbar=cbar,
             ticks_off=scale is None or kwargs.pop("ticks_off", False),
             scale=scale,
             figax=(fig, ax),
@@ -170,8 +173,9 @@ def show_2D(
     return
 
 
+# TODO update this function and num_arrows
 def show_3D(
-    Vx, Vy, Vz, num_arrows=15, ay=None, num_arrows_z=15, l=None, show_all=True
+    Vx, Vy, Vz, num_arrows=15, ay=None, num_arrows_z=15, arrow_size=None, show_all=True
 ):
     """Display a 3D vector field with arrows.
 
@@ -187,7 +191,7 @@ def show_3D(
         mag_x (3D array): (z,y,x). x-component of magnetization.
         mag_y (3D array): (z,y,x). y-component of magnetization.
         mag_z (3D array): (z,y,x). z-component of magnetization.
-        a (int): Number of arrows to plot along the x-axis, if ay=None then this
+        num_arrows (int): Number of arrows to plot along the x-axis, if ay=None then this
             sets the y-axis too.
         ay (int): (`optional`) Number of arrows to plot along y-axis. Defaults to a.
         az (int): Number of arrows to plot along z-axis. if az > depth of array,
@@ -204,18 +208,18 @@ def show_3D(
     """
     bmax = max(Vx.max(), Vy.max(), Vz.max())
 
-    if l is None:
-        l = Vx.shape[1] / (2 * bmax * a)
+    if arrow_size is None:
+        arrow_size = Vx.shape[1] / (2 * bmax * num_arrows)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
     if Vx.ndim == 3:
         dimz, dimy, dimx = Vx.shape
-        if az > dimz:
+        if num_arrows_z > dimz:
             az = 1
         else:
-            az = ((dimz - 1) // az) + 1
+            az = ((dimz - 1) // num_arrows_z) + 1
     else:
         dimy, dimx = Vx.shape
         dimz = 1
@@ -226,8 +230,8 @@ def show_3D(
         np.arange(0, dimx, 1),
         indexing="ij",
     )
-    ay = ((dimy - 1) // ay) + 1
-    axx = ((dimx - 1) // a) + 1
+    ay = ((dimy - 1) // num_arrows) + 1
+    axx = ((dimx - 1) // num_arrows) + 1
 
     # doesnt handle (0,0,0) arrows very well, so this puts in very small ones.
     zeros = ~(Vx.astype("bool") | Vy.astype("bool") | Vz.astype("bool"))
@@ -301,7 +305,7 @@ def show_3D(
         V[::az, ::ay, ::axx],
         W[::az, ::ay, ::axx],
         color=arrow_colors,
-        length=float(l),
+        length=float(arrow_size),
         pivot="middle",
         normalize=False,
     )

@@ -5,7 +5,11 @@ from skimage.restoration import estimate_sigma
 from scipy import ndimage as ndi
 from scipy import stats
 from skimage.util import random_noise as skrandom_noise
-import torch
+try:
+    import torch
+except (ImportError, ModuleNotFoundError) as e:
+    torch = np
+    torch.Tensor = None
 from pathlib import Path
 from typing import Optional, Union
 
