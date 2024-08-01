@@ -14,6 +14,7 @@ setup(
     author="Arthur R. C. McCray",
     author_email="arthurmccray95@gmail.com",
     license="MIT",
+    python_requires=">=3.10",
     install_requires=[
         "numpy",
         "scipy",

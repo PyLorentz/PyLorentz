@@ -13,7 +13,7 @@ try:
     import torch.nn.functional as F
     import torchvision.transforms as TvT
 except (ModuleNotFoundError, ImportError) as e:
-    torch.device = None
+    torch = None
 
 from matplotlib.ticker import FormatStrFormatter
 from torch import nn
@@ -51,7 +51,7 @@ class ADPhase(BasePhaseReconstruction):
     def __init__(
         self,
         dd: DefocusedDataset,
-        device: Union[torch.device, str, int],
+        device: Union[str, int],
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
         verbose: bool = 1,
@@ -68,7 +68,7 @@ class ADPhase(BasePhaseReconstruction):
 
         Args:
             dd (DefocusedDataset): The defocused dataset.
-            device (Union[torch.device, str, int]): The device to use (CPU or GPU).
+            device (Union[str, int]): The device to use (CPU or GPU).
             save_dir (Optional[os.PathLike], optional): Directory to save results.
             name (Optional[str], optional): Name for the results.
             verbose (bool, optional): Verbosity level.
@@ -288,25 +288,25 @@ class ADPhase(BasePhaseReconstruction):
             self._scope = microscope
 
     @property
-    def device(self) -> torch.device:
+    def device(self) -> str:
         """
         Returns the device used for computation.
 
         Returns:
-            torch.device: Device for computation.
+            str: Device for computation.
         """
         return self._device
 
     @device.setter
-    def device(self, dev: Union[int, str, torch.device]) -> None:
+    def device(self, dev: Union[int, str]) -> None:
         """
         Sets the device for computation.
 
         Args:
-            dev (Union[int, str, torch.device]): Device identifier.
+            dev (Union[int, str]): Device identifier.
 
         Raises:
-            TypeError: If `dev` is not of type int, str, or torch.device.
+            TypeError: If `dev` is not of type int or str.
             ValueError: If `dev` exceeds available GPUs.
         """
         if isinstance(dev, torch.device):

@@ -156,7 +156,7 @@ def show_2D(
         else:
             plt.savefig(save, dpi=dpi, bbox_inches="tight", transparent=True)
 
-    return fig
+    return
 
 
 def show_3D(

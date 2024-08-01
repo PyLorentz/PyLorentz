@@ -9,7 +9,7 @@ from ipywidgets import interact
 
 from PyLorentz.visualize.colorwheel import get_cmap
 
-warnings.filterwarnings("error")  # plt.tight_layout() sometimes throws a UserWarning
+# warnings.filterwarnings("error")  # plt.tight_layout() sometimes throws a UserWarning
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
