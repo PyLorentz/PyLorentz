@@ -94,7 +94,7 @@ def shift_cmap_center(
     new_cmap = mpl.colors.LinearSegmentedColormap.from_list(f"{cmap.name}_s", cmap(out))
     return new_cmap
 
-def get_cmap(cmap: str | None = None, **kwargs) -> Colormap:
+def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
     """
     Take a colormap or string input and return a Colormap object.
 
@@ -368,7 +368,7 @@ def make_colorwheel(
     rad: int,
     cmap: mpl.colors.Colormap,
     background: str = "black",
-    core: str | None = None,
+    core: Optional[Union[str, None]] = None,
     **kwargs,
 ) -> np.ndarray:
     """

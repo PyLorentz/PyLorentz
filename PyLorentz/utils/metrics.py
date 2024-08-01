@@ -46,7 +46,7 @@ def accuracy(truth:np.ndarray, test:np.ndarray, **kwargs):
     return acc
 
 
-def psnr(truth:np.ndarray, test:np.ndarray, data_range:float|None=None):
+def psnr(truth:np.ndarray, test:np.ndarray, data_range:Optional[Union[float,None]]=None):
     """
     Gets peak signal to noise of two images.
 

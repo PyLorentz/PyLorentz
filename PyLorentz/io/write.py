@@ -1,22 +1,24 @@
-import os
-from pathlib import Path
-import textwrap
-from scipy.ndimage import median_filter
-from tifffile import TiffFile
-import tifffile
-from ncempy.io import dm as ncempy_dm
-from ncempy.io.emdVelox import fileEMDVelox
-from itertools import takewhile
-from skimage import io as skio
-import numpy as np
-import io
-import sys
 import json
-from PyLorentz.utils.utils import norm_image
+import os
 import warnings
+from pathlib import Path
+from typing import Optional, Union
+
+import numpy as np
+import tifffile
+
+from PyLorentz.utils.utils import norm_image
 
 
-def write_tif(data, path, scale, v=1, unit="nm", overwrite=True, color=False):
+def write_tif(
+    data: np.ndarray,
+    path: os.PathLike,
+    scale: float,
+    v: Optional[float] = 1,
+    unit: Optional[str] = "nm",
+    overwrite: Optional[bool] = True,
+    color: Optional[bool] = False,
+):
     """
     scale in nm/pixel default,
     saves as float32 if greyscale, or uint8 if color image
@@ -54,7 +56,9 @@ save_tif = write_tif  # alias
 write_tiff = write_tif  # alias
 
 
-def overwrite_rename(filepath, spacer="_", incr_number=True):
+def overwrite_rename(
+    filepath: os.PathLike, spacer: Optional[bool] = "_", incr_number: Optional[str] = True
+):
     """Given a filepath, check if file exists already. If so, add numeral 1 to end,
     if already ends with a numeral increment by 1.
 
@@ -78,7 +82,7 @@ def overwrite_rename(filepath, spacer="_", incr_number=True):
         return Path(filepath)
 
 
-def overwrite_rename_dir(dirpath, spacer="_"):
+def overwrite_rename_dir(dirpath: os.PathLike, spacer: Optional[str] = "_"):
     """Given a filepath, check if file exists already. If so, add numeral 1 to end,
     if already ends with a numeral increment by 1.
 
@@ -104,17 +108,18 @@ def overwrite_rename_dir(dirpath, spacer="_"):
         return dirpath
 
 
-def splitnum(s):
+def splitnum(s: str):
     """split the trailing number off a string. Returns (stripped_string, number)"""
     head = s.rstrip("-.0123456789")
     tail = s[len(head) :]
     return head, tail
 
 
-def prep_dict_for_json(d:any):
+def prep_dict_for_json(d: any):
     """
     still plenty of things it doesn't handle
     """
+
     def _json_serializable(val):
         if isinstance(val, np.ndarray):
             return val.tolist()
@@ -139,38 +144,38 @@ def prep_dict_for_json(d:any):
     return d
 
 
-def write_json(dict, path, overwrite=True, v=1):
+def write_json(d: dict, path: os.PathLike, overwrite: Optional[bool] = True, v: Optional[int] = 1):
     path = Path(path)
-    d2 = prep_dict_for_json(dict.copy())
+    d2 = prep_dict_for_json(d.copy())
     if not path.suffix.lower() in [".json", ".txt"]:
-        path = path.parent / (path.name + '.json')
+        path = path.parent / (path.name + ".json")
 
     if path.exists() and not overwrite:
         path = overwrite_rename(path)
 
-    if v>= 1:
+    if v >= 1:
         print(f"Saving json: {path}")
 
     # for key, val in d2.items():
     #     print(f"key: {key} | type {type(val)} ")
 
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(d2, f, ensure_ascii=False, indent=4, sort_keys=True)
 
     return
 
-def format_defocus(defval: float|int, digits:int=3, spacer=""):
+
+def format_defocus(defval: Union[float, int], digits: int = 3, spacer: str = ""):
     "returns a string of defocus value converted to nm, um, or mm as appropriate"
 
     rnd_digits = len(str(round(defval))) - digits
-    rnd_abs = round(defval, -1*rnd_digits)
+    rnd_abs = round(defval, -1 * rnd_digits)
 
-    if abs(rnd_abs) < 1e3: # nm
+    if abs(rnd_abs) < 1e3:  # nm
         return f"{rnd_abs:.0f}{spacer}nm"
-    elif abs(rnd_abs) < 1e6: # um
+    elif abs(rnd_abs) < 1e6:  # um
         return f"{rnd_abs/1e3:.0f}{spacer}um"
-    elif abs(rnd_abs) < 1e9: # mm
+    elif abs(rnd_abs) < 1e9:  # mm
         return f"{rnd_abs/1e6:.0f}{spacer}mm"
     else:
         return f"{rnd_abs/1e9:.0f}{spacer}m"
-
