@@ -1,6 +1,5 @@
 Displaying scalar images
 =========================
-blah blah show
 
 .. automodule:: PyLorentz.visualize.show
    :members:

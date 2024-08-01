@@ -1,65 +1,40 @@
 import os
-import time
 from pathlib import Path
-from typing import Optional, Union
-from warnings import warn
+from typing import Optional, Union, List
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage as ndi
 from tqdm import tqdm
 
-from PyLorentz.io import format_defocus, read_image, read_json, write_json
+from PyLorentz.io import read_image, read_json
 from PyLorentz.utils.filter import filter_hotpix
 from PyLorentz.visualize import show_im
 
 from .base_dataset import BaseDataset
 import copy
 
-"""
-Recommended file structure
-
-- tfs1
-    - dm_files
-        - f1.dm3
-        - f2.dm3
-        - ...
-    - aligned_stack.tif
-    - aligned_stack_flip.tif
-    - tfs_metadata.json
-        * contains defocus values and scale, defocus values -2, -1, ..., 2
-
-Options
-    * including a aligned_stack path will set flip=True, but manually
-      setting flip=True will then assume that the loaded aligned stack
-      includes a unflip / flip concatenated stacks
-    * aligned_files_list
-
-
-Optional legacy filepath same as previous
-
-
-if metadata file given, that will override
-if not, then will try to get scale from tif, and will ask for scale and defocus
-
-notes
-len(defvals) = len(tifstack) = len(flipstack) if there is one
-
-"""
-
-
-# for single images / SITIE / SIPRAD
-# SITIE itself should be able to take either a DefocusedDataset or DefocusImage?
-# have a from_TFS
 class DefocusedDataset(BaseDataset):
-    # this is from array
+    """
+    A dataset class for handling defocused images and related metadata.
+
+    Parameters:
+        images (np.ndarray): The set of defocused images.
+        scale (Optional[float]): The scale of the images.
+        defvals (Optional[np.ndarray]): The defocus values corresponding to the images.
+        beam_energy (Optional[float]): The beam energy used during imaging.
+        data_files (List[os.PathLike]): File paths of the data files.
+        simulated (bool): Indicates if the data is simulated.
+        verbose (Union[int, bool]): Verbosity level for logging.
+    """
+
     def __init__(
         self,
         images: np.ndarray,
         scale: Optional[float] = None,
         defvals: Optional[np.ndarray] = None,
         beam_energy: Optional[float] = None,
-        data_files: list[os.PathLike] = [],
+        data_files: List[os.PathLike] = [],
         simulated: bool = False,
         verbose: Union[int, bool] = 1,
     ):
@@ -80,7 +55,7 @@ class DefocusedDataset(BaseDataset):
         BaseDataset.__init__(
             self,
             imshape=images.shape[1:],
-            data_dir=self.data_dirs[0],  # maybe expand base class to having multiple
+            data_dir=self.data_dirs[0],
             scale=scale,
             verbose=verbose,
         )
@@ -95,31 +70,35 @@ class DefocusedDataset(BaseDataset):
         self.beam_energy = beam_energy
         self._simulated = simulated
         self._verbose = verbose
-        # leaving mask for possible future implementation, e.g. masking center region
         self.mask = None  # np.ones_like(self.shape)
 
         self._preprocessed = False
         self._cropped = False
-        self._filtered = False  # could become ._processed if include more things
-
-        return
+        self._filtered = False
 
     @classmethod
     def from_TFS(cls):
         """
-        convert TFS to DD, using its data
+        Convert a Through Focal Series (TFS) to a DefocusedDataset.
         """
         return cls
 
     @classmethod
     def load(
         cls,
-        images: Union[np.ndarray, os.PathLike, list[os.PathLike]],
+        images: Union[np.ndarray, os.PathLike, List[os.PathLike]],
         metadata: Optional[Union[os.PathLike, dict]] = None,
         **kwargs,
-    ):
+    ) -> "DefocusedDataset":
         """
-        load from file path, possibly with metadata
+        Load images and metadata to create a DefocusedDataset instance.
+
+        Args:
+            images (Union[np.ndarray, os.PathLike, List[os.PathLike]]): Image data or paths.
+            metadata (Optional[Union[os.PathLike, dict]]): Metadata as a path or dict.
+
+        Returns:
+            DefocusedDataset: The created dataset instance.
         """
         if metadata is not None:
             mdata = cls._parse_mdata(metadata)
@@ -131,7 +110,7 @@ class DefocusedDataset(BaseDataset):
                 raise NotImplementedError(
                     "write method for reading list of files and collecting defocus values"
                 )
-            else:  # is image(s)
+            else:
                 if metadata is not None:
                     mdata = cls._parse_mdata(metadata)
                 else:
@@ -155,8 +134,6 @@ class DefocusedDataset(BaseDataset):
             raise ValueError("defvals must be specified, is None.")
 
         filepaths = mdata.get("data_files", mdata.get("filepath"))
-        # will overwrite metadata file values with specified values
-        print("mdata: ", mdata)
         dd = cls(
             images=images,
             scale=kwargs.pop("scale", mdata.get("scale")),
@@ -170,11 +147,11 @@ class DefocusedDataset(BaseDataset):
         return dd
 
     @property
-    def images(self):
+    def images(self) -> np.ndarray:
         return self._images
 
     @images.setter
-    def images(self, ims):
+    def images(self, ims: np.ndarray) -> None:
         ims = np.array(ims)
         if np.ndim(ims) == 2:
             ims = ims[None]
@@ -186,15 +163,15 @@ class DefocusedDataset(BaseDataset):
         self._images = ims
 
     @property
-    def image(self, idx=0):
+    def image(self, idx: int = 0) -> np.ndarray:
         return self.images[idx]
 
     @property
-    def defvals(self):
+    def defvals(self) -> np.ndarray:
         return self._defvals
 
     @defvals.setter
-    def defvals(self, dfs):
+    def defvals(self, dfs: np.ndarray) -> None:
         if isinstance(dfs, (float, int)):
             dfs = np.array([dfs])
         if hasattr(self, "_images"):
@@ -204,35 +181,40 @@ class DefocusedDataset(BaseDataset):
                 )
         self._defvals = dfs
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
     @property
-    def shape(self):
+    def shape(self) -> tuple:
         return self.images.shape[1:]
 
     @property
-    def energy(self):
+    def energy(self) -> Optional[float]:
         return self._beam_energy
 
     @energy.setter
-    def energy(self, val):
+    def energy(self, val: float) -> None:
         if not isinstance(val, (float, int)):
             raise TypeError(f"energy must be numeric, found {type(val)}")
         if val <= 0:
             raise ValueError(f"energy must be > 0, not {val}")
         self._beam_energy = float(val)
 
-    def select_ROI(self, idx: int = 0, image: Optional[np.ndarray] = None):
-        # select image as infocus orig image if none given
+    def select_ROI(self, idx: int = 0, image: Optional[np.ndarray] = None) -> None:
+        """
+        Select a Region of Interest (ROI) for processing.
+
+        Args:
+            idx (int): Index of the image to use for ROI selection.
+            image (Optional[np.ndarray]): Specific image to use for ROI selection.
+        """
         if image is not None:
-            image = np.shape(image)
+            image = np.array(image)
             if image.shape != self._orig_shape:
                 raise ValueError(
                     f"Shape of image for choosing ROI, {image.shape}, must match "
                     + f"orig_images shape, {self._orig_shape}"
                 )
-            image = np.array(image)
         else:
             if self._preprocessed:
                 image = self._orig_images_preprocessed[idx]
@@ -250,10 +232,10 @@ class DefocusedDataset(BaseDataset):
 
         self._select_ROI(image)
 
-        return
-
-    def apply_transforms(self):
-        # apply rotation -> crop, and set images
+    def apply_transforms(self) -> None:
+        """
+        Apply transformations (e.g., rotation, cropping) to the images.
+        """
         if self._preprocessed:
             images = self._orig_images_preprocessed.copy()
         else:
@@ -286,7 +268,6 @@ class DefocusedDataset(BaseDataset):
         self.images = images
         self._transforms_modified = False
         self._cropped = True
-        return
 
     def preprocess(
         self,
@@ -294,8 +275,15 @@ class DefocusedDataset(BaseDataset):
         median_filter_size: Optional[int] = None,
         fast: bool = True,
         **kwargs,
-    ):
-        # filter hotpixels, option for median filter
+    ) -> None:
+        """
+        Preprocess the images by filtering hot pixels and applying a median filter.
+
+        Args:
+            hotpix (bool): Whether to filter hot pixels.
+            median_filter_size (Optional[int]): Size of the median filter.
+            fast (bool): Whether to use a fast filtering method.
+        """
         self.images = self._orig_images.copy()
 
         if hotpix:
@@ -313,17 +301,24 @@ class DefocusedDataset(BaseDataset):
         self.apply_transforms()
         self._filters["hotpix"] = hotpix
         self._filters["median"] = median_filter_size
-        return
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"DefocusedDataset containing {len(self)} image(s) of shape {self.shape}"
 
-    def reset_transforms(self):
+    def reset_transforms(self) -> None:
+        """
+        Reset all transformations applied to the images.
+        """
         self._reset_transforms()
         self.apply_transforms()
-        return
 
-    def show_im(self, idx=0, **kwargs):
+    def show_im(self, idx: int = 0, **kwargs) -> None:
+        """
+        Display an image with optional parameters.
+
+        Args:
+            idx (int): Index of the image to display.
+        """
         show_im(
             self.images[idx],
             scale=kwargs.pop("scale", self.scale),
@@ -338,12 +333,24 @@ class DefocusedDataset(BaseDataset):
         self,
         q_lowpass: Optional[float] = None,
         q_highpass: Optional[float] = None,
-        filter_type: str = "butterworth",  # butterworth or gaussian
+        filter_type: str = "butterworth",
         butterworth_order: int = 2,
-        idx: Optional[ Union[int, list[int]]] = None,
+        idx: Optional[Union[int, List[int]]] = None,
         show: bool = False,
         v: Optional[int] = None,
-    ):
+    ) -> None:
+        """
+        Apply bandpass filtering to the images.
+
+        Args:
+            q_lowpass (Optional[float]): Lowpass filter cutoff.
+            q_highpass (Optional[float]): Highpass filter cutoff.
+            filter_type (str): Type of filter ('butterworth' or 'gaussian').
+            butterworth_order (int): Order of the Butterworth filter.
+            idx (Optional[Union[int, List[int]]]): Indices of images to filter.
+            show (bool): Whether to display the filtered images.
+            v (Optional[int]): Verbosity level.
+        """
         v = self._verbose if v is None else v
         if idx is None:
             indices = np.arange(len(self))
@@ -374,24 +381,24 @@ class DefocusedDataset(BaseDataset):
                 ncols=3, nrows=len(indices), figsize=(12, 4 * len(indices))
             )
             if len(indices) == 1:
-                axs = axs[None]
+                axs = [axs]
             for a0 in range(len(indices)):
                 show_im(
                     input_ims[a0],
-                    figax=(fig, axs[a0, 0]),
+                    figax=(fig, axs[a0][0]),
                     title="original image",
                     scale=self.scale,
                     ticks_off=a0 != 0,
                 )
                 show_im(
                     filtered_ims[a0],
-                    figax=(fig, axs[a0, 1]),
+                    figax=(fig, axs[a0][1]),
                     title="filtered image",
                     ticks_off=True,
                 )
                 show_im(
                     input_ims[a0] - filtered_ims[a0],
-                    figax=(fig, axs[a0, 2]),
+                    figax=(fig, axs[a0][2]),
                     title="orig - filtered",
                     ticks_off=True,
                 )
@@ -406,7 +413,12 @@ class DefocusedDataset(BaseDataset):
             self._images_filtered = np.zeros_like(self._images_cropped)
         self._images_filtered[indices] = filtered_ims
         self.images[indices] = filtered_ims
-        return
 
-    def copy(self):
+    def copy(self) -> "DefocusedDataset":
+        """
+        Create a deep copy of the dataset.
+
+        Returns:
+            DefocusedDataset: A deep copy of the current dataset.
+        """
         return copy.deepcopy(self)

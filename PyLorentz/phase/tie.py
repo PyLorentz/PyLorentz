@@ -24,7 +24,6 @@ class TIE(BaseTIE):
         name: Optional[str] = None,
         sym: bool = False,
         qc: Optional[float] = None,
-        beam_energy: Optional[float] = None,
         verbose: int = 1,
     ):
         """
@@ -36,7 +35,6 @@ class TIE(BaseTIE):
             name (Optional[str], optional): Name for the reconstruction. Default is None.
             sym (bool, optional): Whether to symmetrize the images. Default is False.
             qc (Optional[float], optional): Tikhonov regularization parameter. Default is None.
-            beam_energy (Optional[float], optional): Beam energy for the reconstruction. Default is None.
             verbose (int, optional): Verbosity level. Default is 1.
         """
         self.tfs = tfs

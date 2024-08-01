@@ -1,58 +1,52 @@
-import matplotlib as mpl
+from typing import Optional, Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
-from ipywidgets import interact
-from scipy import ndimage
-from .colorwheel import color_im, get_cmap
 from matplotlib import colors
+
+from .colorwheel import color_im, get_cmap
 from .show import show_im
 
 
 def show_2D(
-    Vx,
-    Vy,
-    Vz=None,
-    num_arrows=0,
-    arrow_size=None,
-    arrow_width=None,
-    title=None,
-    color=True,
-    cmap='hsv',
-    origin="upper",
-    save=None,
-    figax=None,
-    rad=None,
-    scale=None,
+    Vx: np.ndarray,
+    Vy: np.ndarray,
+    Vz: Optional[np.ndarray] = None,
+    num_arrows: int = 0,
+    arrow_size: Optional[float] = None,
+    arrow_width: Optional[float] = None,
+    title: Optional[str] = None,
+    color: bool = True,
+    cmap: str = "hsv",
+    origin: str = "upper",
+    save: Optional[str] = None,
+    figax: Optional[Tuple[plt.Figure, plt.Axes]] = None,
+    rad: Optional[int] = None,
+    scale: Optional[float] = None,
     **kwargs,
-):
-    """Display a 2D vector arrow plot.
-
-    Displays an an arrow plot of a vector field, with arrow length scaling with
-    vector magnitude. If color=True, a colormap will be displayed under the
-    arrow plot.
-
-    If mag_z is included and color=True, a spherical colormap will be used with
-    color corresponding to in-plane and white/black to out-of-plane vector
-    orientation.
+) -> plt.Figure:
+    """
+    Display a 2D vector field with arrows and optional color mapping.
 
     Args:
-        mag_x (2D array): x-component of magnetization.
-        mag_y (2D array): y-component of magnetization.
-        mag_z (2D array): optional z-component of magnetization.
-        a (int): Number of arrows to plot along the x and y axes. Default 15.
-        l (float): Scale factor of arrows. Larger l -> shorter arrows. Default None
-            guesses at a good value. None uses matplotlib default.
-        w (float): Width scaling of arrows. None uses matplotlib default.
-        title (str): (`optional`) Title for plot. Default None.
-        color (bool): (`optional`) Whether or not to show a colormap underneath
-            the arrow plot. Color image is made from colorwheel.color_im().
-        hsv (bool): (`optional`) Only relevant if color == True. Whether to use
-            an hsv or 4-fold color-wheel in the color image.
-        origin (str): (`optional`) Control image orientation.
-        save (str): (`optional`) Path to save the figure.
+        Vx (np.ndarray): X-component of the vector field.
+        Vy (np.ndarray): Y-component of the vector field.
+        Vz (np.ndarray, optional): Z-component of the vector field.
+        num_arrows (int): Number of arrows to plot along x and y axes.
+        arrow_size (float, optional): Scale factor for arrow length.
+        arrow_width (float, optional): Width of arrows.
+        title (str, optional): Title of the plot.
+        color (bool): Whether to display a colormap underneath the arrows.
+        cmap (str): Colormap to use for color mapping.
+        origin (str): Origin of the image coordinate system.
+        save (str, optional): Path to save the figure.
+        figax (tuple, optional): Figure and axes to plot on.
+        rad (int, optional): Radius for the color wheel.
+        scale (float, optional): Scale factor for the plot.
+        **kwargs: Additional keyword arguments for customization.
 
     Returns:
-        fig: Returns the figure handle.
+        plt.Figure: The matplotlib figure object.
     """
     assert Vx.ndim == Vy.ndim
     if Vx.ndim == 3:
@@ -75,7 +69,7 @@ def show_2D(
 
     sz_inches = kwargs.pop("figsize", 5)
     if isinstance(sz_inches, (list, tuple, np.ndarray)):
-        sz_inches = sz_inches[0] # aspect ratio is rad dependent so just take one value
+        sz_inches = sz_inches[0]  # Aspect ratio depends on rad, use one value
     if color:
         if rad is None:
             rad = Vx.shape[0] // 16
@@ -94,17 +88,15 @@ def show_2D(
         aspect = dimy / dimx
 
     if figax is None:
-        # if save is not None:  # and title is None: # to avoid white border when saving
         fig = plt.figure()
         size = (sz_inches, sz_inches * aspect)
         fig.set_size_inches(size)
         ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
         fig.add_axes(ax)
-        # else:
-            # fig, ax = plt.subplots()
         ax.set_aspect(aspect)
     else:
         fig, ax = figax
+
     if color:
         cmap = get_cmap(cmap, **kwargs)
         cim = color_im(
@@ -118,10 +110,7 @@ def show_2D(
 
         show_bbox = kwargs.pop("show_bbox", None)
         if show_bbox is None:
-            if title is None:
-                show_bbox = kwargs.get("background") == "white"
-            else:
-                show_bbox = True
+            show_bbox = title is not None
         show_im(
             cim,
             cmap=cmap,
@@ -134,7 +123,6 @@ def show_2D(
             **kwargs,
         )
         arrow_color = "white"
-
     else:
         arrow_color = "black"
     arrow_color = kwargs.get("arrow_color", arrow_color)
@@ -142,7 +130,7 @@ def show_2D(
     if a > 0:
         ashift = (dimx - 1) % a // 2
         arrow_scale = 1 / abs(arrow_size) if arrow_size is not None else None
-        q = ax.quiver(
+        ax.quiver(
             X[ashift::a],
             Y[ashift::a],
             U[ashift::a, ashift::a],
@@ -156,55 +144,49 @@ def show_2D(
             color=arrow_color,
         )
 
-    if not color and a > 0:
-        if origin == "upper":
-            ax.invert_yaxis()
+    if not color and a > 0 and origin == "upper":
+        ax.invert_yaxis()
 
     if save is not None:
         print(f"Saving: {save}")
         plt.axis("off")
         dpi = kwargs.get("dpi", max(dimy, dimx) * 5 / sz_inches)
-        # sets dpi to 5 times original image dpi so arrows are reasonably sharp
-        if title is None:  # for no padding
+        if title is None:
             plt.savefig(save, dpi=dpi, bbox_inches=0, transparent=True)
         else:
             plt.savefig(save, dpi=dpi, bbox_inches="tight", transparent=True)
 
-    return
+    return fig
 
 
-# TODO update this function and num_arrows
 def show_3D(
-    Vx, Vy, Vz, num_arrows=15, ay=None, num_arrows_z=15, arrow_size=None, show_all=True
-):
-    """Display a 3D vector field with arrows.
+    Vx: np.ndarray,
+    Vy: np.ndarray,
+    Vz: np.ndarray,
+    num_arrows: int = 15,
+    ay: Optional[int] = None,
+    num_arrows_z: int = 15,
+    arrow_size: Optional[float] = None,
+    show_all: bool = True,
+) -> None:
+    """
+    Display a 3D vector field with arrows, using color to represent vector direction.
 
-    Arrow color is determined by direction, with in-plane mapping to a HSV
+    Arrow color is determined by direction, with in-plane mapping to an HSV
     color-wheel and out of plane to white (+z) and black (-z).
 
-    Plot can be manipulated by clicking and dragging with the mouse. a, ay, and
-    az control the  number of arrows that will be plotted along each axis, i.e.
-    there will be a*ay*az total arrows. In the default case a controls both ax
-    and ay.
-
     Args:
-        mag_x (3D array): (z,y,x). x-component of magnetization.
-        mag_y (3D array): (z,y,x). y-component of magnetization.
-        mag_z (3D array): (z,y,x). z-component of magnetization.
-        num_arrows (int): Number of arrows to plot along the x-axis, if ay=None then this
-            sets the y-axis too.
-        ay (int): (`optional`) Number of arrows to plot along y-axis. Defaults to a.
-        az (int): Number of arrows to plot along z-axis. if az > depth of array,
-            az is set to 1.
-        l (float): Scale of arrows. Larger -> longer arrows.
-        show_all (bool):
-            - True: (default) All arrows are displayed with a grey background.
-            - False: Alpha value of arrows is controlled by in-plane component.
-              As arrows point out-of-plane they become transparent, leaving
-              only in-plane components visible. The background is black.
+        Vx (np.ndarray): (z, y, x) X-component of the vector field.
+        Vy (np.ndarray): (z, y, x) Y-component of the vector field.
+        Vz (np.ndarray): (z, y, x) Z-component of the vector field.
+        num_arrows (int): Number of arrows to plot along the x-axis.
+        ay (int, optional): Number of arrows to plot along the y-axis.
+        num_arrows_z (int): Number of arrows to plot along the z-axis.
+        arrow_size (float, optional): Scale factor for arrow length.
+        show_all (bool): Whether to show all arrows with equal opacity.
 
     Returns:
-        None: None. Displays a matplotlib axes3D object.
+        None
     """
     bmax = max(Vx.max(), Vy.max(), Vz.max())
 
@@ -230,10 +212,9 @@ def show_3D(
         np.arange(0, dimx, 1),
         indexing="ij",
     )
-    ay = ((dimy - 1) // num_arrows) + 1
+    ay = ((dimy - 1) // num_arrows) + 1 if ay is None else ay
     axx = ((dimx - 1) // num_arrows) + 1
 
-    # doesnt handle (0,0,0) arrows very well, so this puts in very small ones.
     zeros = ~(Vx.astype("bool") | Vy.astype("bool") | Vz.astype("bool"))
     zinds = np.where(zeros)
     Vz[zinds] = bmax / 1e5
@@ -244,13 +225,9 @@ def show_3D(
     V = Vy.reshape((dimz, dimy, dimx))
     W = Vz.reshape((dimz, dimy, dimx))
 
-    # maps in plane direction to hsv wheel, out of plane to white (+z) and black (-z)
     phi = np.ravel(np.arctan2(V[::az, ::ay, ::axx], U[::az, ::ay, ::axx]))
 
-    # map phi from [pi,-pi] -> [1,0]
     hue = phi / (2 * np.pi) + 0.5
-
-    # setting the out of plane values now
     theta = np.arctan2(
         W[::az, ::ay, ::axx],
         np.sqrt(U[::az, ::ay, ::axx] ** 2 + V[::az, ::ay, ::axx] ** 2),
@@ -261,10 +238,10 @@ def show_3D(
     arrow_colors = np.squeeze(np.dstack((hue, sat, value)))
     arrow_colors = colors.hsv_to_rgb(arrow_colors)
 
-    if show_all:  # all alpha values one
+    if show_all:
         alphas = np.ones((np.shape(arrow_colors)[0], 1))
         tcolor = "k"
-    else:  # alpha values map to inplane component
+    else:
         tcolor = "w"
         alphas = np.minimum(value, sat).reshape(len(value), 1)
         value = np.ones(value.shape)
@@ -280,14 +257,11 @@ def show_3D(
             [t.set_color(tcolor) for t in axs.get_ticklabels()]
         ax.grid(False)
 
-    # add alpha value to rgb list
     arrow_colors = np.array(
         [np.concatenate((arrow_colors[i], alphas[i])) for i in range(len(alphas))]
     )
-    # quiver colors shaft then points: for n arrows c=[c1, c2, ... cn, c1, c1, c2, c2, ...]
     arrow_colors = np.concatenate((arrow_colors, np.repeat(arrow_colors, 2, axis=0)))
 
-    # want box to be square so all arrow directions scaled the same
     dim = max(dimx, dimy, dimz)
     ax.set_xlim(0, dim)
     ax.set_ylim(0, dimy)
@@ -297,7 +271,7 @@ def show_3D(
         ax.set_zlim(0, dim)
         Z += (dim - dimz) // 2
 
-    q = ax.quiver(
+    ax.quiver(
         X[::az, ::ay, ::axx],
         Y[::az, ::ay, ::axx],
         Z[::az, ::ay, ::axx],
@@ -314,4 +288,3 @@ def show_3D(
     ax.set_ylabel("y", c=tcolor)
     ax.set_zlabel("z", c=tcolor)
     plt.show()
-

@@ -5,7 +5,7 @@ from skimage.metrics import structural_similarity, peak_signal_noise_ratio
 
 
 def ssim(truth:np.ndarray, test:np.ndarray, **kwargs):
-    """Get structural similarity index measure (SSIM)
+    """Get structural similarity index measure (SSIM) of two images.
 
     Args:
         truth (ndarray): ground truth
@@ -25,7 +25,7 @@ def ssim(truth:np.ndarray, test:np.ndarray, **kwargs):
 
 def accuracy(truth:np.ndarray, test:np.ndarray, **kwargs):
     """
-    Gets correlational accuracy of phase teststruction, does not account for scaling
+    Gets correlational accuracy of two images; does not account for scaling
     differences as long as values are centered around 0
 
     Args:
@@ -47,6 +47,16 @@ def accuracy(truth:np.ndarray, test:np.ndarray, **kwargs):
 
 
 def psnr(truth:np.ndarray, test:np.ndarray, data_range:float|None=None):
+    """
+    Gets peak signal to noise of two images.
+
+    Args:
+        truth (ndarray): ground truth
+        test (ndarray): test image
+
+    Returns:
+        float: PSNR
+    """
     test = np.copy(test).astype(np.float64)
     truth = np.copy(truth).astype(np.float64)
     test -= np.mean(test) # mean gives best val

@@ -1,7 +1,6 @@
 import os
-import time
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,13 +17,9 @@ from .data_legacy import legacy_load
 """
 Recommended file structure
 
-- tfs1
-    - dm_files
-        - f1.dm3
-        - f2.dm3
-        - ...
+- data_directory
     - aligned_stack.tif
-    - aligned_stack_flip.tif
+    - aligned_flip_stack.tif
     - tfs_metadata.json
         * contains defocus values and scale, defocus values -2, -1, ..., 2
 
@@ -40,14 +35,26 @@ Optional legacy filepath same as previous
 
 if metadata file given, that will override
 if not, then will try to get scale from tif, and will ask for scale and defocus
-
-notes
-len(defvals) = len(tifstack) = len(flipstack) if there is one
-
 """
 
-
 class ThroughFocalSeries(BaseDataset):
+    """
+    A class for handling through-focal series (TFS) datasets, including
+    processing and visualization.
+
+    Parameters:
+        imstack (np.ndarray): Stack of images in the TFS.
+        flipstack (Optional[np.ndarray]): Stack of flipped images for comparison.
+        flip (Optional[bool]): Indicates if the dataset includes flipped images.
+        scale (Optional[float]): The scale of the images.
+        defvals (Optional[np.ndarray]): The defocus values for the images.
+        beam_energy (Optional[float]): The beam energy used during imaging.
+        use_mask (Optional[bool]): Whether to use a mask in processing.
+        simulated (Optional[bool]): Indicates if the data is simulated.
+        data_dir (Optional[os.PathLike]): Directory where data is stored.
+        data_files (List[os.PathLike]): List of file paths for the data.
+        verbose (Optional[int]): Verbosity level for logging.
+    """
 
     def __init__(
         self,
@@ -59,41 +66,24 @@ class ThroughFocalSeries(BaseDataset):
         beam_energy: Optional[float] = None,
         use_mask: Optional[bool] = True,
         simulated: Optional[bool] = False,
-        data_dir: os.PathLike | None = None,
-        data_files: list[os.PathLike] = [],
+        data_dir: Optional[os.PathLike] = None,
+        data_files: List[os.PathLike] = [],
         verbose: Optional[int] = 1,
     ):
         imstack = np.array(imstack)
         assert np.ndim(imstack) == 3, f"Bad input shape {imstack.shape}"
-        BaseDataset.__init__(
-            self,
-            imshape=imstack.shape[1:],
-            data_dir=data_dir,
-            scale=scale,
-            verbose=verbose,
-        )
+        super().__init__(imshape=imstack.shape[1:], data_dir=data_dir, scale=scale, verbose=verbose)
 
         self.imstack = imstack
-        if flipstack is not None:
-            if np.size(flipstack) != 0:
-                if len(flipstack) != len(imstack):
-                    raise ValueError(
-                        f"len imstack, {len(imstack)} != len flipstack, {len(flipstack)}"
-                    )
-                self.flipstack = np.array(flipstack)
-            else:  # is empty array
-                self.flipstack = np.array([])
-        else:
-            self.flipstack = np.array([])
-
-        self.flip = flip if len(self.flipstack) > 0 else False  # either if flipstack
+        self.flipstack = np.array(flipstack) if flipstack is not None else np.array([])
+        if flip and len(self.flipstack) == 0:
+            raise ValueError("Flipstack provided, but no flipstack data available.")
+        self.flip = flip
         self.defvals = defvals
         self.beam_energy = beam_energy
         self._simulated = simulated
         self.data_files = data_files
-        if simulated:
-            use_mask = False
-        self._use_mask = use_mask
+        self._use_mask = use_mask if not simulated else False
         self._preprocessed = False
         self._cropped = False
         self._filtered = False
@@ -110,61 +100,51 @@ class ThroughFocalSeries(BaseDataset):
         self.mask = None
 
         if scale is None:
-            self.vprint("No scale found. Set with: DD.scale = <x> [nm/pix]")
+            self.vprint("No scale found. Set with: TFS.scale = <x> [nm/pix]")
         if defvals is None:
-            self.vprint("No scale found. Set with: DD.defvals = <x> [nm]")
+            self.vprint("No defocus values found. Set with: TFS.defvals = <x> [nm]")
         if beam_energy is None:
-            self.vprint("Beam energy not found. Set with: DD.energy = <x> [V]")
-        return
+            self.vprint("Beam energy not found. Set with: TFS.energy = <x> [V]")
 
     @classmethod
     def from_files(
         cls,
-        aligned_file: str | os.PathLike,
-        aligned_flip_file: str | os.PathLike | None = None,
-        metadata_file: str | os.PathLike | None = None,
+        aligned_file: Union[str, os.PathLike],
+        aligned_flip_file: Optional[Union[str, os.PathLike]] = None,
+        metadata_file: Optional[Union[str, os.PathLike]] = None,
         flip: Optional[bool] = False,
         scale: Optional[float] = None,
-        defocus_values: list | None = None,
+        defocus_values: Optional[List[float]] = None,
         beam_energy: Optional[float] = None,
         dump_metadata: Optional[bool] = True,
         use_mask: Optional[bool] = True,
-        legacy_data_loc: str | os.PathLike | None = None,
-        legacy_fls_filename: str | os.PathLike | None = None,
-        verbose: int | Optional[bool] = True,
-    ):
+        legacy_data_loc: Optional[Union[str, os.PathLike]] = None,
+        legacy_fls_filename: Optional[Union[str, os.PathLike]] = None,
+        verbose: Optional[Union[int, bool]] = True,
+    ) -> "ThroughFocalSeries":
         """
-        relevant metadata:
-            - defocus for all images
-            - scale (assumes uniform)
+        Create a ThroughFocalSeries instance from files.
 
-        Loading options:
-            - (recommended): aligned stack filepath (and flip_aligned path), list of defocus values, scale
-                and have a recommended saving the metadata
-            - (legacy): fls file(s) + orig_ims w/ metadata + aligned stack
-            - aligned_stack + manual metadata
-            - numpy aligned stack + manual metadata
+        Args:
+            aligned_file (Union[str, os.PathLike]): Path to the aligned image stack.
+            aligned_flip_file (Optional[Union[str, os.PathLike]]): Path to the flip image stack.
+            metadata_file (Optional[Union[str, os.PathLike]]): Path to metadata file.
+            flip (Optional[bool]): Indicates if the dataset includes flipped images.
+            scale (Optional[float]): The scale of the images.
+            defocus_values (Optional[List[float]]): Defocus values.
+            beam_energy (Optional[float]): Beam energy used during imaging.
+            dump_metadata (Optional[bool]): Whether to save metadata to a file.
+            use_mask (Optional[bool]): Whether to use a mask in processing.
+            legacy_data_loc (Optional[Union[str, os.PathLike]]): Path for legacy data.
+            legacy_fls_filename (Optional[Union[str, os.PathLike]]): FLS filename for legacy data.
+            verbose (Optional[Union[int, bool]]): Verbosity level for logging.
 
-
-        Attributes:
-            - scale
-            - defocus_vals
-            - tfs_aligned
-            - filepath_tfs_aligned
-            - flip_tfs_aligned
-            - filepath_tfs_flip_aligned
-            - _tfs_orig
-            - _tfs_filepath_orig
-            - flip
-
-        Later defined attributes/methods
-            - ROI
-
+        Returns:
+            ThroughFocalSeries: The created TFS instance.
         """
         vprint = print if verbose >= 1 else lambda *a, **k: None
 
         data_files = []
-        ### load metadata
         if metadata_file is not None:
             metadata_file = Path(metadata_file).absolute()
             mdata = cls._parse_mdata(metadata_file)
@@ -215,7 +195,6 @@ class ThroughFocalSeries(BaseDataset):
                 )
                 beam_energy = float(beam_energy)
 
-        ### load aligned images
         aligned_file = Path(aligned_file)
         assert aligned_file.exists()
         data_files.append(aligned_file)
@@ -230,21 +209,20 @@ class ThroughFocalSeries(BaseDataset):
             flip = True
         else:
             if len(imstack) % 2 == 0:
-                assert len(imstack) == 2 * len(
-                    defvals
-                ), f"Imstack has even length ({len(imstack)}), but does not match \
-                    2 * #defocus_values ({len(defvals)}) for a flip/unflip reconstruction."
+                assert len(imstack) == 2 * len(defvals), (
+                    f"Imstack has even length ({len(imstack)}), but does not match "
+                    f"2 * #defocus_values ({len(defvals)}) for a flip/unflip reconstruction."
+                )
                 flip = True
                 flipstack = imstack[len(imstack) // 2 :].copy()
                 imstack = imstack[: len(imstack) // 2]
             else:
                 assert len(imstack) == len(
                     defvals
-                ), f"Imstack has odd length ({len(imstack)})\
-                    that does not match the # defocus values ({len(defvals)})"
+                ), f"Imstack has odd length ({len(imstack)}) that does not match the # defocus values ({len(defvals)})"
                 if flip:
                     vprint(
-                        f"Flip was True but only a single tfs was given. Setting Flip=False"
+                        f"Flip was True but only a single TFS was given. Setting Flip=False"
                     )
                     flip = False
                 flipstack = None
@@ -281,17 +259,15 @@ class ThroughFocalSeries(BaseDataset):
         return tfs
 
     @property
-    def imstack(self):
+    def imstack(self) -> np.ndarray:
         return self._imstack
 
     @imstack.setter
-    def imstack(self, stack):
+    def imstack(self, stack: np.ndarray):
         if not hasattr(self, "_imstack"):
             if len(stack) % 2 == 0:
                 raise ValueError(
-                    f"Imstack must be of odd length, got length: {len(stack)}\nThere "
-                    + "should be an equal number of over and under focus images, and "
-                    + "one infocus image."
+                    f"Imstack must be of odd length, got length: {len(stack)}"
                 )
             self._imstack = stack
         elif len(stack) != self.len_tfs:
@@ -301,7 +277,7 @@ class ThroughFocalSeries(BaseDataset):
         self._imstack = stack
 
     @property
-    def flipstack(self):
+    def flipstack(self) -> np.ndarray:
         return self._flipstack
 
     @flipstack.setter
@@ -318,26 +294,21 @@ class ThroughFocalSeries(BaseDataset):
             self._flipstack = stack
 
     @property
-    def flip(self):
+    def flip(self) -> bool:
         return self._flip
 
     @flip.setter
     def flip(self, val: bool):
-        if val:
-            if len(self.flipstack) == 0:
-                raise ValueError(
-                    f"TFS does not have a flipstack, flip cannot be set to True"
-                )
+        if val and len(self.flipstack) == 0:
+            raise ValueError("TFS does not have a flipstack, flip cannot be set to True")
         self._flip = val
 
     @property
-    def defvals(self):
+    def defvals(self) -> np.ndarray:
         return self._defvals
 
     @property
-    def defvals_index(self):
-        # get average over/under defocus values. In ideal case would be same over focus
-        # as under focus, but in case it's a little off this helps.
+    def defvals_index(self) -> np.ndarray:
         dfs = [
             (self.defvals[-1 * (i + 1)] - self.defvals[i]) / 2
             for i in range(self.len_tfs // 2)
@@ -345,19 +316,16 @@ class ThroughFocalSeries(BaseDataset):
         return np.array(dfs)[::-1]
 
     @defvals.setter
-    def defvals(self, vals: float):
+    def defvals(self, vals: Union[float, List[float], np.ndarray]):
         if not isinstance(vals, (np.ndarray, list, tuple)):
-            raise TypeError(
-                f"defvals type should be list or ndarray, found {type(vals)}"
-            )
-
+            raise TypeError(f"defvals type should be list or ndarray, found {type(vals)}")
         if len(vals) != len(self.imstack):
             raise ValueError(
                 f"defvals must have same length as imstack, should be {len(self.imstack)} but was {len(vals)}"
             )
         if len(vals) % 2 != 1:
             raise ValueError(
-                f"Expects a tfs with odd number of images, received even number of defocus values: {len(vals)}"
+                f"Expects a TFS with odd number of images, received even number of defocus values: {len(vals)}"
             )
         for a0 in range(len(vals) // 2):
             if np.sign(vals[a0]) == np.sign(vals[-1 * (a0 + 1)]):
@@ -367,36 +335,34 @@ class ThroughFocalSeries(BaseDataset):
         self._defvals = np.array(vals)
 
     @property
-    def beam_energy(self):
+    def beam_energy(self) -> Optional[float]:
         return self._beam_energy
 
     @beam_energy.setter
-    def beam_energy(self, val):
-        if val is None:
-            self._beam_energy = None
-        else:
+    def beam_energy(self, val: Optional[float]):
+        if val is not None:
             if not isinstance(val, (float, int)):
-                raise TypeError(f"energy must be numeric, found {type(val)}")
+                raise TypeError(f"Energy must be numeric, found {type(val)}")
             if val <= 0:
-                raise ValueError(f"energy must be > 0, not {val}")
-            self._beam_energy = float(val)
+                raise ValueError(f"Energy must be > 0, not {val}")
+        self._beam_energy = float(val) if val is not None else None
 
     @property
-    def full_stack(self):
+    def full_stack(self) -> np.ndarray:
         if self.flip:
             return np.concatenate([self.imstack, self.flipstack])
         else:
             return self.imstack
 
     @property
-    def full_defvals(self):
+    def full_defvals(self) -> np.ndarray:
         if self.flip:
             return np.concatenate([self.defvals, self.defvals])
         else:
             return self.defvals
 
     @property
-    def infocus(self):
+    def infocus(self) -> np.ndarray:
         inf_index = self.len_tfs // 2
         if self.flip:
             ave_infocus = (self.imstack[inf_index] + self.flipstack[inf_index]) / 2
@@ -405,7 +371,7 @@ class ThroughFocalSeries(BaseDataset):
             return self.imstack[inf_index]
 
     @property
-    def orig_infocus(self):
+    def orig_infocus(self) -> np.ndarray:
         inf_index = self.len_tfs // 2
         if self.flip:
             if self._preprocessed:
@@ -417,7 +383,6 @@ class ThroughFocalSeries(BaseDataset):
                 ave_infocus = (
                     self._orig_imstack[inf_index] + self._orig_flipstack[inf_index]
                 ) / 2
-
             return ave_infocus
         else:
             if self._preprocessed:
@@ -426,31 +391,34 @@ class ThroughFocalSeries(BaseDataset):
                 return self._orig_imstack[inf_index]
 
     @property
-    def shape(self):
+    def shape(self) -> tuple:
         return self.imstack.shape[1:]
 
     @property
-    def len_tfs(self):
+    def len_tfs(self) -> int:
         if self.flip:
             assert len(self.imstack) == len(self.flipstack)
         return len(self.imstack)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.len_tfs
-
-    @property
-    def _len_full_tfs(self):
-        return len(self.imstack) + len(self.flipstack)
 
     def preprocess(
         self,
         hotpix: Optional[bool] = True,
-        median_filter_size: int | None = None,
+        median_filter_size: Optional[int] = None,
         fast: Optional[bool] = True,
         **kwargs,
-    ):
+    ) -> None:
+        """
+        Preprocess the images by filtering hot pixels and applying a median filter.
+
+        Args:
+            hotpix (Optional[bool]): Whether to filter hot pixels.
+            median_filter_size (Optional[int]): Size of the median filter.
+            fast (Optional[bool]): Whether to use a fast filtering method.
+        """
         self._make_mask(self._use_mask)
-        # filter hotpixels, option for median filter
         self.imstack = self._orig_imstack.copy()
         self.flipstack = self._orig_flipstack.copy()
 
@@ -462,7 +430,6 @@ class ThroughFocalSeries(BaseDataset):
             self.vprint("Filtering hot/dead pixels")
             for i in tqdm(range(self.len_tfs)):
                 self.imstack[i] = filter_hotpix(self.imstack[i], fast=fast, **kwargs)
-
                 if self.flip:
                     self.flipstack[i] = filter_hotpix(
                         self.flipstack[i], fast=fast, **kwargs
@@ -483,8 +450,6 @@ class ThroughFocalSeries(BaseDataset):
         self._filters["hotpix"] = hotpix
         self._filters["median"] = median_filter_size
 
-        return
-
     def filter(
         self,
         q_lowpass: Optional[float] = None,
@@ -492,14 +457,18 @@ class ThroughFocalSeries(BaseDataset):
         filter_type: str = "butterworth",  # butterworth or gaussian
         butterworth_order: int = 2,
         show: Optional[bool] = False,
-        v: int | None = None,
-    ):
+        v: Optional[int] = None,
+    ) -> None:
         """
-        in terms of workflow, this should probably be used after selecting an ROI...
-        because don't want effects of mask/alignment on the filtered images
-        but that means it's slow because has to apply transformations fresh each time.
-        hm.
-        could
+        Apply filtering to the image stack.
+
+        Args:
+            q_lowpass (Optional[float]): Lowpass filter cutoff.
+            q_highpass (Optional[float]): Highpass filter cutoff.
+            filter_type (str): Type of filter ('butterworth' or 'gaussian').
+            butterworth_order (int): Order of the Butterworth filter.
+            show (Optional[bool]): Whether to show the filtered images.
+            v (Optional[int]): Verbosity level.
         """
         v = self._verbose if v is None else v
 
@@ -524,11 +493,7 @@ class ThroughFocalSeries(BaseDataset):
             )
             if self.flip:
                 filtered_flipstack[i] = self._bandpass_filter(
-                    input_flipstack[i],
-                    q_lowpass,
-                    q_highpass,
-                    filter_type,
-                    butterworth_order,
+                    input_flipstack[i], q_lowpass, q_highpass, filter_type, butterworth_order
                 )
 
         if show:
@@ -567,48 +532,43 @@ class ThroughFocalSeries(BaseDataset):
             self.flipstack = filtered_flipstack
             self._orig_flipstack_filtered = filtered_flipstack
 
-        return
-
-    def _make_mask(self, use_mask: Optional[bool] = True, threshold: float = 0):
-        """Sets self.mask to be a binary bounding mask from imstack and flipstack.
-
-        Makes all images binary using a threshold value, and multiplies these arrays.
-
-        # The inverse Laplacian reconstruction does not deal well with a mask that
-        # is all ones, that is accounted for in TIE() function rather than here.
+    def _make_mask(self, use_mask: Optional[bool] = True, threshold: float = 0) -> None:
+        """
+        Create a binary mask for the image stack.
 
         Args:
-            no_mask (bool): (`optional`) If True, will set mask to uniform ones.
-                Default is False.
-            threshold (float): (`optional`) Pixel value with which to threshold the
-                images. Default is 0.
+            use_mask (Optional[bool]): Whether to create a mask.
+            threshold (float): Threshold for mask creation.
 
         Returns:
-            None. Assigns result to self.mask()
+            None
         """
         if not use_mask or self._simulated:
             self.mask = np.ones(self.shape)
         elif self.len_tfs == 1:
-            # SITIE should have no mask -- not relevant since making other dd
             self.mask = np.ones(self.shape)
         else:
             mask = np.where(self.full_stack > threshold, 1, 0)
             mask = np.prod(mask, axis=0)
 
-            # shrink mask slightly
             iters = int(min(15, self.shape[0] // 250, self.shape[1] // 250))
-            if iters >= 1:  # binary_erosion fails if iterations=0
+            if iters >= 1:
                 mask = ndi.morphology.binary_erosion(mask, iterations=iters)
             mask = mask.astype(np.float32, copy=False)
             mask = ndi.gaussian_filter(mask, 2)
             self.mask = mask
             self._orig_mask = mask.copy()
-            return
 
-    def apply_transforms(self, v=1):
-        # apply rotation -> crop, and set imstack and flipstack
-        # for either stack or single image
-        # might have to copy this over to show functions as well
+    def apply_transforms(self, v: int = 1) -> None:
+        """
+        Apply image transformations, such as rotation and cropping.
+
+        Args:
+            v (int): Verbosity level for logging.
+
+        Returns:
+            None
+        """
         if self._verbose or v >= 1:
             print("Applying transforms", end="\r")
         if self._preprocessed:
@@ -618,10 +578,8 @@ class ThroughFocalSeries(BaseDataset):
             imstack = self._orig_imstack.copy()
             flipstack = self._orig_flipstack.copy()
 
-        # will fail if mask not made, change to force preprocess?
         mask = self._orig_mask.copy()
         if self._transforms["rotation"] != 0:
-            # same speed as doing all together, this way have progress bar
             mask = ndi.rotate(mask, self._transforms["rotation"], reshape=False)
             for a0 in tqdm(range(len(imstack)), disable=v < 1):
                 imstack[a0] = ndi.rotate(
@@ -642,7 +600,7 @@ class ThroughFocalSeries(BaseDataset):
             flipstack = flipstack[:, top:bottom, left:right]
             self._flipstack_crop = flipstack.copy()
 
-        if self._filtered:  # reapply filters
+        if self._filtered:
             for a0 in range(len(imstack)):
                 imstack[a0] = self._bandpass_filter(
                     imstack[a0],
@@ -670,10 +628,17 @@ class ThroughFocalSeries(BaseDataset):
         self.mask = mask
         self._transforms_modified = False
         self._cropped = True
-        return
 
-    def select_ROI(self, image: Optional[np.ndarray] = None):
-        # select image as infocus orig image if none given
+    def select_ROI(self, image: Optional[np.ndarray] = None) -> None:
+        """
+        Select a region of interest (ROI) from the image.
+
+        Args:
+            image (Optional[np.ndarray]): Image to select ROI from.
+
+        Returns:
+            None
+        """
         if image is None:
             inf_ind = self.len_tfs // 2
             if self.flip:
@@ -699,7 +664,6 @@ class ThroughFocalSeries(BaseDataset):
                     self._filters["butterworth_order"],
                 )
         else:
-            assert image.shape == self._orig_shape
             if image.shape != self._orig_shape:
                 raise ValueError(
                     f"Shape of image for choosing ROI, {image.shape}, must match "
@@ -709,31 +673,20 @@ class ThroughFocalSeries(BaseDataset):
 
         self._select_ROI(image)
 
-        return
-
-    @classmethod
-    def load_DD(cls, filepath: str | os.PathLike):
+    def show_tfs(self, **kwargs) -> None:
         """
-        Load from saved json file
-        """
-        return cls(filepath)
+        Display the through-focal series images.
 
-    def save_DD(self, filepath="", copy_data: Optional[bool] = False):
-        """
-        Save self dict as json and either list of filepaths, or full datasets as specified
-        make sure includes crop and such.
-        could/should probably build this around EMD file, see how datacubes are saved
-        """
-        return
+        Args:
+            **kwargs: Additional keyword arguments for display.
 
-    def show_tfs(self, **kwargs):
-
+        Returns:
+            None
+        """
         ncols = len(self)
         nrows = 2 if self.flip else 1
 
-        fig, axs = plt.subplots(
-            nrows=nrows, ncols=ncols, figsize=(2 * ncols, 2 * nrows)
-        )
+        fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(2 * ncols, 2 * nrows))
         if not self.flip:
             axs = axs[None,]
 
@@ -774,21 +727,24 @@ class ThroughFocalSeries(BaseDataset):
             axs[0, 0].set_ylabel("Unflip")
             axs[1, 0].set_ylabel("Flip")
 
-        return
-
-    def __str__(self):
+    def __str__(self) -> str:
         if self.flip:
             return (
-                f"ThroughFocalSeries containing two tfs (unflip/flip), each with "
+                f"ThroughFocalSeries containing two TFS (unflip/flip), each with "
                 + f"{len(self)} images of shape {self.shape}"
             )
         else:
             return (
-                f"ThroughFocalSeries containing one tfs with {len(self)} images of "
+                f"ThroughFocalSeries containing one TFS with {len(self)} images of "
                 + f"shape {self.shape}"
             )
 
-    def reset_transforms(self):
+    def reset_transforms(self) -> None:
+        """
+        Reset transformations applied to the images.
+
+        Returns:
+            None
+        """
         self._reset_transforms()
         self.apply_transforms()
-        return

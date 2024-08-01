@@ -24,7 +24,7 @@ from sphinx.ext.autodoc import between
 # -- Project information -----------------------------------------------------
 
 project = "PyLorentz"
-copyright = "2020, CD Phatak"
+copyright = "2018, UChicago Argonne, LLC"
 author = "Arthur McCray, Tim Cote, CD Phatak"
 
 # The full version, including alpha/beta/rc tags
@@ -49,6 +49,8 @@ extensions = [
 autodoc_mock_imports = [
     "numpy",
     "scipy",
+    "torch",
+    "torchvision",
     "numba",
     "ipympl",
     "jupyter",

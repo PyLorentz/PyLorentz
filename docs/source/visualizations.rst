@@ -1,10 +1,9 @@
 Visualizations
 ===================
-The Visualizations module stuff
+Functions for displaying images.
 
 .. toctree::
    :maxdepth: 1
 
-   modules/colorwheel
    modules/show
    modules/vector_show

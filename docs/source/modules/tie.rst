@@ -1,6 +1,6 @@
 TIE reconstruction
 ==================
-blah blah TIE
+Transport of intensity (TIE) based methods of phase reconstruction.
 
 TIE module
 ---------------

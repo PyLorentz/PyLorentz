@@ -1,8 +1,7 @@
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
-from skimage.metrics import structural_similarity
-
+from scipy.signal.windows import tukey
 
 
 def dist4(dim, norm=False) -> np.ndarray:
@@ -55,3 +54,23 @@ def norm_image(image: Union[np.ndarray, list]):
         image = image / np.max(image)
     return image
 
+
+def Tukey2D(shape: Tuple[int, int], alpha: float = 0.5, sym: bool = True) -> np.ndarray:
+    """
+    Create a 2D Tukey window.
+
+    Args:
+        shape: Shape of the window (height, width).
+        alpha: Shape parameter of the Tukey window.
+        sym: If True, makes the window symmetric.
+
+    Returns:
+        2D Tukey window.
+    """
+    dimy, dimx = shape
+    ty = tukey(dimy, alpha=alpha, sym=sym)
+    filt_y = np.tile(ty.reshape(dimy, 1), (1, dimx))
+    tx = tukey(dimx, alpha=alpha, sym=sym)
+    filt_x = np.tile(tx, (dimy, 1))
+    output = filt_x * filt_y
+    return output

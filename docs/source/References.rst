@@ -1,5 +1,5 @@
-References
-===============
+Further references
+======================
 
 
 .. _LTEM_background:
@@ -7,10 +7,22 @@ References
 Linear Superposition Method
 ----------------------------
 
-For details regarding the linear superposition method of calculating the electron phase shift through a magnetic sample, please see our `paper <https://doi.org/10.1103/PhysRevApplied.15.044025>`_:
+For details regarding the linear superposition method of calculating the electron phase shift through a magnetic sample, please see our `2019 paper <https://doi.org/10.1103/PhysRevApplied.15.044025>`_:
 
-        McCray, A. R. C., Cote, T., Li, Y., Petford-Long, A. K. & Phatak, C. Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron
-        Microscopy. Phys. Rev. Appl. 15, 044025 (2021).
+        McCray, A. R. C., Cote, T., Li, Y., Petford-Long, A. K. & Phatak, C. Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron Microscopy. Phys. Rev. Appl. 15, 044025 (2021).
+
+Single Image Phase Reconstruction via Automatic Differentiation (SIPRAD)
+--------------------------------------------------------------------------
+
+For further information on how automatic differentiation (AD) can be used for phase reconstruction by applying a generative deep image prior (DIP), see our `2024 paper <https://doi.org/10.1038/s41524-024-01285-8>`_:
+
+        McCray, A. R. C., Zhou, T., Kandel, S. et al. AI-enabled Lorentz microscopy for quantitative imaging of nanoscale magnetic spin textures. npj Comput Mater 10, 111 (2024).
+
+This work was based on an original paper that demonstrated the applicability of AD to phase reconstructions by `Zhou, Cherukara, and Phatak. <https://doi.org/10.1038/s41524-021-00600-x>`_:
+
+        Zhou, T., Cherukara, M. & Phatak, C. Differential programming enabled functional imaging with Lorentz transmission electron microscopy. npj Comput Mater 7, 141 (2021).
+
+
 
 LTEM References
 ---------------
@@ -31,7 +43,7 @@ For a brief introduction to Lorentz Transmission Electron Microscopy, the follow
 Micromagnetics References
 ----------------------------------------
 
-The simulation side of PyLorentz begins with the output of micromagnetic simulations. PyLorentz has been tested with `OOMMF <https://math.nist.gov/oommf/>`_ and `Mumax <https://mumax.github.io/>`_; we recommend you refer to their documentation pages for background and information on setting up your own micromagnetic simulations.
+The simulation side of PyLorentz begins with the output of micromagnetic simulations. PyLorentz has been tested with `OOMMF <https://math.nist.gov/oommf/>`_ and `MuMax <https://mumax.github.io/>`_; we recommend you refer to their documentation pages for background and information on setting up your own micromagnetic simulations.
 
 There is also `Ubermag <https://ubermag.github.io/>`_, a project that interfaces with both OOMMF and Mumax allowing one to run micromagnetic simulations though Python in Jupyter notebooks. It has helpful display functionalities and makes it easier to begin using micromagnetics without learning the scripting languages.
 

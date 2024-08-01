@@ -1,6 +1,5 @@
 LTEM image simulation
 ======================
-The sim module stuff
 
 .. toctree::
    :maxdepth: 1
@@ -25,7 +24,7 @@ Phase calculation
 Base Sim module
 ---------------
 
-.. automodule:: PyLorentz.sim.base_phase
+.. automodule:: PyLorentz.sim.base_sim
    :members:
    :undoc-members:
    :show-inheritance:
