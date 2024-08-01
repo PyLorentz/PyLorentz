@@ -1,4 +1,4 @@
-Arthur McCray -- Northwestern University, Argonne National Lab
+Arthur McCray -- Lawrence Berkeley National Lab: armccray<at>lbl.gov
 Tim Cote -- Northwestern University, Argonne National Lab
 Yue Li -- Argonne National Lab
 Charudatta Phatak -- Argonne National Lab

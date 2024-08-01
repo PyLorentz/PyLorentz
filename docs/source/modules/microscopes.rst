@@ -1,7 +1,7 @@
 microscopes module
 ==================
 
-.. automodule:: microscopes
+.. automodule:: PyLorentz.utils.microscopes
    :members:
    :undoc-members:
    :show-inheritance:

@@ -12,24 +12,23 @@
 #
 import os
 import sys
+import logging
+from sphinx.ext.autodoc import between
+
 
 # sys.path.insert(0, os.path.abspath('../../PyLorentz/PyTIE'))
-sys.path.append(os.path.abspath(".."))
-sys.path.append(os.path.abspath("../../PyTIE"))
-sys.path.append(os.path.abspath("../../SimLTEM"))
-sys.path.append(os.path.abspath("../../GUI"))
-sys.path.append(os.path.abspath("../.."))
-sys.path.append(os.path.abspath("./"))
+# from PyLorentz.dataset import base_dataset, defocused_dataset, through_focal_series
+# from PyLorentz.utils import Microscope
 
 
 # -- Project information -----------------------------------------------------
 
 project = "PyLorentz"
-copyright = "2020, CD Phatak"
+copyright = "2018, UChicago Argonne, LLC"
 author = "Arthur McCray, Tim Cote, CD Phatak"
 
 # The full version, including alpha/beta/rc tags
-release = "1.0.0"
+release = "2.0.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -38,29 +37,36 @@ release = "1.0.0"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx_rtd_theme",
+    "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
-    "nbsphinx",
     "sphinx.ext.viewcode",
-    "sphinx.ext.autosectionlabel",
+    # "sphinx.ext.autosectionlabel",
 ]
 
 autodoc_mock_imports = [
-    "dask",
+    "numpy",
+    "scipy",
+    "torch",
+    "torchvision",
+    "numba",
+    "ipympl",
+    "jupyter",
+    "scikit-image",
+    "matplotlib",
+    "ncempy",
+    "colorcet",
+    "black",
+    "tqdm",
+    "pytorch",
+    "cupy",
     "ncempy",
     "skimage",
     "colormap",
-    "numpy",
-    "scipy",
-    "matplotlib",
-    "numba",
-    "sklearn",
-    "mpl_toolkits",
-    "scipy.constants",
     "physcon",
     "ipywidgets",
-    "PySimpleGUI",
     "tifffile",
 ]
 
@@ -86,3 +92,19 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 master_doc = "index"
+
+
+autodoc_default_options = {
+    "members": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
+}
+
+
+def skip(app, what, name, obj, would_skip, options):
+    if name == "__init__":
+        return False
+    return would_skip
+
+def setup(app):
+    app.connect("autodoc-skip-member", skip)
