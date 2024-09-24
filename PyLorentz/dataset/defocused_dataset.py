@@ -14,6 +14,7 @@ from PyLorentz.visualize import show_im
 from .base_dataset import BaseDataset
 import copy
 
+
 class DefocusedDataset(BaseDataset):
     """
     A dataset class for handling defocused images and related metadata.
@@ -124,9 +125,7 @@ class DefocusedDataset(BaseDataset):
                 elif isinstance(metadata, (os.PathLike, str)):
                     mdata_l = read_json(metadata)
                 else:
-                    raise ValueError(
-                        f"metadata must be dict or PathLike, not {type(metadata)}"
-                    )
+                    raise ValueError(f"metadata must be dict or PathLike, not {type(metadata)}")
                 mdata = mdata | mdata_l  # combine, json values prioritized
 
         defvals = kwargs.pop("defvals", mdata.get("defocus_values"))
@@ -243,9 +242,7 @@ class DefocusedDataset(BaseDataset):
 
         if self._transforms["rotation"] != 0:
             for a0 in tqdm(range(len(images)), disable=self._verbose < 1):
-                images[a0] = ndi.rotate(
-                    images[a0], self._transforms["rotation"], reshape=False
-                )
+                images[a0] = ndi.rotate(images[a0], self._transforms["rotation"], reshape=False)
         top = self._transforms["top"]
         bottom = self._transforms["bottom"]
         left = self._transforms["left"]
@@ -319,15 +316,41 @@ class DefocusedDataset(BaseDataset):
         Args:
             idx (int): Index of the image to display.
         """
+        if len(self) > 1:
+            title = kwargs.pop(
+                "title",
+                f"index {idx} / {len(self)-1} | defocus: {self._fmt_defocus(self.defvals[idx])}",
+            )
+        else:
+            title = kwargs.pop("title", f"defocus: {self._fmt_defocus(self.defvals[idx])}")
         show_im(
             self.images[idx],
             scale=kwargs.pop("scale", self.scale),
-            title=kwargs.pop(
-                "title", f"defocus: {self._fmt_defocus(self.defvals[idx])}"
-            ),
+            title=title,
             cbar=kwargs.pop("cbar", False),
             **kwargs,
         )
+
+    def show_all(self, **kwargs) -> None:
+        """
+        Display all images.
+
+        Args:
+            idx (int): Index of the image to display.
+        """
+        ncols = len(self)
+        if ncols == 1:
+            self.show_im(**kwargs)
+        else:
+            fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(2 * ncols, 2))
+            for a0, df in enumerate(self.defvals):
+                show_im(
+                    self.images[a0],
+                    figax=(fig, axs[a0]),
+                    title=f"{self._fmt_defocus(df)}",
+                    simple=True,
+                    **kwargs,
+                )
 
     def filter(
         self,
@@ -377,9 +400,7 @@ class DefocusedDataset(BaseDataset):
             )
 
         if show:
-            fig, axs = plt.subplots(
-                ncols=3, nrows=len(indices), figsize=(12, 4 * len(indices))
-            )
+            fig, axs = plt.subplots(ncols=3, nrows=len(indices), figsize=(12, 4 * len(indices)))
             if len(indices) == 1:
                 axs = [axs]
             for a0 in range(len(indices)):
