@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["PyLorentz"]
+
+
+[project]
+name="PyLorentz"
+version='1.0.1'
+description="A codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data"
+authors=[
+    {name = "Arthur R. C. McCray", email = "amccray@stanford.edu"}
+]
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+dependencies=[
+    "numpy",
+    "scipy",
+    "numba",
+    "ipympl",
+    "jupyter",
+    "scikit-image",
+    "matplotlib",
+    "ncempy",
+    "colorcet",
+    "black",
+    "tqdm",
+]
+readme = 'README.md'
+keywords = ["LTEM", "Lorentz", "TEM", "magnetism"]
+
+[project.optional-dependencies]
+gpu= [
+    "pytorch",
+    "cupy",
+]
+
+[project.urls]
+Documentation = "https://pylorentztem.readthedocs.io"
+Repository = "https://github.com/PyLorentz/PyLorentz"
