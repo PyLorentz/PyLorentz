@@ -16,7 +16,8 @@ import logging
 from sphinx.ext.autodoc import between
 
 
-# sys.path.insert(0, os.path.abspath('../../PyLorentz/PyTIE'))
+sys.path.insert(0, os.path.abspath('../../'))
+sys.path.insert(0, os.path.abspath('../../PyLorentz/'))
 # from PyLorentz.dataset import base_dataset, defocused_dataset, through_focal_series
 # from PyLorentz.utils import Microscope
 
