@@ -2,7 +2,7 @@
 
 
 # PyLorentz
-PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are three primary features and functions: 
+PyLorentz is a codebase designed for analyzing Lorentz Transmission Electron Microscopy (LTEM) data. There are two primary features and functions: 
 
 - Phase reconstruction: Reconstructing the electron phase shift from LTEM images using either the transport of intensity equation (TIE) or automatic differentiation (AD) based methods
 - SimLTEM: Simulating the electron phase shift and LTEM images from a given magnetization configuration, such as that created by micromagnetic simulations.
@@ -26,15 +26,13 @@ For full documentation please check out our documentation pages: [![Documentatio
 
 ### LTEM Image Simulation
 
-* Calculate electron phase shift through samples of a given magnetization, e.g. from a micromagnetics simulation, using either the Mansuripur algorithm or linear superposition method.
+* Calculate electron phase shifts through a sample with an arbitrary magnetization, e.g. from a micromagnetics simulation, using either the Mansuripur algorithm or linear superposition method.
 * Simulate LTEM images from these phase shifts and reconstruct the magnetic induction for comparison with experimental results.
 
 
 # Getting Started
 
 PyLorentz is not (yet) hosted on PyPI or conda-forge, and we therefore recommend performing a local install in a virtual environment. First, either clone or download the PyLorentz code from GitHub, and then in a Conda terminal: 
-
-Several standard packages are required which can be installed with conda or pip. Environment.yml files are included in the /envs/ folder. Select the appropriate file for your system and create the environment from a command line with 
 ```
 conda create -n pylorentz
 conda activate pylorentz
@@ -54,9 +52,7 @@ We recommend running the demonstration notebooks provided in the ``/Examples/`` 
 
 # Citing
 
-If you use PyLorentz in your work, please cite our relevant paper(s). If you used PyLorentz for LTEM image simulations or TIE/SITIE reconstructions, please cite our [2019 paper](https://doi.org/10.1103/PhysRevApplied.15.044025).
-
-If you used SIPRAD or AD based phase reconstructions, please cite our [2024 paper](https://doi.org/10.1038/s41524-024-01285-8). 
+If you use PyLorentz in your work, please cite our relevant paper(s). If you used PyLorentz for LTEM image simulations or TIE/SITIE reconstructions, please cite our [2021 paper](https://doi.org/10.1103/PhysRevApplied.15.044025). If you used SIPRAD or AD based phase reconstructions, please cite our [2024 paper](https://doi.org/10.1038/s41524-024-01285-8). 
 
 @article{PhysRevApplied.15.044025,  
   title = {Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron Microscopy},  
@@ -69,9 +65,8 @@ If you used SIPRAD or AD based phase reconstructions, please cite our [2024 pape
   year = {2021},
   publisher = {American Physical Society},  
   doi = {10.1103/PhysRevApplied.15.044025},  
-  url = {https://link.aps.org/doi/10.1103/PhysRevApplied.15.044025}  
+  url = {https://link.aps.org/doi/10.1103/PhysRevApplied.15.044025 }  
 }  
-
 
 
 @article{npjCompMat.10.111,  
@@ -84,7 +79,7 @@ If you used SIPRAD or AD based phase reconstructions, please cite our [2024 pape
   year={2024},  
   publisher={Nature Publishing Group UK London},  
   doi = {10.1038/s41524-024-01285-8},  
-  url = {https://www.nature.com/articles/s41524-024-01285-8}  
+  url = {https://www.nature.com/articles/s41524-024-01285-8 }  
 }
 
 # License
