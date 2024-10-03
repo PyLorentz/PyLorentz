@@ -3,7 +3,7 @@ How to cite, licensing, and acknowledgements
 
 **How to cite**
 
-If you use PyLorentz in your work, please cite our relevant paper(s). If you used PyLorentz for LTEM image simulations or TIE/SITIE reconstructions, please cite our `2019 paper <https://doi.org/10.1103/PhysRevApplied.15.044025>`_:
+If you use PyLorentz in your work, please cite our relevant paper(s). If you used PyLorentz for LTEM image simulations or TIE/SITIE reconstructions, please cite our `2021 paper <https://doi.org/10.1103/PhysRevApplied.15.044025>`_:
 
         McCray, A. R. C., Cote, T., Li, Y., Petford-Long, A. K. & Phatak, C. Understanding Complex Magnetic Spin Textures with Simulation-Assisted Lorentz Transmission Electron
         Microscopy. Phys. Rev. Appl. 15, 044025 (2021).
