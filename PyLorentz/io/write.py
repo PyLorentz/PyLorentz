@@ -131,9 +131,8 @@ def prep_dict_for_json(d: any):
             for i in range(len(val)):
                 val[i] = _json_serializable(val[i])
             return val
-        # elif isinstance(val, dict): # causes dict -> null?
-        #     for key, v2 in val.items():
-        #         val[key] = _json_serializable(v2)
+        elif isinstance(val, dict): #
+            return prep_dict_for_json(val)
         # elif: ## as things come up will need to add
         else:
             return val
