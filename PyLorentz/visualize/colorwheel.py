@@ -118,7 +118,8 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
     elif isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(cmap, colors.ListedColormap):
         return cmap
     elif isinstance(cmap, str):
-        cmap = cmap.lower()
+        if not cmap in plt.colormaps():
+            cmap = cmap.lower()
     else:
         raise TypeError(f"Unknown input type {type(cmap)}, please input a matplotlib colormap or valid string")
 
