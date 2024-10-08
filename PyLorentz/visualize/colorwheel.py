@@ -126,7 +126,7 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
     shift = kwargs.get("shift", 0)
     invert = kwargs.get("invert", False)
     try:
-        if cmap in ["linear", "lin", ""]:
+        if cmap in ["linear", "lin", "", "default"]:
             cmap = plt.get_cmap("gray")
         elif cmap in ["diverging", "div"]:
             cmap = plt.get_cmap("coolwarm")
@@ -161,8 +161,8 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
         else:
             print(f"Unknown colormap input '{cmap}'.")
             print("You can also pass a colormap object directly.")
-            print("Proceeding with default cc.cm.CET_C7.")
-            cmap = cc.cm.CET_C7
+            print("Proceeding with default gray.")
+            cmap = plt.get_cmap("gray")
     except NameError:
         print("Colorcet not installed, proceeding with hsv from mpl")
         cmap = plt.get_cmap("hsv")
