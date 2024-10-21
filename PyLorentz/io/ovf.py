@@ -130,11 +130,11 @@ def read_ovf(file=None, mode="norm", B0=1e4, v=1):
     elif dtype == "bin4":
         # for binaries it has to give count or else will take comments at end as well
         data = np.fromfile(
-            file, dtype="f", count=xsize * ysize * zsize * 3, offset=header_length + 4
+            file, dtype="d", count=xsize * ysize * zsize * 3, offset=header_length + 4
         )
     elif dtype == "bin8":
         data = np.fromfile(
-            file, dtype="f", count=xsize * ysize * zsize * 3, offset=header_length + 8
+            file, dtype="d", count=xsize * ysize * zsize * 3, offset=header_length + 8
         )
     else:
         print("Unkown datatype given. Exiting.")
