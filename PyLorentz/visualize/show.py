@@ -157,7 +157,7 @@ def show_im(
             if origin == "lower":
                 yticks = yticks[1:]
             ax.set_yticks(yticks - 0.5)
-            ylabs, unit = tick_label_formatter(yticks, fov_y, scale, kwargs.get("scale_units"))
+            ylabs, unit = tick_label_formatter(yticks, fov_y, scale, kwargs.get("scale_units", "nm"))
             ax.set_yticklabels(ylabs)
 
             ticks_label = unit
@@ -167,7 +167,7 @@ def show_im(
             floor_fov_x = np.floor(fov_x / 10**nround_x) * 10**nround_x
             xticks = np.linspace(0, floor_fov_x / scale, int(num_ticks_x))[1:]
             ax.set_xticks(xticks - 0.5)
-            xlabs, unit = tick_label_formatter(xticks, fov_y, scale, kwargs.get("scale_units"))
+            xlabs, unit = tick_label_formatter(xticks, fov_y, scale, kwargs.get("scale_units", "nm"))
             ax.set_xticklabels(xlabs)
 
         if kwargs.pop("ticks_label_off", False):
@@ -401,7 +401,7 @@ def show_im_peaks(
 
 
 def tick_label_formatter(
-    ticks: np.ndarray, fov: float, scale: float, scale_units: Optional[str] = None
+    ticks: np.ndarray, fov: float, scale: float, scale_units: str = None
 ) -> Tuple[List[str], str]:
     """
     Format tick labels for display.
@@ -417,7 +417,7 @@ def tick_label_formatter(
     """
     labels = None
     unit = None
-    if scale_units is None:
+    if scale_units is None or scale_units == "nm":
         if fov < 4:  # if fov < 4 nm use A scale
             unit = r"  Å  "  # extra spaces to pad away from ticks
             ticks *= 10
@@ -431,11 +431,16 @@ def tick_label_formatter(
             ticks /= 1e9
     else:
         unit = scale_units
-        return ticks, unit
 
     labels = [
         f"{v:.0f}" if v > 10 else f"{v:.0f}" if v == 0 else f"{v:.2f}" for v in ticks * scale
     ]
+
+    # TODO make centered 0, 0 in middle of frame. origin = "middle" option?
+    # if isinstance(scale_units, str):
+    #     if "rad" in scale_units.lower():
+    #         labels
+
     return labels, unit
 
 
