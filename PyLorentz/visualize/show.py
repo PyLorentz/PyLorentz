@@ -7,7 +7,7 @@ import numpy as np
 import skimage
 from ipywidgets import interact
 
-from PyLorentz.visualize.colorwheel import get_cmap
+from PyLorentz.visualize.colorwheel import get_cmap, shift_cmap_center
 
 # warnings.filterwarnings("error")  # plt.tight_layout() sometimes throws a UserWarning
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -85,8 +85,6 @@ def show_im(
         else:
             fig, ax = plt.subplots(figsize=size)
 
-    cmap = get_cmap(cmap, **kwargs)
-
     if intensity_range.lower() in ["minmax", "abs", "absolute"]:
         vmin = kwargs.get("vmin", None)
         vmax = kwargs.get("vmax", None)
@@ -98,6 +96,10 @@ def show_im(
                 vmin = np.min(image) - 1e-12
             if vmax is None:
                 vmax = np.max(image) + 1e-12
+        else:
+            vmin = np.min(image) if vmin is None else vmin
+            vmax = np.max(image) if vmax is None else vmax
+
     elif intensity_range.lower() == "ordered":
         vmin = kwargs.get("vmin", 0.01)
         vmax = kwargs.get("vmax", 0.99)
@@ -112,6 +114,10 @@ def show_im(
             print("vmax = vmin, setting intensity range to full")
             vmin = vals[0]
             vmax = vals[-1]
+
+    cmap = get_cmap(cmap, **kwargs)
+    if kwargs.get("cmap_midpoint") is not None:
+        cmap = shift_cmap_center(cmap, midpointval=kwargs.get("cmap_midpoint"), vmin=vmin, vmax=vmax)
 
     im = ax.matshow(image, origin=origin, vmin=vmin, vmax=vmax, cmap=cmap)
 
