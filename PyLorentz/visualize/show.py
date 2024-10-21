@@ -7,7 +7,7 @@ import numpy as np
 import skimage
 from ipywidgets import interact
 
-from PyLorentz.visualize.colorwheel import get_cmap
+from PyLorentz.visualize.colorwheel import get_cmap, shift_cmap_center
 
 # warnings.filterwarnings("error")  # plt.tight_layout() sometimes throws a UserWarning
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -85,16 +85,21 @@ def show_im(
         else:
             fig, ax = plt.subplots(figsize=size)
 
-    cmap = get_cmap(cmap, **kwargs)
-
-    if intensity_range.lower() == "minmax":
+    if intensity_range.lower() in ["minmax", "abs", "absolute"]:
         vmin = kwargs.get("vmin", None)
         vmax = kwargs.get("vmax", None)
-        if (not cbar and np.ptp(image) < 1e-12) or (np.ptp(image) < 1e-15):
+        vm_check = not cbar and np.ptp(image) < 1e-12
+        ptp_check = np.ptp(image) < 1e-15
+        mode_check = intensity_range.lower() == "minmax"
+        if (vm_check or ptp_check) and mode_check:
             if vmin is None:
                 vmin = np.min(image) - 1e-12
             if vmax is None:
                 vmax = np.max(image) + 1e-12
+        else:
+            vmin = np.min(image) if vmin is None else vmin
+            vmax = np.max(image) if vmax is None else vmax
+
     elif intensity_range.lower() == "ordered":
         vmin = kwargs.get("vmin", 0.01)
         vmax = kwargs.get("vmax", 0.99)
@@ -110,13 +115,17 @@ def show_im(
             vmin = vals[0]
             vmax = vals[-1]
 
+    cmap = get_cmap(cmap, **kwargs)
+    if kwargs.get("cmap_midpoint") is not None:
+        cmap = shift_cmap_center(cmap, midpointval=kwargs.get("cmap_midpoint"), vmin=vmin, vmax=vmax)
+
     im = ax.matshow(image, origin=origin, vmin=vmin, vmax=vmax, cmap=cmap)
 
     if title is not None:
         ax.set_title(str(title), fontsize=kwargs.pop("title_fontsize", 12))
 
     if simple or kwargs.pop("ticks_off", False):
-        if title is not None or cbar or kwargs.get("show_bbox", True):
+        if (title is not None or cbar) or (kwargs.get("show_bbox", False) or not save):
             ax.set_xticks([])
             ax.set_yticks([])
         else:
@@ -130,8 +139,9 @@ def show_im(
                 spine.set_visible(False)
         ax.xaxis.tick_bottom()
         ax.tick_params(direction=kwargs.get("tick_direction", "out"))
-        if scale is None:
-            ticks_label = "pixels"
+        # if scale is None:
+        if not isinstance(scale, (float, int)):
+            ticks_label = kwargs.get("scale_units", "pixels")
         else:
             ax_ysize_inch = ax.get_position().height * fig.get_size_inches()[1]
             ax_xsize_inch = ax.get_position().width * fig.get_size_inches()[0]
@@ -217,10 +227,10 @@ def show_im(
             plt.savefig(save, dpi=dpi, bbox_inches="tight")
 
     if figax is None:
-        try:
-            plt.tight_layout()
-        except (UserWarning, RuntimeWarning):
-            pass
+        # try:
+        #     plt.tight_layout()
+        # except (UserWarning, RuntimeWarning):
+        #     pass
         plt.show()
 
 
@@ -369,7 +379,7 @@ def show_im_peaks(
             c=kwargs.get("color1", "r"),
             alpha=kwargs.get("alpha", 0.9),
             ms=kwargs.get("ms", None),
-            marker="o",
+            marker=kwargs.get("marker", "o"),
             fillstyle="none",
             linestyle="none",
         )
@@ -383,7 +393,7 @@ def show_im_peaks(
             c=kwargs.get("color2", "b"),
             alpha=kwargs.get("alpha", 0.9),
             ms=kwargs.get("ms", None),
-            marker="o",
+            marker=kwargs.get("marker", "o"),
             fillstyle="none",
             linestyle="none",
         )

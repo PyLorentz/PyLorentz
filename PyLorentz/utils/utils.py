@@ -4,40 +4,18 @@ import numpy as np
 from scipy.signal.windows import tukey
 
 
-def dist4(dim, norm=False) -> np.ndarray:
+
+def dist4(dim, shifted=True) -> np.ndarray:
     """
     4-fold symmetric distance map (center is 0) even at small radii
+    centered in the middle (i.e. fft shifted) by default
     """
-    if dim % 2 == 0:
-        d2 = dim // 2
-        a = np.arange(d2)
-        b = np.arange(d2)
-        if norm:
-            a = a / (2 * d2)
-            b = b / (2 * d2)
-        x, y = np.meshgrid(a, b)
-        quarter = np.sqrt(x**2 + y**2)
-        dist = np.zeros((dim, dim))
-        dist[d2:, d2:] = quarter
-        dist[d2:, :d2] = np.fliplr(quarter)
-        dist[:d2, d2:] = np.flipud(quarter)
-        dist[:d2, :d2] = np.flipud(np.fliplr(quarter))
-    else:
-        d2 = dim // 2 + 1
-        a = np.arange(d2)
-        b = np.arange(d2)
-        if norm:
-            a = a / (2 * d2)
-            b = b / (2 * d2)
-        x, y = np.meshgrid(a, b)
-        quarter = np.sqrt(x**2 + y**2)
-        dist = np.zeros((dim, dim))
-        dist[d2 - 1 :, d2 - 1 :] = quarter
-        dist[d2 - 1 :, :d2] = np.fliplr(quarter)
-        dist[:d2, d2 - 1 :] = np.flipud(quarter)
-        dist[:d2, :d2] = np.flipud(np.fliplr(quarter))
-    return dist
-
+    d = np.fft.fftfreq(dim, 1/dim)
+    d = np.abs(d + 0.5)-0.5 if dim % 2 == 0 else d
+    if shifted:
+        d = np.fft.fftshift(d)
+    rr = np.sqrt(d[None,]**2 + d[...,None]**2)
+    return rr
 
 def circ4(dim: int, rad: float):
     """4-fold symmetric circle even at small dimensions"""

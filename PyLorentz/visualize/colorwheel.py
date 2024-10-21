@@ -118,14 +118,15 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
     elif isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(cmap, colors.ListedColormap):
         return cmap
     elif isinstance(cmap, str):
-        cmap = cmap.lower()
+        if not cmap in plt.colormaps():
+            cmap = cmap.lower()
     else:
         raise TypeError(f"Unknown input type {type(cmap)}, please input a matplotlib colormap or valid string")
 
     shift = kwargs.get("shift", 0)
     invert = kwargs.get("invert", False)
     try:
-        if cmap in ["linear", "lin", ""]:
+        if cmap in ["linear", "lin", "", "default"]:
             cmap = plt.get_cmap("gray")
         elif cmap in ["diverging", "div"]:
             cmap = plt.get_cmap("coolwarm")
@@ -160,8 +161,8 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
         else:
             print(f"Unknown colormap input '{cmap}'.")
             print("You can also pass a colormap object directly.")
-            print("Proceeding with default cc.cm.CET_C7.")
-            cmap = cc.cm.CET_C7
+            print("Proceeding with default gray.")
+            cmap = plt.get_cmap("gray")
     except NameError:
         print("Colorcet not installed, proceeding with hsv from mpl")
         cmap = plt.get_cmap("hsv")
@@ -505,32 +506,17 @@ def make_colorwheelz(
                 imrgb[:, :, i] = 1 - (1 - imrgb[:, :, i]) * mask
     return imrgb
 
-def dist4(dim: int, norm: bool = False) -> np.ndarray:
+def dist4(dim, shifted=True) -> np.ndarray:
     """
-    Radial distance map that is 4-fold symmetric even at small sizes.
-
-    Args:
-        dim (int): Desired dimension of output.
-        norm (bool, optional): Normalize maximum of output to 1. Defaults to False.
-
-    Returns:
-        np.ndarray: 2D (dim, dim) array.
+    4-fold symmetric distance map (center is 0) even at small radii
+    centered in the middle (i.e. fft shifted) by default
     """
-    d2 = dim // 2
-    a = np.arange(d2)
-    b = np.arange(d2)
-    if norm:
-        a = a / (2 * d2)
-        b = b / (2 * d2)
-    x, y = np.meshgrid(a, b)
-    quarter = np.sqrt(x**2 + y**2)
-    sym_dist = np.zeros((dim, dim))
-    sym_dist[d2:, d2:] = quarter
-    sym_dist[d2:, :d2] = np.fliplr(quarter)
-    sym_dist[:d2, d2:] = np.flipud(quarter)
-    sym_dist[:d2, :d2] = np.flipud(np.fliplr(quarter))
-    return sym_dist
-
+    d = np.fft.fftfreq(dim, 1/dim)
+    d = np.abs(d + 0.5)-0.5 if dim % 2 == 0 else d
+    if shifted:
+        d = np.fft.fftshift(d)
+    rr = np.sqrt(d[None,]**2 + d[...,None]**2)
+    return rr
 
 def _white_to_transparent(image, magz=None):
     rgba_image = np.ones((image.shape[0], image.shape[1], 4), dtype=float)
