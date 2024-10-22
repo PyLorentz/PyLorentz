@@ -1,17 +1,21 @@
+from typing import TYPE_CHECKING, List, Optional, Union
+
 import numpy as np
-import skimage
-from skimage import exposure
-from skimage.restoration import estimate_sigma
 from scipy import ndimage as ndi
 from scipy import stats
+from skimage import exposure
+from skimage.restoration import estimate_sigma
 from skimage.util import random_noise as skrandom_noise
+
 try:
     import torch
 except (ImportError, ModuleNotFoundError) as e:
     torch = np
-    torch.Tensor = None
+if TYPE_CHECKING:
+    from torch import Tensor
+else:
+    Tensor = None
 from pathlib import Path
-from typing import Optional, Union
 
 
 class ImageNoiser:
@@ -54,7 +58,7 @@ class ImageNoiser:
             np.random.seed(seed)
         self.seed = seed
 
-    def run(self, image: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+    def run(self, image: Union[np.ndarray, Tensor]) -> Union[np.ndarray, Tensor]:
         """
         Apply the specified noising steps to the image.
 
@@ -241,7 +245,7 @@ class ImageNoiser:
 
 
 def get_percent_noise(
-    noisy: Union[np.ndarray, torch.Tensor], truth: Optional[np.ndarray] = None
+    noisy: Union[np.ndarray, Tensor], truth: Optional[np.ndarray] = None
 ) -> float:
     """
     Calculate the percent noise in the image.

@@ -2,7 +2,7 @@ import os
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,11 +12,8 @@ try:
     import torch
     import torch.nn.functional as F
     import torchvision.transforms as TvT
-
-    # from torch import Tensor
 except (ModuleNotFoundError, ImportError) as e:
     torch = None
-    # Tensor = None
 
 if TYPE_CHECKING:
     from torch import Tensor
