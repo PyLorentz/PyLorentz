@@ -2,7 +2,7 @@ import os
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Union, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,8 +12,17 @@ try:
     import torch
     import torch.nn.functional as F
     import torchvision.transforms as TvT
+
+    # from torch import Tensor
 except (ModuleNotFoundError, ImportError) as e:
     torch = None
+    # Tensor = None
+
+if TYPE_CHECKING:
+    from torch import Tensor
+else:
+    Tensor = None
+
 
 from matplotlib.ticker import FormatStrFormatter
 from torch import nn
@@ -105,18 +114,18 @@ class ADPhase(BasePhaseReconstruction):
         self._scheduler_type = scheduler_type
 
         # to be set later:
-        self._guess_phase: Optional[torch.Tensor] = None
+        self._guess_phase: Optional[Tensor] = None
         self._runtype: Optional[str] = None
-        self._recon_amp: Optional[torch.Tensor] = None
-        self._recon_phase: Optional[torch.Tensor] = None
+        self._recon_amp: Optional[Tensor] = None
+        self._recon_phase: Optional[Tensor] = None
         self._use_DIP: Optional[bool] = None
         self._solve_amp: Optional[bool] = None
         self._solve_amp_scale: Optional[bool] = None
-        self._best_phase: Optional[torch.Tensor] = None
-        self._best_amp: Optional[torch.Tensor] = None
+        self._best_phase: Optional[Tensor] = None
+        self._best_amp: Optional[Tensor] = None
         self._best_iter: Optional[int] = None
-        self._phase_iterations: List[torch.Tensor] = []
-        self._amp_iterations: List[torch.Tensor] = []
+        self._phase_iterations: List[Tensor] = []
+        self._amp_iterations: List[Tensor] = []
         self.phase_iterations: Optional[np.ndarray] = None
         self.amp_iterations: Optional[np.ndarray] = None
         self.loss_iterations = []
@@ -233,22 +242,22 @@ class ADPhase(BasePhaseReconstruction):
             return None
 
     @property
-    def _TFs(self) -> torch.Tensor:
+    def _TFs(self) -> Tensor:
         """
         Returns the transfer functions.
 
         Returns:
-            torch.Tensor: Transfer functions.
+            Tensor: Transfer functions.
         """
         return self.transfer_functions
 
     @_TFs.setter
-    def _TFs(self, arr: Union[torch.Tensor, np.ndarray]) -> None:
+    def _TFs(self, arr: Union[Tensor, np.ndarray]) -> None:
         """
         Sets the transfer functions.
 
         Args:
-            arr (Union[torch.Tensor, np.ndarray]): Transfer functions array.
+            arr (Union[Tensor, np.ndarray]): Transfer functions array.
 
         Raises:
             AssertionError: If `arr` does not match expected shape.
@@ -315,6 +324,8 @@ class ADPhase(BasePhaseReconstruction):
                 ind = dev.index
             elif dev.type == "cuda":
                 self._device = dev
+            elif dev.type == "cpu":
+                self._device = dev
             else:
                 raise TypeError(
                     f"Unknown device type: {dev.type} This can likely be fixed easily."
@@ -339,45 +350,46 @@ class ADPhase(BasePhaseReconstruction):
         else:
             raise TypeError(f"Device should be int, str, or torch.device. Received {type(dev)}")
 
+    ## TODO FIND
     @property
-    def model_input(self) -> Optional[torch.Tensor]:
+    def model_input(self) -> Optional[Tensor]:
         """
         Returns the model input tensor.
 
         Returns:
-            Optional[torch.Tensor]: Model input tensor.
+            Optional[Tensor]: Model input tensor.
         """
         return self._model_input
 
     @model_input.setter
-    def model_input(self, arr: torch.Tensor) -> None:
+    def model_input(self, arr: Tensor) -> None:
         """
         Sets the model input tensor.
 
         Args:
-            arr (torch.Tensor): Input tensor to set.
+            arr (Tensor): Input tensor to set.
         """
         # set to tensor on device
         # make sure is same size as image
         return
 
     @property
-    def guess_phase(self) -> Optional[torch.Tensor]:
+    def guess_phase(self) -> Optional[Tensor]:
         """
         Returns the guess phase used to pre-train the DIP.
 
         Returns:
-            Optional[torch.Tensor]: Guess phase tensor.
+            Optional[Tensor]: Guess phase tensor.
         """
         return self._guess_phase
 
     @guess_phase.setter
-    def guess_phase(self, im: Union[np.ndarray, torch.Tensor]) -> None:
+    def guess_phase(self, im: Union[np.ndarray, Tensor]) -> None:
         """
         Sets the guess phase.
 
         Args:
-            im (Union[np.ndarray, torch.Tensor]): Guess phase image.
+            im (Union[np.ndarray, Tensor]): Guess phase image.
 
         Raises:
             ValueError: If `im` shape does not match input image shape.
@@ -392,22 +404,22 @@ class ADPhase(BasePhaseReconstruction):
         self._guess_phase = im
 
     @property
-    def guess_amp(self) -> Optional[torch.Tensor]:
+    def guess_amp(self) -> Optional[Tensor]:
         """
         Returns the guess amplitude used to pre-train the DIP or if `solve_amp` is False.
 
         Returns:
-            Optional[torch.Tensor]: Guess amplitude tensor.
+            Optional[Tensor]: Guess amplitude tensor.
         """
         return self._guess_amp
 
     @guess_amp.setter
-    def guess_amp(self, im: Union[np.ndarray, torch.Tensor]) -> None:
+    def guess_amp(self, im: Union[np.ndarray, Tensor]) -> None:
         """
         Sets the guess amplitude.
 
         Args:
-            im (Union[np.ndarray, torch.Tensor]): Guess amplitude image.
+            im (Union[np.ndarray, Tensor]): Guess amplitude image.
 
         Raises:
             ValueError: If `im` shape does not match input image shape.
@@ -422,22 +434,22 @@ class ADPhase(BasePhaseReconstruction):
         self._guess_amp = im
 
     @property
-    def input_DIP(self) -> Optional[torch.Tensor]:
+    def input_DIP(self) -> Optional[Tensor]:
         """
         Returns the noise used as input for one or both DIPs.
 
         Returns:
-            Optional[torch.Tensor]: Input noise tensor.
+            Optional[Tensor]: Input noise tensor.
         """
         return self._input_DIP
 
     @input_DIP.setter
-    def input_DIP(self, im: Union[np.ndarray, torch.Tensor]) -> None:
+    def input_DIP(self, im: Union[np.ndarray, Tensor]) -> None:
         """
         Sets the input noise for DIPs.
 
         Args:
-            im (Union[np.ndarray, torch.Tensor]): Input noise image.
+            im (Union[np.ndarray, Tensor]): Input noise image.
 
         Raises:
             ValueError: If `im` shape does not match input image shape.
@@ -537,6 +549,7 @@ class ADPhase(BasePhaseReconstruction):
         reset = True if len(self.loss_iterations) == 0 else reset
 
         if reset:
+            # pretty sure set_guess_phase is only relevant if not using DIP, but need to confirm
             self._set_guess_phase(guess_phase)
             self._set_guess_amp(guess_amp)
             self.loss_iterations = []
@@ -743,12 +756,12 @@ class ADPhase(BasePhaseReconstruction):
         else:
             raise NotImplementedError
 
-    def _sim_images(self) -> torch.Tensor:
+    def _sim_images(self) -> Tensor:
         """
         Simulate images from the current amplitude and phase reconstructions.
 
         Returns:
-            torch.Tensor: The simulated images.
+            Tensor: The simulated images.
         """
         obj_waves = (
             self._recon_amp
@@ -759,7 +772,9 @@ class ADPhase(BasePhaseReconstruction):
         images = torch.abs(img_waves) ** 2
         return images
 
-    def _compute_loss(self, return_seperate: bool = False) -> Union[torch.Tensor, tuple[torch.Tensor, Optional[torch.Tensor]]]:
+    def _compute_loss(
+        self, return_seperate: bool = False
+    ) -> Union[Tensor, tuple[Tensor, Optional[Tensor]]]:
         """
         Compute the loss for the current reconstruction.
 
@@ -767,7 +782,7 @@ class ADPhase(BasePhaseReconstruction):
             return_seperate (bool): Whether to return separate MSE and TV losses.
 
         Returns:
-            Union[torch.Tensor, tuple[torch.Tensor, Optional[torch.Tensor]]]: The total loss, and optionally the MSE and TV losses.
+            Union[Tensor, tuple[Tensor, Optional[Tensor]]]: The total loss, and optionally the MSE and TV losses.
         """
         guess_ims = self._sim_images()
         MSE_loss = torch.mean((guess_ims - self.inp_ims) ** 2)
@@ -785,12 +800,12 @@ class ADPhase(BasePhaseReconstruction):
             else:
                 return MSE_loss + TV_loss
 
-    def _calc_TV_loss_PBC(self) -> Optional[torch.Tensor]:
+    def _calc_TV_loss_PBC(self) -> Optional[Tensor]:
         """
         Calculate the total variation loss with periodic boundary conditions.
 
         Returns:
-            Optional[torch.Tensor]: The total variation loss.
+            Optional[Tensor]: The total variation loss.
         """
         assert self._recon_phase.ndim == 2 and self._recon_amp.ndim == 2
         dy, dx = self.shape
@@ -841,9 +856,204 @@ class ADPhase(BasePhaseReconstruction):
         Returns:
             float: The scale factor.
         """
-        return self.sample_params["dirt_V0"] * self.scope.sigma * self.sample_params["dirt_l0"] / (self.scope.W0)
+        return self.sample_params["dirt_V0"] * self.scope.sigma * self.sample_params["dirt_xip0"]
 
-    def show_final(self, crop: int=5, **kwargs) -> None:
+    def _pretrain_DIP(self, DIP_phase: nn.Module, DIP_amp: nn.Module | None):
+        """Perform the pre-training of the DIP model.
+
+        Args:
+            DIP_phase (nn.Module): Guess phase (also used as input) to train towards
+            DIP_amp (nn.Module | None): Guess amp (also used as input) to train towards
+        """
+        if self._num_pretrain_iter > 0:
+            self.vprint(f"Pre-training")
+            for _ in tqdm(range(self._num_pretrain_iter)):
+                loss = self._get_loss_pretrain(DIP_phase, DIP_amp)
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+            if self._verbose >= 2:
+                ph = DIP_phase.forward(self.input_DIP).squeeze().cpu().detach().numpy()
+                ph -= ph.min()
+                show_im(
+                    ph,
+                    title=f"Recon phase after pre-training DIP for {self._num_pretrain_iter} iters",
+                )
+                if self._solve_amp:
+                    show_im(
+                        DIP_amp.forward(self.input_DIP).squeeze().cpu().detach().numpy(),
+                        title=f"Recon amp after pre-training DIP for {self._num_pretrain_iter} iters",
+                    )
+
+    def _get_loss_pretrain(self, DIP_phase: nn.Module, DIP_amp: nn.Module | None):
+        """Helper function for `self._pretrain_DIP`"""
+        pred_phase = DIP_phase.forward(self.input_DIP).squeeze()
+        loss = torch.mean((pred_phase - self.guess_phase) ** 2)
+        if self._solve_amp:
+            pred_amp = DIP_amp.forward(self.input_DIP).squeeze()
+            loss += torch.mean((pred_amp - self.guess_amp) ** 2)
+        return loss
+
+    def _get_scheduler(self, **kwargs):
+        """Return a torch scheduler according to `self._scheduler_type`"""
+        mode = str(self._scheduler_type).lower()
+        LR = self.LRs["phase"]
+        if mode == "none":
+            scheduler = None
+        elif mode == "cyclic":
+            scheduler = torch.optim.lr_scheduler.CyclicLR(
+                self.optimizer,
+                base_lr=kwargs.get("scheduler_base_lr", LR / 4),
+                max_lr=kwargs.get("scheduler_max_lr", LR * 4),
+                step_size_up=kwargs.get("scheduler_step_size_up", 100),
+                mode=kwargs.get("scheduler_mode", "triangular2"),
+                cycle_momentum=kwargs.get("scheduler_momentum", False),
+            )
+        elif mode.startswith("plat"):
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode="min",
+                factor=kwargs.get("scheduler_factor", 0.75),
+                patience=kwargs.get("scheduler_patience", 100),
+                threshold=kwargs.get("scheduler_threshold", 1e-4),
+                min_lr=kwargs.get("scheduler_min_lr", LR / 20),
+            )
+        elif mode in ["exp", "gamma"]:
+            gamma = kwargs.get("scheduler_gamma", 0.9997)
+            scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=gamma)
+        else:
+            raise ValueError(f"Unknown scheduler type: {mode}")
+        return scheduler
+
+    def _set_guess_amp(self, guess_amp=None):
+        """Setting the guess amplitude used in AD reconstruction (no DIP?)"""
+        if isinstance(guess_amp, (np.ndarray, torch.Tensor)):
+            self.guess_amp = guess_amp
+        else:
+            im = self.dd.images[len(self.dd) // 2]
+            if isinstance(guess_amp, (float, int)):
+                thresh = guess_amp  # TODO update this to be percent saturated?
+                guess_amp = np.where(im >= thresh, 1, 0).astype(np.float32)
+            elif self._solve_amp:
+                thresh = im.min() + np.ptp(im) / 10
+                guess_amp = np.where(im >= thresh, 1, 0).astype(np.float32)
+            else:
+                guess_amp = np.ones_like(im).astype(np.float32)
+            guess_amp *= np.sqrt(im.mean())
+            guess_amp = torch.tensor(guess_amp, device=self.device, dtype=torch.float32)
+            self.guess_amp = guess_amp
+
+    def _set_guess_phase(self, guess_phase: str):
+        """Setting the guess phase used in AD reconstruction (no DIP?)"""
+        guess_phase = guess_phase.lower()
+        if guess_phase == "none":
+            guess_phase = None
+            self._num_pretrain_iter = 0
+            return
+        elif guess_phase == "uniform":
+            guess_phase = np.zeros(self.shape)
+        elif guess_phase == "sitie":
+            sitie = SITIE(self.dd, verbose=0)
+            sitie.reconstruct(qc=self._qc)
+            if self._verbose >= 2:
+                print("SITIE guess phase:")
+                sitie.visualize(cbar=True)
+            guess_phase = sitie.phase_B
+        self.guess_phase = torch.tensor(guess_phase, dtype=torch.float32)
+        return
+
+    def _set_input_DIP(self, input_mode: str = "SITIE", guess_phase=None):
+        """
+        Generate the input to the DIP. Currently only a SITIE is available as that is frankly the
+        best option, but this could be easily expanded to using input noise (like for a traditional
+        DIP) or really anything
+        """
+        # TODO test/have various options here, but SITIE is definitely best
+        # inp_noise = self._rng.random((1, *self.shape)) * 2 - 1
+        # inp_noise = self._rng.random((1, *self.shape)) * 2 - 1
+        # self.input_DIP = torch.tensor(
+        #     inp_noise, device=self.device, dtype=torch.float32, requires_grad=False
+        # )
+        if guess_phase is None:
+            if input_mode.lower() == "sitie":
+                sitie = SITIE(self.dd, verbose=0)
+                sitie.reconstruct(qc=self._qc)
+                guess_phase = sitie.phase_B
+            elif input_mode.lower() in ["random", "rand"]:
+                guess_phase = self._rng.random(self.shape) * 2 - 1
+            else:
+                raise ValueError(
+                    f"Input mode should be 'SITIE' or 'random', unknown mode {input_mode}"
+                )
+        else:
+            guess_phase = np.squeeze(guess_phase)
+
+        self._input_DIP = torch.tensor(
+            guess_phase[None, ...], device=self.device, dtype=torch.float32, requires_grad=False
+        )
+
+    def get_TFs(self):
+        """
+        Returns a tensor containing the transfer functions according to self.scope and self.defavls
+        """
+        tfs = np.array([self._get_TF(df) for df in self.defvals])
+        return torch.tensor(tfs, device=self.device, dtype=torch.complex64)
+
+    def _get_TF(self, defocus):
+        """Returns a single transfer function for a given defocus value in nm"""
+        self.scope.defocus = defocus
+        return self.scope.get_transfer_function(self.scale, self.shape)
+
+    def show_best(self, crop=5, **kwargs):
+        minloss_iter = self._best_iter  # np.argmin(self.loss_iterations)
+        ph = self.best_phase
+        By, Bx = self.induction_from_phase(ph)
+        if crop > 0:
+            crop = int(crop)
+            ph = ph[crop:-crop, crop:-crop]
+            Bx = Bx[crop:-crop, crop:-crop]
+            By = By[crop:-crop, crop:-crop]
+
+        if self._solve_amp:
+            fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
+            show_im(
+                ph,
+                title=f"best phase: iter {minloss_iter} / {len(self.loss_iterations)}",
+                figax=(fig, axs[0]),
+                cbar_title="rad",
+            )
+            show_2D(
+                Bx,
+                By,
+                title=f"Best B: iter {minloss_iter} / {len(self.loss_iterations)}",
+                figax=(fig, axs[1]),
+            )
+            show_im(
+                self.best_amp,
+                title=f"best amp: iter {minloss_iter} / {len(self.loss_iterations)}",
+                figax=(fig, axs[2]),
+            )
+            plt.tight_layout()
+            plt.show()
+        else:
+            fig, axs = plt.subplots(ncols=2, figsize=(8, 4))
+            show_im(
+                ph,
+                title=f"best phase: iter {minloss_iter} / {len(self.loss_iterations)}",
+                scale=self.scale,
+                cbar_title="rad",
+                figax=(fig, axs[0]),
+            )
+            show_2D(
+                Bx,
+                By,
+                title=f"Best B: iter {minloss_iter} / {len(self.loss_iterations)}",
+                figax=(fig, axs[1]),
+            )
+            plt.tight_layout()
+            plt.show()
+
+    def show_final(self, crop: int = 5, **kwargs) -> None:
         """Show the phase and induction of the final iteration.
 
         Args:
@@ -955,12 +1165,12 @@ class ADPhase(BasePhaseReconstruction):
 
     def save_results(
         self,
-        iter_ind: int=None,
+        iter_ind: int = None,
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
         overwrite: bool = False,
     ):
-        """        Save the recontructed phase, Bx, By, and color images.
+        """Save the recontructed phase, Bx, By, and color images.
         # TODO add saving amplitude and phase_E
 
 
@@ -1002,7 +1212,6 @@ class ADPhase(BasePhaseReconstruction):
         self.save_dir.mkdir(exist_ok=True)
         self._save_keys(list(results.keys()), self.defvals[0], overwrite, res_dict=results)
         self._save_log(overwrite)
-
 
     def _save_log(self, overwrite: Optional[bool] = None):
         """
