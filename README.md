@@ -48,7 +48,7 @@ If you have a GPU and want to use the AD-enabled phase retrival or accelerate th
 
 ## Demos and example data
 
-We recommend running the demonstration notebooks provided in the ``/Examples/`` directory, which are designed to run with example data that can be [downloaded from Zenodo](10.5281/zenodo.13147847). This includes both experimental and simulated data for phase reconstructions and LTEM image simulations. 
+We recommend running the demonstration notebooks provided in the ``/Examples/`` directory, which are designed to run with example data that can be [downloaded from Zenodo](https://zenodo.org/records/13147848). This includes both experimental and simulated data for phase reconstructions and LTEM image simulations. 
 
 # Citing
 
