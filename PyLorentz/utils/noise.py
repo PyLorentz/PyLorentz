@@ -19,8 +19,8 @@ class ImageNoiser:
     Applies a sequence of image noising steps to an image(s).
 
     Attributes:
+        poisson (float): Total counts/intensity across the image.
         gauss (float): Percent noise value, ~20.
-        poisson (float): Noise level, ~0.3-0.5.
         salt_and_pepper (float): Salt and pepper noise amount, ~50.
         blur (float): Sigma value (pixels), ~5.
         jitter (float): Jitter level, ~0-3.

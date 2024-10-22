@@ -1,4 +1,5 @@
 import time
+import warnings
 from typing import Optional, Union
 
 import numba
@@ -38,6 +39,12 @@ class LinsupPhase(BaseSim):
         if device == "cpu":
             xp = np
         else:
+            if cp.__name__ == "numpy":
+                warnings.warn(
+                    f"Device was set to {device} but cupy is not installed. "
+                    + "Defaulting to 'cpu' and numpy."
+                )
+                device = "cpu"
             xp = cp
 
         KY, KX, SY, SX, zeros = self._linsup_compute_arrays(xp)
@@ -96,7 +103,7 @@ class LinsupPhase(BaseSim):
             cp.cuda.Stream.null.synchronize()
 
         elif multiproc:
-            self.vprint("Running in parallel with numba.")
+            self.vprint("Running in parallel on the cpu with numba.")
             phase_E_k, phase_B_k = _exp_sum(
                 phase_B_k, phase_E_k, inds, KY, KX, j_n, i_n, my_n, mx_n, SY, SX
             )
@@ -225,22 +232,16 @@ class MansuripurPhase(BaseSim):
         Returns:
             tuple[np.ndarray, np.ndarray]: Magnetic and electrostatic components of the phase shift.
         """
-        beam = self._rotate_vector(
-            Tx=-1 * self._tilt_x, Ty=-1 * self.tilt_y, v=[0, 0, 1]
-        )
+        beam = self._rotate_vector(Tx=-1 * self._tilt_x, Ty=-1 * self.tilt_y, v=[0, 0, 1])
         beam = beam / np.sqrt(np.sum(beam**2))
 
         _, dimy, dimx = self._mags_shape
         if padded_shape is not None:
             pdimy, pdimx = padded_shape
             if pdimy < dimy:
-                raise ValueError(
-                    f"Padded dimy, {pdimy}, must be > magnetization dimy, {dimy}"
-                )
+                raise ValueError(f"Padded dimy, {pdimy}, must be > magnetization dimy, {dimy}")
             elif pdimx < dimx:
-                raise ValueError(
-                    f"Padded dimx, {pdimx}, must be > magnetization dimx, {dimx}"
-                )
+                raise ValueError(f"Padded dimx, {pdimx}, must be > magnetization dimx, {dimx}")
             py = (pdimy - dimy) // 2
             px = (pdimx - dimx) // 2
             MY = np.pad(self.My.copy().sum(axis=0), ((py, py), (px, px)), mode=pad_mode)
@@ -260,16 +261,12 @@ class MansuripurPhase(BaseSim):
             Gpts = 1 + 1j * 0
         else:
             if padded_shape is not None:
-                MZ = np.pad(
-                    self.Mz.copy().sum(axis=0), ((py, py), (px, px)), mode=pad_mode
-                )
+                MZ = np.pad(self.Mz.copy().sum(axis=0), ((py, py), (px, px)), mode=pad_mode)
             fMZ = np.fft.fft2(MZ)
             e_x, e_y, e_z = beam
             prod = sX * (
                 fMY * e_x**2 - fMX * e_x * e_y - fMZ * e_y * e_z + fMY * e_z**2
-            ) + sY * (
-                fMY * e_x * e_y - fMX * e_y**2 + fMZ * e_x * e_z - fMX * e_z**2
-            )
+            ) + sY * (fMY * e_x * e_y - fMX * e_y**2 + fMZ * e_x * e_z - fMX * e_z**2)
             arg = np.pi * (sX * e_x + sY * e_y) / e_z
             denom = 1.0 / ((sX * e_x + sY * e_y) ** 2 + e_z**2)
             zeros2 = np.where(arg == 0)

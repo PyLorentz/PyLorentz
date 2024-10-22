@@ -101,7 +101,19 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
     Args:
         cmap (str | None, optional): String corresponding to a colorcet colormap name,
             a mpl.colors.LinearSegmentedColormap object, or a
-            mpl.colors.ListedColormap object. Defaults to None -> CET_C7.
+            mpl.colors.ListedColormap object. Defaults to None -> matplotlib gray.
+            Cmap string options include:
+                - All matplotlib colormap names
+                - "linear" -> mpl gray
+                - "diverging" -> mpl coolwarm
+                - "linear_cbl" -> cet CBL1 -- colorblind-safe linear
+                - "diverging_cbl" -> cet CBD1 -- colorblind-safe linear
+                - "cet_rainbow" -> cet R1 -- a good rainbow colormap
+                - "legacy4fold" -> cet C2 -- 4-fold colormap oriented as was the original PyLorentz default
+                - "purehsv" -> mpl hsv -- true hsv
+                - "6fold" or "hsv" -> cet C6 -- an improved hsv wheel
+                - "4fold" -> cet C7
+                - "isoluminant" -> cet C10
 
     Keyword Args:
         shift (float, optional): The amount to shift the colormap by in radians. Defaults to 0.
@@ -143,7 +155,7 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
             cmap = plt.get_cmap("hsv")
             invert = not invert
             shift += np.pi / 2
-        elif cmap in ["cet_c6", "c6", "cet_6", "6fold", "sixfold", "hsv", "cyclic"]:
+        elif cmap in ["cet_c6", "c6", "cet_6", "6fold", "6-fold", "sixfold", "hsv", "cyclic"]:
             cmap = cc.cm.CET_C6
             invert = not invert
             shift += np.pi / 2
