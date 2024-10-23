@@ -88,21 +88,32 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
 
             if any(["def" in i for i in mdata.keys()]):
                 print("possibly found defocus metadata in dm file. update load!")
-            assert dset["pixelUnit"][0] == dset["pixelUnit"][1]
-            assert dset["pixelSize"][0] == dset["pixelSize"][1]
 
-            if dset["pixelUnit"][0] == "nm":
-                scale = dset["pixelSize"][0]
-            elif dset["pixelUnit"][0] == "µm":
-                scale = dset["pixelSize"][0] * 1000
+            out_im = dset["data"]
+
+            if len(out_im.shape) == 3:
+                assert dset["pixelUnit"][2] == dset["pixelUnit"][1]
+                assert dset["pixelSize"][2] == dset["pixelSize"][1]
+                pixel_unit = dset["pixelUnit"][1]
+                pixel_size = dset['pixelSize'][1]
+            elif len(out_im.shape) == 2:
+                assert dset["pixelUnit"][0] == dset["pixelUnit"][1]
+                assert dset["pixelSize"][0] == dset["pixelSize"][1]
+                pixel_unit = dset["pixelUnit"][0]
+                pixel_size = dset['pixelSize'][0]
             else:
-                print(f"unknown scale type {dset['pixelUnit'][0]}")
+                raise ValueError(f"don't know how to handle shape {out_im.shape}")
+
+            if pixel_unit == "nm":
+                scale = pixel_size
+            elif pixel_unit == "µm":
+                scale = pixel_size * 1000
+            else:
+                print(f"unknown scale type {pixel_unit}")
                 raise NotImplementedError
 
             if 'Microscope Info Voltage' in mdata:
                 beam_energy = mdata['Microscope Info Voltage']
-
-            out_im = dset["data"]
 
     elif f.suffix in [".emd"]:  # TODO test but make this for dmx as well?
         with fileEMDVelox(f) as emd:
