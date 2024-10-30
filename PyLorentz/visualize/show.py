@@ -100,7 +100,7 @@ def show_im(
             vmin = np.min(image) if vmin is None else vmin
             vmax = np.max(image) if vmax is None else vmax
 
-    elif intensity_range.lower() == "ordered":
+    elif intensity_range.lower() in ["ordered", "o"]:
         vmin = kwargs.get("vmin", 0.01)
         vmax = kwargs.get("vmax", 0.99)
         vals = np.sort(image.ravel())
@@ -117,7 +117,12 @@ def show_im(
 
     cmap = get_cmap(cmap, **kwargs)
     if kwargs.get("cmap_midpoint") is not None:
-        cmap = shift_cmap_center(cmap, midpointval=kwargs.get("cmap_midpoint"), vmin=vmin, vmax=vmax)
+        cmap = shift_cmap_center(
+            cmap, midpointval=kwargs.get("cmap_midpoint"), vmin=vmin, vmax=vmax
+        )
+
+    if kwargs.get("white_to_transparent"):
+        image = _white_to_transparent(image)
 
     im = ax.matshow(image, origin=origin, vmin=vmin, vmax=vmax, cmap=cmap)
 
@@ -157,7 +162,9 @@ def show_im(
             if origin == "lower":
                 yticks = yticks[1:]
             ax.set_yticks(yticks - 0.5)
-            ylabs, unit = tick_label_formatter(yticks, fov_y, scale, kwargs.get("scale_units", "nm"))
+            ylabs, unit = tick_label_formatter(
+                yticks, fov_y, scale, kwargs.get("scale_units", "nm")
+            )
             ax.set_yticklabels(ylabs)
 
             ticks_label = unit
@@ -167,7 +174,9 @@ def show_im(
             floor_fov_x = np.floor(fov_x / 10**nround_x) * 10**nround_x
             xticks = np.linspace(0, floor_fov_x / scale, int(num_ticks_x))[1:]
             ax.set_xticks(xticks - 0.5)
-            xlabs, unit = tick_label_formatter(xticks, fov_y, scale, kwargs.get("scale_units", "nm"))
+            xlabs, unit = tick_label_formatter(
+                xticks, fov_y, scale, kwargs.get("scale_units", "nm")
+            )
             ax.set_xticklabels(xlabs)
 
         if kwargs.pop("ticks_label_off", False):
@@ -221,10 +230,11 @@ def show_im(
     if save:
         print("saving: ", save)
         dpi = kwargs.get("dpi", 400)
+        trns = kwargs.get("white_to_transparent", False)
         if simple and title is None:
-            plt.savefig(save, dpi=dpi, bbox_inches=0)
+            plt.savefig(save, dpi=dpi, bbox_inches=0, transparent=trns)
         else:
-            plt.savefig(save, dpi=dpi, bbox_inches="tight")
+            plt.savefig(save, dpi=dpi, bbox_inches="tight", transparent=trns)
 
     if figax is None:
         # try:
@@ -483,7 +493,7 @@ def lineplot_im(
         linewidth (int): Line width for the plot.
         line_len (int): Length of the line plot.
         show (bool): Whether to display the plot.
-        **kwargs: Additional keyword arguments.
+        **kwargs: Additional keyword arguments passed to show_im()
 
     Returns:
         np.ndarray: Line plot data.
@@ -509,20 +519,22 @@ def lineplot_im(
     if show:
         show_scan = kwargs.get("show_scan", True)
         if show_scan:
-            _fig, (ax0, ax1) = plt.subplots(nrows=1, ncols=2)
+            fig, (ax0, ax1) = plt.subplots(nrows=1, ncols=2)
             ax0.plot(profile)
             ax0.set_aspect(1 / ax0.get_data_ratio(), adjustable="box")
             ax0.set_ylabel("intensity")
             ax0.set_xlabel("pixels")
         else:
-            _fig, ax1 = plt.subplots()
+            fig, ax1 = plt.subplots()
 
-        cmap = kwargs.get("cmap", "gray")
-        img = ax1.matshow(
-            im, cmap=cmap, vmin=kwargs.get("vmin", None), vmax=kwargs.get("vmax", None)
+        save = kwargs.pop("save", False)
+        show_im(
+            im,
+            figax=(fig, ax1),
+            cbar=kwargs.pop("cbar", False),
+            ticks_off=kwargs.pop("ticks_off", True),
+            **kwargs,
         )
-        if kwargs.get("cbar", False):
-            plt.colorbar(img, ax=ax1, pad=0.02)
 
         if linewidth > 1:
             th = np.arctan2((ep[0] - sp[0]), (ep[1] - sp[1]))
@@ -557,6 +569,11 @@ def lineplot_im(
 
         ax1.set_xlim([0, im.shape[1] - 1])
         ax1.set_ylim([im.shape[0] - 1, 0])
+
+        if save:
+            print("saving: ", save)
+            dpi = kwargs.get("dpi", 400)
+            plt.savefig(save, dpi=dpi, bbox_inches="tight")
 
         plt.show()
 
@@ -619,3 +636,17 @@ def _box_intercepts(
     sp = (spy, spx)  # start point
     ep = (epy, epx)  # end point
     return sp, ep
+
+
+def _white_to_transparent(image):
+    """
+    take a greyscale image and convert the white portions to transparent, i.e. mapping
+    intensity to alpha. Returns as 8 bit 4 channel image
+    """
+    im_scaled = image - image.min()
+    im_scaled /= im_scaled.max()
+    im_scaled = np.array(im_scaled, dtype=np.float32)
+    rgba_image = np.zeros((image.shape[0], image.shape[1], 4), dtype=np.float32)
+    rgba_image[:, :, :3] = im_scaled[...,None]
+    rgba_image[:, :, 3] = 1 - im_scaled
+    return rgba_image
