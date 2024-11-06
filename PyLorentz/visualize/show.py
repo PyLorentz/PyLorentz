@@ -100,7 +100,7 @@ def show_im(
             vmin = np.min(image) if vmin is None else vmin
             vmax = np.max(image) if vmax is None else vmax
 
-    elif intensity_range.lower() in ["ordered", "o"]:
+    elif intensity_range.lower() in ["ordered", "o", "ord"]:
         vmin = kwargs.get("vmin", 0.01)
         vmax = kwargs.get("vmax", 0.99)
         vals = np.sort(image.ravel())
@@ -114,6 +114,8 @@ def show_im(
             print("vmax = vmin, setting intensity range to full")
             vmin = vals[0]
             vmax = vals[-1]
+    else:
+        raise ValueError(f"Unknown intensity_range, should be 'minmax' or 'ordered', got {intensity_range}")
 
     cmap = get_cmap(cmap, **kwargs)
     if kwargs.get("cmap_midpoint") is not None:
