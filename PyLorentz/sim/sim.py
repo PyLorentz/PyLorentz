@@ -89,6 +89,10 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             device (str, optional): Device to use for computation. Default is 'cpu'.
             multiproc (bool, optional): Whether to use multiprocessing. Default is True.
             **kwargs: Additional arguments for phase computation.
+                For phase_method == "mansuripur":
+                    - sym (bool): Symmetrize magnetizations
+                    - pad (bool or tuple): Shape to pad the magnetizations
+                    - pad_mode (str): passed to np.pad
         """
         if method is not None or self.phase_method is None:
             self.phase_method = method
@@ -117,9 +121,12 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         defocus_values: Union[float, List[float]],  # single defocus value or list of them
         scope: Microscope,
         flip: bool = False,
-        filter_sigma: float = 1,
+        thk_E_filter_sigma: float = 1,
         amorphous_bkg: Optional[Union[bool, float]] = None,
-        padded_shape: Optional[tuple] = None,
+        pad: Optional[Union[tuple, bool]] = False,
+        pad_mode: Optional[str] = "edge",
+        symmetrize: Optional[bool] = False,
+        verbose: Optional[int] = None,
     ) -> DefocusedDataset:
         """
         Simulate images at different defocus values.
@@ -128,14 +135,28 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             defocus_values (float | list): Single defocus value or list of defocus values.
             scope (Microscope): Microscope object.
             flip (bool, optional): Whether to flip the phase. Default is False.
-            filter_sigma (float, optional): Sigma value for Gaussian filter. Default is 1.
+            thk_E_filter_sigma (float, optional): Sigma value for Gaussian filter applied to the
+                thickness map and phase_E. Default is 1.
             amorphous_bkg (bool | float | None, optional): Amorphous background level. Default is None.
             padded_shape (tuple | None, optional): Shape for padding. Default is None.
+            pad_mode (str, optional): mode passed to np.pad. Default is "edge".
+            sym (bool, optional): Whether or not to symmetrize the phase
 
         Returns:
             DefocusedDataset: A dataset containing simulated defocused images.
         """
-        object_wave = self._generate_object_wave(filter_sigma, amorphous_bkg, flip=flip)
+        if verbose is not None:
+            self._verbose = verbose
+
+        if pad:
+            if isinstance(pad, bool):
+                py, px = self.phase_B.shape
+                if symmetrize:
+                    pad = (py * 4, px * 4)
+                else:
+                    pad = (py * 2, px * 2)
+
+        object_wave = self._generate_object_wave(thk_E_filter_sigma, amorphous_bkg, flip=flip)
         self._object_wave = object_wave
 
         if isinstance(defocus_values, (float, int)):
@@ -150,7 +171,10 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         scope.scale = self.scale
         for defval in defocus_values:
             scope.defocus = defval
-            images.append(scope.compute_image(object_wave, padded_shape=padded_shape))
+            image = scope.compute_image(
+                object_wave, padded_shape=pad, pad_mode=pad_mode, symmetrize=symmetrize
+            )
+            images.append(image)
         images = np.array(images)
 
         dd = DefocusedDataset(
@@ -170,9 +194,12 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         defocus_values: Union[float, List[float]],  # single defocus value or list of them
         scope: Microscope,
         flip: bool = False,
-        filter_sigma: float = 1,
+        thk_E_filter_sigma: float = 1,
         amorphous_bkg: Optional[Union[bool, float]] = None,
-        padded_shape: Optional[tuple] = None,
+        pad: Optional[Union[tuple, bool]] = False,
+        pad_mode: Optional[str] = "edge",
+        symmetrize: Optional[bool] = False,
+        verbose: Optional[int] = None,
     ) -> ThroughFocalSeries:
         """
         Simulate a Through Focal Series (TFS).
@@ -195,6 +222,9 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         Returns:
             ThroughFocalSeries: A series of simulated images at different focal depths.
         """
+        if verbose is not None:
+            self._verbose = verbose
+
         if isinstance(defocus_values, (float, int)):
             full_defvals = [-1 * abs(defocus_values), 0, abs(defocus_values)]
         else:
@@ -202,6 +232,14 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             if defocus_values[0] == 0:
                 defocus_values = defocus_values[1:]
             full_defvals = np.concatenate([-1 * defocus_values[::-1], [0], defocus_values])
+
+        if pad:
+            if isinstance(pad, bool):
+                py, px = self.phase_B.shape
+                if symmetrize:
+                    pad = (py * 4, px * 4)
+                else:
+                    pad = (py * 2, px * 2)
 
         self.vprint(
             f"Simulating images for defocus values: "
@@ -212,20 +250,31 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
 
         seed = np.random.randint(1e9)
         object_wave = self._generate_object_wave(
-            filter_sigma, amorphous_bkg, flip=False, seed=seed
+            thk_E_filter_sigma, amorphous_bkg, flip=False, seed=seed
         )
         if flip:
             object_wave_flip = self._generate_object_wave(
-                filter_sigma, amorphous_bkg, flip=True, seed=seed
+                thk_E_filter_sigma, amorphous_bkg, flip=True, seed=seed
             )
         imstack = []
         flipstack = []
         scope.scale = self.scale
         for defval in full_defvals:
             scope.defocus = defval
-            imstack.append(scope.compute_image(object_wave, padded_shape=padded_shape))
+            imstack.append(
+                scope.compute_image(
+                    object_wave, padded_shape=pad, pad_mode=pad_mode, symmetrize=symmetrize
+                )
+            )
             if flip:
-                flipstack.append(scope.compute_image(object_wave_flip, padded_shape=padded_shape))
+                flipstack.append(
+                    scope.compute_image(
+                        object_wave_flip,
+                        padded_shape=pad,
+                        pad_mode=pad_mode,
+                        symmetrize=symmetrize,
+                    )
+                )
 
         tfs = ThroughFocalSeries(
             imstack=imstack,
@@ -242,7 +291,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
 
     def _generate_object_wave(
         self,
-        filter_sigma: float = 1,
+        thk_E_filter_sigma: float = 1,
         amorphous_bkg: Optional[Union[bool, float]] = None,
         flip: bool = False,
         seed: Optional[int] = None,
@@ -251,7 +300,8 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         Generate the object wave used to simulate images.
 
         Args:
-            filter_sigma (float, optional): Sigma value for Gaussian filter. Default is 1.
+            thk_E_filter_sigma (float, optional): Sigma value for Gaussian filter applied to the
+                thickness map and phase_E. Default is 1.
             amorphous_bkg (bool | float | None, optional): Amorphous background level. Default is None.
             flip (bool, optional): Whether to flip the phase. Default is False.
             seed (int | None, optional): Random seed for generating noise. Default is None.
@@ -260,13 +310,15 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             np.ndarray: The generated object wave.
         """
         phase_E = self.phase_E.copy()
-        if filter_sigma:
-            phase_E = ndi.gaussian_filter(phase_E, sigma=filter_sigma)
+        phase_B = self.phase_B.copy()
+
+        if thk_E_filter_sigma:
+            phase_E = ndi.gaussian_filter(phase_E, sigma=thk_E_filter_sigma)
 
         if flip:
-            phase_t = (phase_E - self.phase_B).astype(np.float64)
+            phase_t = (phase_E - phase_B).astype(np.float64)
         else:
-            phase_t = (phase_E + self.phase_B).astype(np.float64)
+            phase_t = (phase_E + phase_B).astype(np.float64)
 
         if amorphous_bkg:
             if isinstance(amorphous_bkg, bool):
@@ -284,8 +336,9 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             self.get_flat_shape_func()
 
         thk_map = self.flat_shape_func.copy()
-        if filter_sigma:
-            thk_map = ndi.gaussian_filter(thk_map, sigma=filter_sigma)
+
+        if thk_E_filter_sigma:
+            thk_map = ndi.gaussian_filter(thk_map, sigma=thk_E_filter_sigma)
 
         amplitude = np.exp(
             -1
@@ -311,7 +364,6 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             NotImplementedError: This method is not implemented.
         """
         raise NotImplementedError
-
 
     def copy(self):
         """Returns a deep copy of itself."""

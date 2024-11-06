@@ -76,7 +76,7 @@ class BaseSim(object):
         return self._phase_E
 
     @property
-    def phase_t(self) -> np.ndarray:
+    def phase_T(self) -> np.ndarray:
         """Get the total phase (B-phase + E-phase)."""
         return self.phase_B + self.phase_E
 
@@ -131,9 +131,7 @@ class BaseSim(object):
         if val is None:
             self._sample_params["B0"] = float(self._default_params["B0"])
         elif val < 0:
-            raise ValueError(
-                f"B0 must be > 0, and has units of Gauss. Bad value given {val}"
-            )
+            raise ValueError(f"B0 must be > 0, and has units of Gauss. Bad value given {val}")
         else:
             self._sample_params["B0"] = float(val)
 
@@ -163,9 +161,7 @@ class BaseSim(object):
     def sample_xip0(self, val: Union[float, int, None]) -> None:
         """Set the sample extinction distance."""
         if val is None:
-            self._sample_params["sample_xip0"] = float(
-                self._default_params["sample_xip0"]
-            )
+            self._sample_params["sample_xip0"] = float(self._default_params["sample_xip0"])
         elif val < 0:
             raise ValueError(
                 f"sample_xip0 must be > 0, and has units of nm. Bad value given {val}"
@@ -184,9 +180,7 @@ class BaseSim(object):
         if val is None:
             self._sample_params["mem_V0"] = float(self._default_params["mem_V0"])
         elif val < 0:
-            raise ValueError(
-                f"mem_V0 must be > 0, and has units of Volts. Bad value given {val}"
-            )
+            raise ValueError(f"mem_V0 must be > 0, and has units of Volts. Bad value given {val}")
         else:
             self._sample_params["mem_V0"] = float(val)
 
@@ -201,9 +195,7 @@ class BaseSim(object):
         if val is None:
             self._sample_params["mem_xip0"] = float(self._default_params["mem_xip0"])
         elif val < 0:
-            raise ValueError(
-                f"mem_xip0 must be > 0, and has units of nm. Bad value given {val}"
-            )
+            raise ValueError(f"mem_xip0 must be > 0, and has units of nm. Bad value given {val}")
         else:
             self._sample_params["mem_xip0"] = float(val)
 
@@ -216,9 +208,7 @@ class BaseSim(object):
     def mem_thickness(self, val: Union[float, int, None]) -> None:
         """Set the membrane thickness."""
         if val is None:
-            self._sample_params["mem_thickness"] = float(
-                self._default_params["mem_thickness"]
-            )
+            self._sample_params["mem_thickness"] = float(self._default_params["mem_thickness"])
         elif val < 0:
             raise ValueError(
                 f"mem_thickness must be > 0, and has units of nm. Bad value given {val}"
@@ -316,6 +306,7 @@ class BaseSim(object):
         assert np.ndim(vals) == 4
         assert vals.shape[0] == 3
         self._mags = vals
+        self.get_shape_func()
 
     @property
     def shape_func(self) -> np.ndarray:
@@ -337,24 +328,24 @@ class BaseSim(object):
         """Get the flattened shape function."""
         return self._flat_shape_func
 
-    def get_flat_shape_func(self, sigma: float = 0) -> None:
+    def get_flat_shape_func(self, perspective: bool = True, sigma: float = 0) -> None:
         """
         Get the flattened shape function.
 
         Args:
+            perspective (bool, optional): Whether to account for perspective when tilting. Default
+            is True.
             sigma (float, optional): Sigma value for Gaussian filter. Default is 0.
         """
-        if (
-            abs(self.tilt_x) < 0.1
-            and abs(self.tilt_y) < 0.1
-            or np.ptp(self.shape_func) == 0
-        ):
+        tilt_check = abs(self.tilt_x) < 0.1 and abs(self.tilt_y) < 0.1
+        ptp_check = np.ptp(self.shape_func) == 0
+        if tilt_check or ptp_check or not perspective:  # don't do perspective shift
             flat = self.shape_func.sum(axis=0)
         else:
             padwidth = np.max(self._mags_shape[1:]) // 2
-            rot = np.pad(
-                self._shape_func, ((padwidth, padwidth), (0, 0), (0, 0))
-            ).astype(np.float32)
+            rot = np.pad(self._shape_func, ((padwidth, padwidth), (0, 0), (0, 0))).astype(
+                np.float32
+            )
             if abs(self.tilt_x) >= 0.1:
                 rot = ndi.rotate(rot, self.tilt_x, axes=(0, 1), reshape=False)
             if abs(self.tilt_y) >= 0.1:
@@ -390,9 +381,7 @@ class BaseSim(object):
             / np.sqrt(self.beam_energy + epsilon * self.beam_energy**2)
         )  # electron wavelength
         gamma = 1.0 + physcon.e * self.beam_energy / physcon.m_e / physcon.c**2
-        sigma = (
-            2.0 * np.pi * physcon.m_e * gamma * physcon.e * lam * 1.0e-18 / physcon.h**2
-        )
+        sigma = 2.0 * np.pi * physcon.m_e * gamma * physcon.e * lam * 1.0e-18 / physcon.h**2
 
         return sigma
 
@@ -422,9 +411,7 @@ class BaseSim(object):
         """
         scale = self.scale if show_scale else None
         if s3D:
-            show_3D(
-                self.Mx, self.My, self.Mz, title="magnetization", scale=scale, **kwargs
-            )
+            show_3D(self.Mx, self.My, self.Mz, title="magnetization", scale=scale, **kwargs)
         else:
             if xy_only:
                 show_2D(
@@ -518,3 +505,62 @@ class BaseSim(object):
             title="phase_E",
             **kwargs,
         )
+
+    def _symmetrize(self, imstack: np.ndarray, mode="even") -> np.ndarray:
+        """
+        Make the even symmetric extension of an image (4x as large).
+
+        Args:
+            imstack (np.ndarray): Input image or stack of images.
+            mode (str, optional): Symmetrization mode, "even" or "odd". Default is "even".
+
+        Returns:
+            np.ndarray: Symmetrized image or stack of images.
+        """
+        imstack = np.array(imstack)
+        if imstack.ndim == 2:
+            imstack = imstack[None,]
+            d2 = True
+        else:
+            assert imstack.ndim == 3, (
+                "symmetrize only supports 2D images or 3D stacks, " + f"not {imstack.ndim} arrays"
+            )
+            d2 = False
+        dimz, dimy, dimx = imstack.shape
+        imi = np.zeros((dimz, dimy * 2, dimx * 2), dtype=imstack.dtype)
+        imi[..., :dimy, :dimx] = imstack
+        if mode == "even":
+            imi[..., dimy:, :dimx] = np.flip(imstack, axis=1)
+            imi[..., :, dimx:] = np.flip(imi[..., :, :dimx], axis=2)
+        elif mode == "odd":
+            imi[..., dimy:, :dimx] = -1 * np.flip(imstack, axis=1)
+            imi[..., :, dimx:] = -1 * np.flip(imi[..., :, :dimx], axis=2)
+        else:
+            raise ValueError(f"`mode` should be `even` or `odd`, not `{mode}`")
+        return imi[0] if d2 else imi
+
+    def _unsymmetrize(self, imstack: np.ndarray):
+        """
+        Crop the first quarter of an image, undoing the effects of _symmetrize.
+
+        Args:
+            imstack (np.ndarray): Input image or stack of images.
+
+        Returns:
+            np.ndarray: Symmetrized image or stack of images.
+        """
+        imstack = np.array(imstack)
+        if imstack.ndim == 2:
+            imstack = imstack[None,]
+            d2 = True
+        else:
+            assert imstack.ndim == 3, (
+                "symmetrize only supports 2D images or 3D stacks, " + f"not {imstack.ndim} arrays"
+            )
+            d2 = False
+
+        dimz, dimy, dimx = imstack.shape
+        if dimy % 2 != 0 or dimx % 2 != 0:
+            raise ValueError(f"Input stack must have even dimy and dimx, got ({dimy}, {dimx})")
+        imi = imstack[:, : dimy // 2, : dimx // 2]
+        return imi[0] if d2 else imi

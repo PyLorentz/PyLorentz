@@ -220,7 +220,10 @@ class MansuripurPhase(BaseSim):
     """
 
     def _calc_phase_mansuripur(
-        self, padded_shape: Optional[Union[tuple, list]] = None, pad_mode: str = "edge"
+        self,
+        pad: Optional[Union[list, bool]] = False,
+        pad_mode: str = "mean",
+        symmetrize=False,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Calculate the phase shift using the Mansuripur method.
@@ -228,6 +231,7 @@ class MansuripurPhase(BaseSim):
         Args:
             padded_shape (tuple | list | None, optional): Shape for padding. Default is None.
             pad_mode (str, optional): Padding mode. Default is "edge".
+            sym (bool, optional): Symmetrize prior to calculating phase shift.
 
         Returns:
             tuple[np.ndarray, np.ndarray]: Magnetic and electrostatic components of the phase shift.
@@ -236,20 +240,34 @@ class MansuripurPhase(BaseSim):
         beam = beam / np.sqrt(np.sum(beam**2))
 
         _, dimy, dimx = self._mags_shape
-        if padded_shape is not None:
-            pdimy, pdimx = padded_shape
-            if pdimy < dimy:
-                raise ValueError(f"Padded dimy, {pdimy}, must be > magnetization dimy, {dimy}")
-            elif pdimx < dimx:
-                raise ValueError(f"Padded dimx, {pdimx}, must be > magnetization dimx, {dimx}")
-            py = (pdimy - dimy) // 2
-            px = (pdimx - dimx) // 2
-            MY = np.pad(self.My.copy().sum(axis=0), ((py, py), (px, px)), mode=pad_mode)
-            MX = np.pad(self.Mx.copy().sum(axis=0), ((py, py), (px, px)), mode=pad_mode)
+        pdimy, pdimx = dimy, dimx
+        MZ, MY, MX = self.mags.copy().sum(axis=1)
 
-        else:
-            pdimy, pdimx = dimy, dimx
-            MZ, MY, MX = self.mags.copy().sum(axis=1)
+        if pad:
+            if isinstance(pad, bool):
+                if symmetrize:
+                    pad = (dimy * 4, dimx * 4)
+                else:
+                    pad = (dimy * 2, dimx * 2)
+
+        if symmetrize:
+            MZ = self._symmetrize(MZ)
+            MY = self._symmetrize(MY)
+            MX = self._symmetrize(MX)
+            pdimy, pdimx = MY.shape
+        if pad:
+            if np.any((np.array(pad) - np.array(MX.shape)) < 0):
+                raise ValueError(
+                    f"padded_shape, {pad} must be larger than the (symmetrized if "
+                    + f"applicable) mag shape {MX.shape} in all dimensions."
+                )
+            pdimy, pdimx = pad
+            dimy2, dimx2 = MX.shape
+            py = (pdimy - dimy2) // 2
+            px = (pdimx - dimx2) // 2
+            MZ = np.pad(MZ, ((py, py), (px, px)), mode=pad_mode)
+            MY = np.pad(MY, ((py, py), (px, px)), mode=pad_mode)
+            MX = np.pad(MX, ((py, py), (px, px)), mode=pad_mode)
 
         sY, sX, KK, zeros = self._mans_compute_arrays((pdimy, pdimx))
 
@@ -260,8 +278,6 @@ class MansuripurPhase(BaseSim):
             prod = sX * fMY - sY * fMX
             Gpts = 1 + 1j * 0
         else:
-            if padded_shape is not None:
-                MZ = np.pad(self.Mz.copy().sum(axis=0), ((py, py), (px, px)), mode=pad_mode)
             fMZ = np.fft.fft2(MZ)
             e_x, e_y, e_z = beam
             prod = sX * (
@@ -279,10 +295,12 @@ class MansuripurPhase(BaseSim):
         fphi[zeros] = 0.0
         phase_B = np.fft.ifft2(fphi).real * self._pre_B()
 
-        if padded_shape is not None:
+        if pad:
             phase_B = phase_B[py:-py, px:-px]
+        if symmetrize:
+            phase_B = self._unsymmetrize(phase_B)
 
-        self.get_flat_shape_func()
+        self.get_flat_shape_func(perspective=False)
         phase_E = self.flat_shape_func * self._pre_E()
         phase_E -= phase_E.mean()
 

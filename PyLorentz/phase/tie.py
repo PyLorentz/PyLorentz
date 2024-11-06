@@ -70,13 +70,14 @@ class TIE(BaseTIE):
                 warnings.warn(
                     "Experimental dataset has not been preprocessed. Creating uniform mask."
                 )
-            self.tfs.mask = np.ones(self.tfs.shape, dtype=np.float32)
+                self.tfs.mask = np.ones(self.tfs.shape, dtype=np.float32)
 
     def reconstruct(
         self,
         index: Optional[int] = None,
         name: Optional[str] = None,
-        sym: bool = False,
+        sym: Optional[bool] = False,
+        pad: Optional[Union[bool, int]] = False,
         qc: Optional[float] = None,
         flip: Optional[bool] = None,
         save_mode: Union[bool, str, List[str]] = False,
@@ -84,7 +85,7 @@ class TIE(BaseTIE):
         verbose: Union[int, bool] = 1,
         pbcs: Optional[bool] = None,
         overwrite: bool = False,
-    ) -> 'TIE':
+    ) -> "TIE":
         """
         Perform TIE reconstruction.
 
@@ -92,6 +93,7 @@ class TIE(BaseTIE):
             index (Optional[int], optional): Index of the image to reconstruct. Default is None.
             name (Optional[str], optional): Name for the reconstruction. Default is None.
             sym (bool, optional): Whether to symmetrize the images. Default is False.
+            pad (bool | tuple, optional): Whether to pad the images (useful for edge artifacts). Default is False.
             qc (Optional[float], optional): Tikhonov regularization parameter. Default is None.
             flip (Optional[bool], optional): Whether to use flip images. Default is None.
             save_mode (Union[bool, str, List[str]], optional): Whether and what to save. Default is False.
@@ -121,13 +123,11 @@ class TIE(BaseTIE):
             self.vprint("TFS has unapplied transforms, applying now.")
             self.tfs.apply_transforms()
         self.vprint(
-            f"Performing TIE reconstruction with defocus ± "
+            f"Performing a TIE reconstruction with defocus ± "
             + f"{self._fmt_defocus(self._recon_defval, spacer=' ')}, index = {index}"
         )
         if self.flip:
-            self.vprint(
-                "Reconstructing with two TFS flip/unflip to separate phase_B and phase_E"
-            )
+            self.vprint("Reconstructing with two TFS flip/unflip to separate phase_B and phase_E")
         else:
             self.vprint("Reconstructing with a single TFS")
 
@@ -146,6 +146,28 @@ class TIE(BaseTIE):
             recon_stack = self._symmetrize(recon_stack)
             recon_mask = np.abs(self._symmetrize([recon_mask]).squeeze())
             infocus_im = self._symmetrize([infocus_im]).squeeze()
+            self.vprint("Using symmetrized images")
+
+        if pad:
+            if isinstance(pad, bool):
+                pad = (dimy * 2, dimx * 2)
+            py2 = (pad[0] - dimy) // 2
+            px2 = (pad[1] - dimx) // 2
+            dimy, dimx = pad
+            recon_stack = np.pad(
+                recon_stack,
+                ((0, 0), (py2, py2), (px2, px2)),
+                mode="constant",
+                constant_values=recon_stack.mean(),
+            )
+            recon_mask = np.pad(recon_mask, ((py2, py2), (px2, px2)), mode="reflect")  # edge?
+            infocus_im = np.pad(
+                infocus_im,
+                ((py2, py2), (px2, px2)),
+                mode="constant",
+                constant_values=infocus_im.mean(),
+            )
+            self.vprint(f"Reconstructing with padded shape {pad}")
 
         self._make_qi((dimy, dimx))
 
@@ -153,12 +175,17 @@ class TIE(BaseTIE):
         dIdZ_B, dIdZ_E = self._get_derivatives(recon_stack, recon_mask, self.flip)
         self._results["dIdZ_B"] = dIdZ_B.copy()
 
-        # temp checks # TODO remove
+        # temp checks
         assert dimy, dimx == recon_stack.shape[1:]
         if np.min(recon_stack) < 0:
             pass
 
         phase_B = self._reconstruct_phase(infocus_im, dIdZ_B, self._recon_defval)
+        if pad:
+            phase_B = phase_B[py2:-py2, px2:-px2]
+        if sym:
+            phase_B = self._unsymmetrize(phase_B)
+
         self._results["phase_B"] = phase_B - phase_B.min()
         By, Bx = self.induction_from_phase(phase_B)
         self._results["By"] = By
@@ -167,6 +194,11 @@ class TIE(BaseTIE):
         if self.flip:
             self._results["dIdZ_E"] = dIdZ_E.copy()
             phase_E = self._reconstruct_phase(infocus_im, dIdZ_E, self._recon_defval)
+            if pad:
+                phase_E = phase_E[py2:-py2, px2:-px2]
+            if sym:
+                phase_E = self._unsymmetrize(phase_E)
+
             self._results["phase_E"] = phase_E - phase_E.min()
 
         if save_mode:
@@ -180,7 +212,7 @@ class TIE(BaseTIE):
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
         overwrite: bool = False,
-    ) -> 'TIE':
+    ) -> "TIE":
         """
         Save the reconstruction results.
 
