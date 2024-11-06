@@ -342,7 +342,7 @@ class DefocusedDataset(BaseDataset):
         if ncols == 1:
             self.show_im(**kwargs)
         else:
-            fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(2 * ncols, 2))
+            fig, axs = plt.subplots(nrows=1, ncols=ncols, figsize=(3 * ncols, 3))
             for a0, df in enumerate(self.defvals):
                 show_im(
                     self.images[a0],

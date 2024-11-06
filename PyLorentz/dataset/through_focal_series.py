@@ -37,6 +37,7 @@ if metadata file given, that will override
 if not, then will try to get scale from tif, and will ask for scale and defocus
 """
 
+
 class ThroughFocalSeries(BaseDataset):
     """
     A class for handling through-focal series (TFS) datasets, including
@@ -72,7 +73,9 @@ class ThroughFocalSeries(BaseDataset):
     ):
         imstack = np.array(imstack)
         assert np.ndim(imstack) == 3, f"Bad input shape {imstack.shape}"
-        super().__init__(imshape=imstack.shape[1:], data_dir=data_dir, scale=scale, verbose=verbose)
+        super().__init__(
+            imshape=imstack.shape[1:], data_dir=data_dir, scale=scale, verbose=verbose
+        )
 
         self.imstack = imstack
         self.flipstack = np.array(flipstack) if flipstack is not None else np.array([])
@@ -98,6 +101,8 @@ class ThroughFocalSeries(BaseDataset):
         self._flipstack_filtered = None
         self._orig_shape = self._orig_imstack.shape[1:]
         self.mask = None
+        self._orig_mask = None
+        self._make_mask(self._use_mask)
 
         if scale is None:
             self.vprint("No scale found. Set with: TFS.scale = <x> [nm/pix]")
@@ -153,9 +158,7 @@ class ThroughFocalSeries(BaseDataset):
             loaded_energy = mdata["beam_energy"]
             data_files.append(metadata_file)
         elif legacy_data_loc is not None:
-            loaded_scale, loaded_defvals = legacy_load(
-                legacy_data_loc, legacy_fls_filename
-            )
+            loaded_scale, loaded_defvals = legacy_load(legacy_data_loc, legacy_fls_filename)
             loaded_energy = None
         else:
             assert scale is not None and defocus_values is not None
@@ -221,9 +224,7 @@ class ThroughFocalSeries(BaseDataset):
                     defvals
                 ), f"Imstack has odd length ({len(imstack)}) that does not match the # defocus values ({len(defvals)})"
                 if flip:
-                    vprint(
-                        f"Flip was True but only a single TFS was given. Setting Flip=False"
-                    )
+                    vprint(f"Flip was True but only a single TFS was given. Setting Flip=False")
                     flip = False
                 flipstack = None
 
@@ -266,9 +267,7 @@ class ThroughFocalSeries(BaseDataset):
     def imstack(self, stack: np.ndarray):
         if not hasattr(self, "_imstack"):
             if len(stack) % 2 == 0:
-                raise ValueError(
-                    f"Imstack must be of odd length, got length: {len(stack)}"
-                )
+                raise ValueError(f"Imstack must be of odd length, got length: {len(stack)}")
             self._imstack = stack
         elif len(stack) != self.len_tfs:
             raise ValueError(
@@ -310,8 +309,7 @@ class ThroughFocalSeries(BaseDataset):
     @property
     def defvals_index(self) -> np.ndarray:
         dfs = [
-            (self.defvals[-1 * (i + 1)] - self.defvals[i]) / 2
-            for i in range(self.len_tfs // 2)
+            (self.defvals[-1 * (i + 1)] - self.defvals[i]) / 2 for i in range(self.len_tfs // 2)
         ]
         return np.array(dfs)[::-1]
 
@@ -380,9 +378,7 @@ class ThroughFocalSeries(BaseDataset):
                     + self._orig_flipstack_preprocessed[inf_index]
                 ) / 2
             else:
-                ave_infocus = (
-                    self._orig_imstack[inf_index] + self._orig_flipstack[inf_index]
-                ) / 2
+                ave_infocus = (self._orig_imstack[inf_index] + self._orig_flipstack[inf_index]) / 2
             return ave_infocus
         else:
             if self._preprocessed:
@@ -431,9 +427,7 @@ class ThroughFocalSeries(BaseDataset):
             for i in tqdm(range(self.len_tfs)):
                 self.imstack[i] = filter_hotpix(self.imstack[i], fast=fast, **kwargs)
                 if self.flip:
-                    self.flipstack[i] = filter_hotpix(
-                        self.flipstack[i], fast=fast, **kwargs
-                    )
+                    self.flipstack[i] = filter_hotpix(self.flipstack[i], fast=fast, **kwargs)
 
         if median_filter_size is not None:
             self.imstack = ndi.median_filter(
@@ -532,7 +526,7 @@ class ThroughFocalSeries(BaseDataset):
             self.flipstack = filtered_flipstack
             self._orig_flipstack_filtered = filtered_flipstack
 
-    def _make_mask(self, use_mask: Optional[bool] = True, threshold: float = 0) -> None:
+    def _make_mask(self, use_mask: Optional[bool] = True, threshold: float = 0, erosion=0) -> None:
         """
         Create a binary mask for the image stack.
 
@@ -543,21 +537,24 @@ class ThroughFocalSeries(BaseDataset):
         Returns:
             None
         """
-        if not use_mask or self._simulated:
-            self.mask = np.ones(self.shape)
-        elif self.len_tfs == 1:
-            self.mask = np.ones(self.shape)
+        if not use_mask or self._simulated or self.len_tfs == 1:
+            mask = np.ones(self.shape)
         else:
             mask = np.where(self.full_stack > threshold, 1, 0)
             mask = np.prod(mask, axis=0)
-
             iters = int(min(15, self.shape[0] // 250, self.shape[1] // 250))
             if iters >= 1:
-                mask = ndi.morphology.binary_erosion(mask, iterations=iters)
-            mask = mask.astype(np.float32, copy=False)
+                mask = ndi.binary_erosion(mask, iterations=iters)
+
+        if erosion > 0:
+            mask = ndi.binary_erosion(mask, iterations=erosion)
+
+        mask = mask.astype(np.float32, copy=False)
+        if np.any(mask != 1):
             mask = ndi.gaussian_filter(mask, 2)
-            self.mask = mask
-            self._orig_mask = mask.copy()
+
+        self.mask = mask
+        self._orig_mask = mask.copy()  # non-transformed mask
 
     def apply_transforms(self, v: int = 1) -> None:
         """
@@ -578,13 +575,14 @@ class ThroughFocalSeries(BaseDataset):
             imstack = self._orig_imstack.copy()
             flipstack = self._orig_flipstack.copy()
 
+        if self._orig_mask is None:
+            self._make_mask()
+
         mask = self._orig_mask.copy()
         if self._transforms["rotation"] != 0:
             mask = ndi.rotate(mask, self._transforms["rotation"], reshape=False)
             for a0 in tqdm(range(len(imstack)), disable=v < 1):
-                imstack[a0] = ndi.rotate(
-                    imstack[a0], self._transforms["rotation"], reshape=False
-                )
+                imstack[a0] = ndi.rotate(imstack[a0], self._transforms["rotation"], reshape=False)
                 if self.flip:
                     flipstack[a0] = ndi.rotate(
                         flipstack[a0], self._transforms["rotation"], reshape=False

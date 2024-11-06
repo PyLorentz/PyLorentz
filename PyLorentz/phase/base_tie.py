@@ -151,9 +151,9 @@ class BaseTIE(BasePhaseReconstruction):
         prefactor = self._pre_Lap(defval)
         phase = np.real(prefactor * np.fft.ifft2(fft2 * qc_mask * self._qi))
 
-        if self.sym:
-            d2y, d2x = phase.shape
-            phase = phase[: d2y // 2, : d2x // 2]
+        # if self.sym:
+        #     d2y, d2x = phase.shape
+        #     phase = phase[: d2y // 2, : d2x // 2]
 
         return phase
 
@@ -230,4 +230,31 @@ class BaseTIE(BasePhaseReconstruction):
             imi[..., :, dimx:] = -1 * np.flip(imi[..., :, :dimx], axis=2)
         else:
             raise ValueError(f"`mode` should be `even` or `odd`, not `{mode}`")
+        return imi[0] if d2 else imi
+
+    def _unsymmetrize(self, imstack:np.ndarray):
+        """
+        Crop the first quarter of an image, undoing the effects of _symmetrize.
+
+        Args:
+            imstack (np.ndarray): Input image or stack of images.
+
+        Returns:
+            np.ndarray: Symmetrized image or stack of images.
+        """
+        imstack = np.array(imstack)
+        if imstack.ndim == 2:
+            imstack = imstack[None,]
+            d2 = True
+        else:
+            assert imstack.ndim == 3, (
+                "symmetrize only supports 2D images or 3D stacks, "
+                + f"not {imstack.ndim} arrays"
+            )
+            d2 = False
+
+        dimz, dimy, dimx = imstack.shape
+        if dimy %2 != 0 or dimx%2 != 0:
+            raise ValueError(f"Input stack must have even dimy and dimx, got ({dimy}, {dimx})")
+        imi = imstack[:, :dimy//2, :dimx//2]
         return imi[0] if d2 else imi

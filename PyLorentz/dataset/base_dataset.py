@@ -56,6 +56,7 @@ class BaseDataset:
             verbose (int | bool, optional): Verbosity level. Default is 1.
         """
         self._shape = imshape
+        self._orig_shape = imshape
         self.scale = scale
         self._transforms = {
             "rotation": 0,
@@ -117,13 +118,9 @@ class BaseDataset:
             unit_conversion = {"um": 1e3, "μm": 1e3, "mm": 1e6, "m": 1e9}
             conversion_factor = unit_conversion.get(defocus_unit)
             if conversion_factor:
-                mdata["defocus_values"] = (
-                    np.array(mdata["defocus_values"]) * conversion_factor
-                )
+                mdata["defocus_values"] = np.array(mdata["defocus_values"]) * conversion_factor
             else:
-                raise NotImplementedError(
-                    f"Unknown defocus unit {mdata['defocus_unit']}"
-                )
+                raise NotImplementedError(f"Unknown defocus unit {mdata['defocus_unit']}")
             mdata["defocus_unit"] = "nm"
 
         scale_unit = mdata["scale_unit"].lower()
@@ -156,9 +153,7 @@ class BaseDataset:
         else:
             p = Path(p).absolute()
             if not p.exists():
-                warnings.warn(
-                    f"data_dir does not exist, but setting anyways. data_dir = {p}"
-                )
+                warnings.warn(f"data_dir does not exist, but setting anyways. data_dir = {p}")
             self._data_dir = p
 
     @property
@@ -176,9 +171,9 @@ class BaseDataset:
         else:
             raise ValueError(f"scale must be > 0, received {val}")
 
-    def crop(self):
-        """Placeholder for crop method."""
-        pass
+    # def crop(self):
+    #     """Placeholder for crop method."""
+    #     pass
 
     def _select_ROI(self, image: np.ndarray, print_instructions=True, verbose=True):
         """
@@ -550,12 +545,20 @@ class BaseDataset:
             if key_lower in ["rotation", "rot", "r"]:
                 self._transforms["rotation"] = val
             elif key_lower in ["top", "t"]:
+                if val < 0:
+                    val = self._orig_shape[0] + val
                 self._transforms["top"] = val
             elif key_lower in ["bottom", "bot", "b"]:
+                if val < 0:
+                    val = self._orig_shape[0] + val
                 self._transforms["bottom"] = val
             elif key_lower in ["left", "l"]:
+                if val < 0:
+                    val = self._orig_shape[1] + val
                 self._transforms["left"] = val
             elif key_lower in ["right", "r"]:
+                if val < 0:
+                    val = self._orig_shape[1] + val
                 self._transforms["right"] = val
             else:
                 s = (

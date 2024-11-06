@@ -188,6 +188,8 @@ class SITIE(BaseTIE):
         dIdZ_B -= np.sum(dIdZ_B) / np.size(infocus_im)
 
         phase_B = self._reconstruct_phase(infocus_im, dIdZ_B, self._recon_defval)
+        if sym:
+            phase_B = self._unsymmetrize(phase_B)
         self._results["phase_B"] = phase_B - phase_B.min()
         By, Bx = self.induction_from_phase(phase_B)
         self._results["By"] = By
@@ -204,7 +206,7 @@ class SITIE(BaseTIE):
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
         overwrite: bool = False,
-    ) -> 'SITIE':
+    ) -> "SITIE":
         """
         Save the reconstruction results.
 

@@ -70,14 +70,7 @@ class Microscope(object):
         )
         self.gamma = 1.0 + physcon.e * self.E / physcon.m_e / physcon.c**2
         self.sigma = (
-            2.0
-            * np.pi
-            * physcon.m_e
-            * self.gamma
-            * physcon.e
-            * self.lam
-            * 1.0e-18
-            / physcon.h**2
+            2.0 * np.pi * physcon.m_e * self.gamma * physcon.e * self.lam * 1.0e-18 / physcon.h**2
         )
 
         if verbose:
@@ -112,7 +105,7 @@ class Microscope(object):
         Returns:
             float: Optimum defocus (nm)
         """
-        qmax = np.sqrt(2)/2
+        qmax = np.sqrt(2) / 2
         lam = self.lam / self.scale
         optdef = 3.0 / 4.0 * self.Cs * lam**2 * qmax**2
         return optdef
@@ -236,7 +229,7 @@ class Microscope(object):
 
         return ImgWave
 
-    def backpropagate_wave(self, ImgWave:np.ndarray):
+    def backpropagate_wave(self, ImgWave: np.ndarray):
         """Back-propagate an image wave to get the object wave.
 
         This function will back-propagate the image wave function to the
@@ -263,11 +256,20 @@ class Microscope(object):
 
         return ObjWave
 
-    def compute_image(self, ObjWave:np.ndarray, padded_shape=None):
+    def compute_image(
+        self,
+        object_wave: np.ndarray,
+        padded_shape: tuple | None = None,
+        pad_mode: str = "reflect",
+        symmetrize: bool = False,
+    ):
         """Produce the image at the set defocus using the methods in this class.
 
         Args:
             ObjWave (2D array): Object wave function.
+            padded_shape (tuple | None, optional): Shape for padding. Default is None.
+            pad_mode (str, optional): mode passed to np.pad. Default is "edge".
+            sym (bool, optional): Whether or not to symmetrize the phase
 
         Returns:
             ``ndarray``: Realspace image wave function. Real-valued 2D array
@@ -275,27 +277,44 @@ class Microscope(object):
         """
 
         # Get the Propagated wave function
-        if padded_shape is not None:
-            self._get_qq(padded_shape)
-            dimy, dimx = ObjWave.shape
+
+        if symmetrize:
+            object_wave = self._symmetrize(object_wave)
+
+        if padded_shape:
+            if np.any((np.array(padded_shape) - np.array(object_wave.shape)) < 0):
+                raise ValueError(
+                    f"padded_shape, {padded_shape} must be larger than the (possibly symmetrized) "
+                    + f"object wave shape, {object_wave.shape}, in all dimensions."
+                )
+            dimy, dimx = object_wave.shape
             pdimy, pdimx = padded_shape
             py = (pdimy - dimy) // 2
             px = (pdimx - dimx) // 2
-            objwave = np.pad(ObjWave, ((py, py), (px, px)), mode="edge")
-            ImgWave = self._propagate_wave(objwave)
-            Image = np.abs(ImgWave) ** 2
-            Image = Image[py:-py, px:-px]
+            if pad_mode == "reflect":
+                object_wave = np.pad(
+                    object_wave, ((py, py), (px, px)), mode="reflect", reflect_type="odd"
+                )
+            else:
+                object_wave = np.pad(object_wave, ((py, py), (px, px)), mode=pad_mode)
 
-        else:
-            self._get_qq(ObjWave.shape)
-            ImgWave = self._propagate_wave(ObjWave)
-            Image = np.abs(ImgWave) ** 2
+        self._get_qq(object_wave.shape)
+        ImgWave = self._propagate_wave(object_wave)
+        Image = np.abs(ImgWave) ** 2
+
+        if padded_shape:
+            if py > 0:
+                Image = Image[py:-py]
+            if px > 0:
+                Image = Image[:, px:-px]
+        if symmetrize:
+            Image = self._unsymmetrize(Image)
 
         return Image
 
-    def _get_qq(self, shape:tuple):
+    def _get_qq(self, shape: tuple):
         """
-            qq (2D array): Frequency array
+        qq (2D array): Frequency array
         """
         ly = np.fft.fftfreq(shape[0])
         lx = np.fft.fftfreq(shape[1])
@@ -303,7 +322,7 @@ class Microscope(object):
         self._qq = np.sqrt(X**2 + Y**2)
         return
 
-    def compute_diffraction_pattern(self, ObjWave:np.ndarray):
+    def compute_diffraction_pattern(self, ObjWave: np.ndarray):
         """Produce the image in the backfocal plane (diffraction)
 
         Args:
@@ -323,3 +342,62 @@ class Microscope(object):
         f_Img = np.abs(f_ImgWave) ** 2
 
         return f_Img
+
+    def _symmetrize(self, imstack: np.ndarray, mode="even") -> np.ndarray:
+        """
+        Make the even symmetric extension of an image (4x as large).
+
+        Args:
+            imstack (np.ndarray): Input image or stack of images.
+            mode (str, optional): Symmetrization mode, "even" or "odd". Default is "even".
+
+        Returns:
+            np.ndarray: Symmetrized image or stack of images.
+        """
+        imstack = np.array(imstack)
+        if imstack.ndim == 2:
+            imstack = imstack[None,]
+            d2 = True
+        else:
+            assert imstack.ndim == 3, (
+                "symmetrize only supports 2D images or 3D stacks, " + f"not {imstack.ndim} arrays"
+            )
+            d2 = False
+        dimz, dimy, dimx = imstack.shape
+        imi = np.zeros((dimz, dimy * 2, dimx * 2), dtype=imstack.dtype)
+        imi[..., :dimy, :dimx] = imstack
+        if mode == "even":
+            imi[..., dimy:, :dimx] = np.flip(imstack, axis=1)
+            imi[..., :, dimx:] = np.flip(imi[..., :, :dimx], axis=2)
+        elif mode == "odd":
+            imi[..., dimy:, :dimx] = -1 * np.flip(imstack, axis=1)
+            imi[..., :, dimx:] = -1 * np.flip(imi[..., :, :dimx], axis=2)
+        else:
+            raise ValueError(f"`mode` should be `even` or `odd`, not `{mode}`")
+        return imi[0] if d2 else imi
+
+    def _unsymmetrize(self, imstack: np.ndarray):
+        """
+        Crop the first quarter of an image, undoing the effects of _symmetrize.
+
+        Args:
+            imstack (np.ndarray): Input image or stack of images.
+
+        Returns:
+            np.ndarray: Symmetrized image or stack of images.
+        """
+        imstack = np.array(imstack)
+        if imstack.ndim == 2:
+            imstack = imstack[None,]
+            d2 = True
+        else:
+            assert imstack.ndim == 3, (
+                "symmetrize only supports 2D images or 3D stacks, " + f"not {imstack.ndim} arrays"
+            )
+            d2 = False
+
+        dimz, dimy, dimx = imstack.shape
+        if dimy % 2 != 0 or dimx % 2 != 0:
+            raise ValueError(f"Input stack must have even dimy and dimx, got ({dimy}, {dimx})")
+        imi = imstack[:, : dimy // 2, : dimx // 2]
+        return imi[0] if d2 else imi
