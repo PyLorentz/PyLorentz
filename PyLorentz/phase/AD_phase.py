@@ -347,29 +347,6 @@ class ADPhase(BasePhaseReconstruction):
         else:
             raise TypeError(f"Device should be int, str, or torch.device. Received {type(dev)}")
 
-    ## TODO FIND
-    @property
-    def model_input(self) -> Optional[Tensor]:
-        """
-        Returns the model input tensor.
-
-        Returns:
-            Optional[Tensor]: Model input tensor.
-        """
-        return self._model_input
-
-    @model_input.setter
-    def model_input(self, arr: Tensor) -> None:
-        """
-        Sets the model input tensor.
-
-        Args:
-            arr (Tensor): Input tensor to set.
-        """
-        # set to tensor on device
-        # make sure is same size as image
-        return
-
     @property
     def guess_phase(self) -> Optional[Tensor]:
         """
@@ -453,9 +430,8 @@ class ADPhase(BasePhaseReconstruction):
         """
         if not isinstance(im, torch.Tensor):
             im = torch.tensor(im, device=self.device, dtype=torch.float32)
-        if (
-            im.shape != self.dd.images.shape
-        ):  # TODO not sure if this is correct for multiple images
+        if im.shape != self.dd.images.shape:
+            # TODO not sure if this is correct for multiple images
             raise ValueError(
                 f"Input noise shape, {im.shape} should match input image shape, {self.shape}"
             )
@@ -476,6 +452,7 @@ class ADPhase(BasePhaseReconstruction):
         save_dir: Optional[os.PathLike] = None,
         noise_frac: Optional[float] = None,
         guess_phase: Union[str, np.ndarray, None] = "SITIE",
+        input_DIP: str | np.ndarray | None = "SITIE",
         reset: bool = True,
         print_every: int = -1,
         verbose: int = 1,
@@ -546,7 +523,8 @@ class ADPhase(BasePhaseReconstruction):
         reset = True if len(self.loss_iterations) == 0 else reset
 
         if reset:
-            # pretty sure set_guess_phase is only relevant if not using DIP, but need to confirm
+            # guess phase is what the DIP is trained to output during pre-training, so is distinct
+            # from the DIP_input
             self._set_guess_phase(guess_phase)
             self._set_guess_amp(guess_amp)
             self.loss_iterations = []
@@ -560,7 +538,7 @@ class ADPhase(BasePhaseReconstruction):
 
             if self._use_DIP:
                 self._runtype = "DIP"
-                self._set_input_DIP()
+                self._set_input_DIP(input_DIP=input_DIP)
                 DIP_phase = DIP_phase.to(self.device)
                 self.optimizer = torch.optim.Adam(
                     [{"params": DIP_phase.parameters(), "lr": self.LRs["phase"]}],
@@ -959,34 +937,30 @@ class ADPhase(BasePhaseReconstruction):
         self.guess_phase = torch.tensor(guess_phase, dtype=torch.float32)
         return
 
-    def _set_input_DIP(self, input_mode: str = "SITIE", guess_phase=None):
+    def _set_input_DIP(self, input_DIP: str | np.ndarray | None = None):
         """
         Generate the input to the DIP. Currently only a SITIE is available as that is frankly the
         best option, but this could be easily expanded to using input noise (like for a traditional
         DIP) or really anything
         """
-        # TODO test/have various options here, but SITIE is definitely best
-        # inp_noise = self._rng.random((1, *self.shape)) * 2 - 1
-        # inp_noise = self._rng.random((1, *self.shape)) * 2 - 1
-        # self.input_DIP = torch.tensor(
-        #     inp_noise, device=self.device, dtype=torch.float32, requires_grad=False
-        # )
-        if guess_phase is None:
-            if input_mode.lower() == "sitie":
+        if isinstance(input_DIP, str):
+            if input_DIP.lower() == "sitie":
                 sitie = SITIE(self.dd, verbose=0)
                 sitie.reconstruct(qc=self._qc)
-                guess_phase = sitie.phase_B
-            elif input_mode.lower() in ["random", "rand"]:
-                guess_phase = self._rng.random(self.shape) * 2 - 1
+                input_DIP = sitie.phase_B
+            elif input_DIP.lower() in ["random", "rand"]:
+                input_DIP = self._rng.random(self.shape) * 2 - 1
             else:
                 raise ValueError(
-                    f"Input mode should be 'SITIE' or 'random', unknown mode {input_mode}"
+                    f"Input mode string should be 'SITIE' or 'random'. Got {input_DIP}"
                 )
+        elif isinstance(input_DIP, np.ndarray):
+            input_DIP = np.squeeze(input_DIP)
         else:
-            guess_phase = np.squeeze(guess_phase)
+            raise TypeError(f"input_DIP should be str or np.ndarray, got {type(input_DIP)}")
 
         self._input_DIP = torch.tensor(
-            guess_phase[None, ...], device=self.device, dtype=torch.float32, requires_grad=False
+            input_DIP[None, ...], device=self.device, dtype=torch.float32, requires_grad=False
         )
 
     def get_TFs(self):
@@ -1001,7 +975,7 @@ class ADPhase(BasePhaseReconstruction):
         self.scope.defocus = defocus
         return self.scope.get_transfer_function(self.scale, self.shape)
 
-    def show_best(self, crop=5, **kwargs):
+    def show_best(self, crop=5):
         minloss_iter = self._best_iter  # np.argmin(self.loss_iterations)
         ph = self.best_phase
         By, Bx = self.induction_from_phase(ph)
@@ -1050,7 +1024,7 @@ class ADPhase(BasePhaseReconstruction):
             plt.tight_layout()
             plt.show()
 
-    def show_final(self, crop: int = 5, **kwargs) -> None:
+    def show_final(self, crop: int = 5) -> None:
         """Show the phase and induction of the final iteration.
 
         Args:
