@@ -17,6 +17,8 @@ def ssim(truth:np.ndarray, test:np.ndarray, **kwargs):
     """
     test = np.copy(test).astype(np.float64)
     truth = np.copy(truth).astype(np.float64)
+    if truth.shape != test.shape:
+        raise ValueError(f"Truth and test must have same shape. Got {truth.shape} and {test.shape}")
     test -= np.min(test) # min gives highest val
     truth -= np.min(truth)
     data_range = kwargs.pop("data_range", np.ptp(truth))
@@ -38,6 +40,8 @@ def accuracy(truth:np.ndarray, test:np.ndarray, **kwargs):
     """
     test = test.astype(np.float64)
     truth = truth.astype(np.float64)
+    if truth.shape != test.shape:
+        raise ValueError(f"Truth and test must have same shape. Got {truth.shape} and {test.shape}")
     test -= test.mean() # min gives highest val
     truth -= truth.mean()
     acc = (test * truth).sum() / np.sqrt(
@@ -59,6 +63,8 @@ def psnr(truth:np.ndarray, test:np.ndarray, data_range:Optional[Union[float,None
     """
     test = np.copy(test).astype(np.float64)
     truth = np.copy(truth).astype(np.float64)
+    if truth.shape != test.shape:
+        raise ValueError(f"Truth and test must have same shape. Got {truth.shape} and {test.shape}")
     test -= np.mean(test) # mean gives best val
     truth -= np.mean(truth)
     if data_range is None:

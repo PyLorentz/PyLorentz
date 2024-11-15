@@ -13,6 +13,11 @@ packages = [
     "PyLorentz.visualize",
 ]
 
+[tool.pyright]
+include = ["PyLorentz"]
+exclude = [
+    "**/__pycache__",
+]
 
 [project]
 name="PyLorentz"

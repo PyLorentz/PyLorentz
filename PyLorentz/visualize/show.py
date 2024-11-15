@@ -1,11 +1,27 @@
 import warnings
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import skimage
 from ipywidgets import interact
+
+
+try:
+    import torch
+    _torch_imported = True
+    from torch import Tensor
+except (ModuleNotFoundError, ImportError) as e:
+    torch = None
+    _torch_imported = False
+    Tensor = None
+
+# if TYPE_CHECKING:
+#     from torch import Tensor
+# else:
+#     Tensor = None
+
 
 from PyLorentz.visualize.colorwheel import get_cmap, shift_cmap_center
 
@@ -49,7 +65,16 @@ def show_im(
     Returns:
         None
     """
-    image = np.array(image, dtype=np.float64)
+    try:
+        image = np.array(image) # dtype = float64?
+    except TypeError:
+        if _torch_imported:
+            if isinstance(image, Tensor):
+                image = image.cpu().detach().numpy()
+        else:
+            raise TypeError(f"Image should be np.ndarray, got {type(image)}")
+
+
     if image.dtype == "bool":
         image = image.astype("int")
 
