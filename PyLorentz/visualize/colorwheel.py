@@ -137,7 +137,12 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
         if cmap in plt.colormaps():
             cmap = plt.get_cmap(cmap)
         elif cmap.lower().startswith("cet"):
-            splits = cmap.split("_")
+            if "_" in cmap:
+                splits = cmap.split("_")
+            elif "-" in cmap:
+                splits = cmap.split("-")
+            else:
+                splits = ["CET", cmap[3:]]
             # doesn't work for all, but parses many
             cm2 = f"cet_CET_{splits[1].upper()}_{'_'.join(splits[2:])}".strip('_')
             if cm2 in cc.colormaps():

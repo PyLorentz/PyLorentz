@@ -115,7 +115,9 @@ def show_im(
             vmin = vals[0]
             vmax = vals[-1]
     else:
-        raise ValueError(f"Unknown intensity_range, should be 'minmax' or 'ordered', got {intensity_range}")
+        raise ValueError(
+            f"Unknown intensity_range, should be 'minmax' or 'ordered', got {intensity_range}"
+        )
 
     cmap = get_cmap(cmap, **kwargs)
     if kwargs.get("cmap_midpoint") is not None:
@@ -147,9 +149,16 @@ def show_im(
         ax.xaxis.tick_bottom()
         ax.tick_params(direction=kwargs.get("tick_direction", "out"))
         # if scale is None:
-        if not isinstance(scale, (float, int)):
+        if scale is None:
             ticks_label = kwargs.get("scale_units", "pixels")
         else:
+            if isinstance(scale, (tuple, list, np.ndarray)):
+                assert len(scale) == 2
+                if scale[0] != scale[1]:
+                    raise warnings.warn(
+                        f"show_im() does not currently support different x/y scales. Using scale[0]"
+                    )
+                scale = scale[0]
             ax_ysize_inch = ax.get_position().height * fig.get_size_inches()[1]
             ax_xsize_inch = ax.get_position().width * fig.get_size_inches()[0]
             num_ticks_y = max(round(ax_ysize_inch + 1), 3)
@@ -649,6 +658,6 @@ def _white_to_transparent(image):
     im_scaled /= im_scaled.max()
     im_scaled = np.array(im_scaled, dtype=np.float32)
     rgba_image = np.zeros((image.shape[0], image.shape[1], 4), dtype=np.float32)
-    rgba_image[:, :, :3] = im_scaled[...,None]
+    rgba_image[:, :, :3] = im_scaled[..., None]
     rgba_image[:, :, 3] = 1 - im_scaled
     return rgba_image
