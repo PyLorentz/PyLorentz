@@ -67,7 +67,7 @@ def show_im(
     """
     try:
         image = np.array(image) # dtype = float64?
-    except TypeError:
+    except (TypeError, RuntimeError):
         if _torch_imported:
             if isinstance(image, Tensor):
                 image = image.cpu().detach().numpy()
