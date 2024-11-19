@@ -299,6 +299,8 @@ class SITIE(BaseTIE):
         Returns:
             SITIE: The SITIE instance.
         """
+        if self.phase_B is None:
+            raise ValueError("self.phase_B is None")
         fig, axs = plt.subplots(ncols=2, figsize=(8, 4))
 
         if isinstance(plot_scale, str):

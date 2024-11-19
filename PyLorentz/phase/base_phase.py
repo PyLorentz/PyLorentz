@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 import scipy.constants as physcon
@@ -10,6 +10,11 @@ from PyLorentz.io.write import format_defocus, write_tif
 from PyLorentz.visualize import show_2D, show_im
 from PyLorentz.visualize.colorwheel import color_im
 from PyLorentz.utils import metrics
+
+if TYPE_CHECKING:
+    from torch import Tensor
+else:
+    Tensor = None
 
 
 class BasePhaseReconstruction:
@@ -39,12 +44,18 @@ class BasePhaseReconstruction:
         self._verbose = verbose
         self.scale = scale
         self._overwrite = False
+        self._results = {}
 
-        self._results = {
+        self.results = {
             "By": None,
             "Bx": None,
             "phase_B": None,
         }
+
+    def vprint(self, *args, **kwargs):
+        """Print messages if verbose is enabled."""
+        if self._verbose:
+            print(*args, **kwargs)
 
     @property
     def scale(self):
@@ -78,6 +89,29 @@ class BasePhaseReconstruction:
         """Get the results."""
         return self._results
 
+    @results.setter
+    def results(self, res: dict):
+        """Set results dictionary."""
+        allowed_keys = ["By", "Bx", "phase_B", "phase_E", "infocus", "dIdZ_B", "dIdZ_E"]
+        for k, v in res.items():
+            if k in allowed_keys:
+                self._results[k] = v
+            else:
+                raise KeyError(f"Key {k} is not an allowed results key: {allowed_keys}")
+
+    @property
+    def phase_B(self):
+        """Get the magnetic component of the phase shift."""
+        return self.results["phase_B"]
+
+    @phase_B.setter
+    def phase_B(self, val):
+        """Set the magnetic component of the phase shift and induction components."""
+        self.results["phase_B"] = val - val.min()
+        By, Bx = self.induction_from_phase(val)
+        self.results["By"] = By
+        self.results["Bx"] = Bx
+
     @property
     def By(self):
         """Get the y-component of the magnetic induction."""
@@ -97,24 +131,6 @@ class BasePhaseReconstruction:
     def B(self):
         """Get the magnetic induction."""
         return np.array([self.results["By"], self.results["Bx"]])
-
-    @property
-    def phase_B(self):
-        """Get the magnetic component of the phase shift."""
-        return self.results["phase_B"]
-
-    @phase_B.setter
-    def phase_B(self, val):
-        """Set the magnetic component of the phase shift and induction components."""
-        self.results["phase_B"] = val - val.min()
-        By, Bx = self.induction_from_phase(val)
-        self._results["By"] = By
-        self._results["Bx"] = Bx
-
-    def vprint(self, *args, **kwargs):
-        """Print messages if verbose is enabled."""
-        if self._verbose:
-            print(*args, **kwargs)
 
     @property
     def save_dir(self):
@@ -176,20 +192,36 @@ class BasePhaseReconstruction:
                 color="color" in key,
             )
 
-    @staticmethod
-    def _fmt_defocus(defval: Union[float, int], digits: int = 3, spacer=""):
+    def _check_save_name(
+        self,
+        save_dir: Optional[os.PathLike],
+        name: Optional[str],
+        mode: str = "",
+        default_name: bool = True,
+    ):
         """
-        Format defocus value for display.
+        Check and set the save name.
 
         Args:
-            defval (Union[float, int]): Defocus value.
-            digits (int, optional): Number of digits. Default is 3.
-            spacer (str, optional): Spacer string. Default is "".
-
-        Returns:
-            str: Formatted defocus value.
+            save_dir (Optional[os.PathLike]): Directory to save results.
+            name (Optional[str]): Name for the reconstruction.
+            mode (str, optional): Mode for the save name. Default is "".
         """
-        return format_defocus(defval, digits, spacer=spacer)
+        if save_dir is None:
+            if self.save_dir is None:
+                raise ValueError(f"save_dir not specified, is None")
+        else:
+            self.save_dir = save_dir  # checks while setting that parents exist
+        if name is None and default_name:
+            if self.name is None:
+                now = datetime.now().strftime("%y%m%d-%H%M%S")
+                if len(mode) > 0:
+                    mode = "_" + mode
+                self._save_name = f"{now}{mode}"
+            else:
+                self._save_name = self.name
+        else:
+            self._save_name = name
 
     def induction_from_phase(self, phase: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -202,7 +234,7 @@ class BasePhaseReconstruction:
             tuple[np.ndarray, np.ndarray]: (By, Bx), y and x components of the magnetic induction integrated along the z-direction.
         """
         grad_y, grad_x = np.gradient(np.squeeze(phase), edge_order=2)
-        pre_B = physcon.hbar / (physcon.e * self.scale) * 10**18  # T*nm^2
+        pre_B = physcon.hbar / (physcon.e * self.scale) * 1e18  # T*nm^2
         Bx = pre_B * grad_y
         By = -1 * pre_B * grad_x
         return By, Bx
@@ -240,6 +272,8 @@ class BasePhaseReconstruction:
         Args:
             show_scale (bool, optional): Whether to show the scale. Default is True.
         """
+        if self.phase_B is None:
+            raise ValueError(f"self.phase_B is None")
         dname = self.name if self.name else self._save_name if self._save_name else ""
         ticks_off = kwargs.pop("ticks_off", not show_scale)
         if crop > 0:
@@ -257,40 +291,14 @@ class BasePhaseReconstruction:
             **kwargs,
         )
 
-    def _check_save_name(
-        self,
-        save_dir: Optional[os.PathLike],
-        name: Optional[str],
-        mode: str = "",
-        default_name: bool = True,
-    ):
+    def calc_phase_metrics(self, t_phase: np.ndarray, r_phase: np.ndarray) -> dict:
         """
-        Check and set the save name.
+        Calculate the correlational accuracy, SSRI, PSNR for a reconstructed and ground truth phase
 
         Args:
-            save_dir (Optional[os.PathLike]): Directory to save results.
-            name (Optional[str]): Name for the reconstruction.
-            mode (str, optional): Mode for the save name. Default is "".
-        """
-        if save_dir is None:
-            if self.save_dir is None:
-                raise ValueError(f"save_dir not specified, is None")
-        else:
-            self.save_dir = save_dir  # checks while setting that parents exist
-        if name is None and default_name:
-            if self.name is None:
-                now = datetime.now().strftime("%y%m%d-%H%M%S")
-                if len(mode) > 0:
-                    mode = "_" + mode
-                self._save_name = f"{now}{mode}"
-            else:
-                self._save_name = self.name
-        else:
-            self._save_name = name
-
-    def calc_phase_metrics(self, t_phase, r_phase):
-        # calc accuracy, SSRI, PSNR for recon vs truth,
+            t_phase (np.ndarray): True
         # phase and B
+        """
         r_phase = self._to_numpy(r_phase)
         r_By, r_Bx = self.induction_from_phase(r_phase)
         r_Bmag = np.sqrt(r_By**2 + r_Bx**2)
@@ -323,7 +331,7 @@ class BasePhaseReconstruction:
         return results
 
     @staticmethod
-    def _to_numpy(arr):
+    def _to_numpy(arr: np.ndarray | Tensor):
         module = arr.__class__.__module__
         if module == "torch":
             return arr.cpu().detach().numpy()
@@ -331,3 +339,18 @@ class BasePhaseReconstruction:
             return arr.get()
         else:
             return np.array(arr)
+
+    @staticmethod
+    def _fmt_defocus(defval: Union[float, int], digits: int = 3, spacer=""):
+        """
+        Format defocus value for display.
+
+        Args:
+            defval (Union[float, int]): Defocus value.
+            digits (int, optional): Number of digits. Default is 3.
+            spacer (str, optional): Spacer string. Default is "".
+
+        Returns:
+            str: Formatted defocus value.
+        """
+        return format_defocus(defval, digits, spacer=spacer)

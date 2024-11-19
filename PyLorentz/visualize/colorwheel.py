@@ -345,9 +345,6 @@ def color_im(
                 imrgb[:, :, i] = 1 - (1 - imrgb[:, :, i]) * mags
     else:  # mz > 1 -> white, mz < 1 -> black
         theta = np.arctan2(vz, raw_inp_mags)
-        # from hipl.utils.show import show_im
-        # show_im(mags, 'mags')
-        # show_im(theta, 'theta')
         if HSL:
             H = colors.rgb_to_hsv(imrgb)[:, :, 0]
             # **3 is due to move more values closer to 0.5, max color intensity
