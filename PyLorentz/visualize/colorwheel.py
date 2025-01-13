@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 try:
     import colorcet as cc
 except ModuleNotFoundError:
-    pass
+    cc = None 
 
 def roll_cmap(
     cmap: Union[Colormap, str],
@@ -46,7 +46,7 @@ def roll_cmap(
     out = np.roll(x, int(N * frac))
     if invert:
         out = 1 - out
-    new_cmap = mpl.colors.LinearSegmentedColormap.from_list(f"{n}_s", cmap(out))
+    new_cmap = colors.LinearSegmentedColormap.from_list(f"{n}_s", cmap(out))
     return new_cmap
 
 def shift_cmap_center(
@@ -91,10 +91,10 @@ def shift_cmap_center(
 
     if invert:
         out = 1 - out
-    new_cmap = mpl.colors.LinearSegmentedColormap.from_list(f"{cmap.name}_s", cmap(out))
+    new_cmap = colors.LinearSegmentedColormap.from_list(f"{cmap.name}_s", cmap(out))
     return new_cmap
 
-def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
+def get_cmap(cmap: Optional[Union[str, Colormap]] = 'linear', **kwargs) -> Colormap:
     """
     Take a colormap or string input and return a Colormap object.
 
@@ -129,14 +129,13 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
     """
     shift = kwargs.get("shift", 0)
     invert = kwargs.get("invert", False)
-    if cmap is None:
-        cmap = "linear"
-    elif isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(cmap, colors.ListedColormap):
+            
+    if isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(cmap, colors.ListedColormap):
         return cmap
     elif isinstance(cmap, str):
         if cmap in plt.colormaps():
-            cmap = plt.get_cmap(cmap)
-        elif cmap.lower().startswith("cet"):
+            cmap_out = plt.get_cmap(cmap)
+        elif cmap.lower().startswith("cet") and cc is not None:
             if "_" in cmap:
                 splits = cmap.split("_")
             elif "-" in cmap:
@@ -146,53 +145,53 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
             # doesn't work for all, but parses many
             cm2 = f"cet_CET_{splits[1].upper()}_{'_'.join(splits[2:])}".strip('_')
             if cm2 in cc.colormaps():
-                cmap = plt.get_cmap(cm2)
+                cmap_out = plt.get_cmap(cm2)
             elif "0" in cm2:
                 cm3 = cm2.replace("0","")
                 if cm3 in cc.colormaps():
-                    cmap = plt.get_cmap(cm3)
+                    cmap_out = plt.get_cmap(cm3)
         if isinstance(cmap, str):  # unable to find so far
             try:
                 if cmap in ["linear", "lin", "", "default"]:
-                    cmap = plt.get_cmap("gray")
+                    cmap_out = plt.get_cmap("gray")
                 elif cmap in ["diverging", "div"]:
-                    cmap = plt.get_cmap("coolwarm")
-                elif cmap in ["linear_cbl", "cbl", "lin_cbl"]:
-                    cmap = cc.cm.CET_CBL1
-                elif cmap in ["diverging_cbl", "div_cbl"]:
-                    cmap = cc.cm.CET_CBD1
-                elif cmap in ["cet_rainbow", "cet_r1", "r1"]:
-                    cmap = cc.cm.CET_R1
-                elif cmap in ["legacy4fold", "cet_c2", "c2", "cet_2"]:
-                    cmap = cc.cm.CET_C2
+                    cmap_out = plt.get_cmap("coolwarm")
+                elif cmap in ["linear_cbl", "cbl", "lin_cbl"] and cc is not None:
+                    cmap_out = cc.cm["CET_CBL1"]
+                elif cmap in ["diverging_cbl", "div_cbl"] and cc is not None:
+                    cmap_out = cc.cm["CET_CBD1"]
+                elif cmap in ["cet_rainbow", "cet_r1", "r1"] and cc is not None:
+                    cmap_out = cc.cm.CET_R1
+                elif cmap in ["legacy4fold", "cet_c2", "c2", "cet_2"] and cc is not None:
+                    cmap_out = cc.cm["CET_C2"]
                     shift += -np.pi / 2  # matching directions of legacy 4-fold
                 elif cmap in ["purehsv", "legacyhsv"]:
-                    cmap = plt.get_cmap("hsv")
+                    cmap_out = plt.get_cmap("hsv")
                     invert = not invert
                     shift += np.pi / 2
-                elif cmap in ["cet_c6", "c6", "cet_6", "6fold", "6-fold", "sixfold", "hsv", "cyclic"]:
-                    cmap = cc.cm.CET_C6
+                elif cmap in ["cet_c6", "c6", "cet_6", "6fold", "6-fold", "sixfold", "hsv", "cyclic"] and cc is not None:
+                    cmap_out = cc.cm["CET_C6"]
                     invert = not invert
                     shift += np.pi / 2
-                elif cmap in ["cet_c7", "c7", "cet_7", "4fold", "fourfold", "4-fold"]:
-                    cmap = cc.cm.CET_C7
+                elif cmap in ["cet_c7", "c7", "cet_7", "4fold", "fourfold", "4-fold"] and cc is not None:
+                    cmap_out = cc.cm["CET_C7"]
                     invert = not invert
-                elif cmap in ["cet_c8", "c8", "cet_8"]:
-                    cmap = cc.cm.CET_C8
-                elif cmap in ["cet_c10", "c10", "cet_10", "isolum", "isoluminant", "iso"]:
-                    cmap = cc.cm.CET_C10
-                elif cmap in ["cet_c11", "c11", "cet_11"]:
-                    cmap = cc.cm.CET_C11
+                elif cmap in ["cet_c8", "c8", "cet_8"] and cc is not None:
+                    cmap_out = cc.cm["CET_C8"]
+                elif cmap in ["cet_c10", "c10", "cet_10", "isolum", "isoluminant", "iso"] and cc is not None:
+                    cmap_out = cc.cm["CET_C10"]
+                elif cmap in ["cet_c11", "c11", "cet_11"] and cc is not None:
+                    cmap_out = cc.cm["CET_C11"]
                 elif cmap in plt.colormaps():
-                    cmap = plt.get_cmap(cmap)
+                    cmap_out = plt.get_cmap(cmap)
                 else:
                     print(f"Unknown colormap input '{cmap}'.")
                     print("You can also pass a colormap object directly.")
                     print("Proceeding with default gray.")
-                    cmap = plt.get_cmap("gray")
+                    cmap_out = plt.get_cmap("gray")
             except NameError:
                 print("Colorcet not installed, proceeding with hsv from mpl")
-                cmap = plt.get_cmap("hsv")
+                cmap_out = plt.get_cmap("hsv")
                 invert = not invert
                 shift -= np.pi / 2
 
@@ -202,8 +201,8 @@ def get_cmap(cmap: Optional[Union[str, None]] = None, **kwargs) -> Colormap:
     if shift != 0:  # given as radian convert to [0,1]
         shift = shift % (2 * np.pi) / (2 * np.pi)
     if shift != 0 or invert:
-        cmap = roll_cmap(cmap, shift, invert)
-    return cmap
+        cmap_out = roll_cmap(cmap_out, shift, invert)
+    return cmap_out
 
 def color_im(
     vx: np.ndarray,
@@ -292,8 +291,8 @@ def color_im(
     cmap = get_cmap(cmap, **kwargs)
 
     if rad is None:
-        rad = vx.shape[0] // 16
-        rad = max(rad, 16)
+        shape_frac = vx.shape[0] // 16
+        rad = max(shape_frac, 16)
 
     raw_inp_mags = np.sqrt(vx**2 + vy**2)
     if np.min(raw_inp_mags) == np.max(raw_inp_mags):
@@ -326,11 +325,10 @@ def color_im(
     dimx = np.shape(vy)[1] + 2 * rad + pad
     cimage = np.zeros((dimy, dimx, 3))
 
-    # azimuth maps to hue
-    if kwargs.get("modulo", False):
-        mod = kwargs.get("modulo")
+    mod = kwargs.get("modulo", False) 
+    if mod: 
         azimuth = np.mod((np.arctan2(vx, vy) + np.pi), mod) / mod
-    else:
+    else: 
         azimuth = (np.arctan2(vx, vy) + np.pi) / (2 * np.pi)
 
     # apply colormap to angle
@@ -395,7 +393,7 @@ def color_im(
 
 def make_colorwheel(
     rad: int,
-    cmap: mpl.colors.Colormap,
+    cmap: colors.Colormap,
     background: str = "black",
     core: Optional[Union[str, None]] = None,
     **kwargs,
@@ -420,11 +418,13 @@ def make_colorwheel(
     cmap = get_cmap(cmap)
     background = background.lower()
     X, Y = np.mgrid[-rad:rad, -rad:rad]
-    if kwargs.get("modulo", False):
-        mod = kwargs.get("modulo")
+    
+    mod = kwargs.get("modulo", False)
+    if mod:
         azimuth = np.mod((np.arctan2(Y, X) + np.pi), mod) / mod
     else:
         azimuth = (np.arctan2(Y, X) + np.pi) / (2 * np.pi)
+        
     imrgb = cmap(azimuth)[..., :3]
     rr = dist4(rad * 2)
     mask = np.where(rr < rad, 1, 0)
@@ -483,8 +483,8 @@ def make_colorwheelz(
     if HSL is None:
         HSL = kwargs.get("HLS", False)
     X, Y = np.mgrid[-rad:rad, -rad:rad]
-    if kwargs.get("modulo", False):
-        mod = kwargs.get("modulo")
+    mod = kwargs.get("modulo", False)
+    if mod:
         azimuth = np.mod((np.arctan2(Y, X) + np.pi), mod) / mod
     else:
         azimuth = (np.arctan2(Y, X) + np.pi) / (2 * np.pi)
@@ -519,6 +519,7 @@ def make_colorwheelz(
             else:
                 for i in range(3):
                     imrgb[:, :, i] += 1 - mask
+            inner = outer = 1 # for pylance 
 
         else:
             inner = np.where(theta < 0, np.cos(theta)**2, 1)

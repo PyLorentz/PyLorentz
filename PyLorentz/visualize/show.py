@@ -1,27 +1,38 @@
 import warnings
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure 
+from matplotlib.axes import Axes
+from matplotlib.colors import Colormap
+from matplotlib.patches import Rectangle 
+from matplotlib.transforms import Affine2D 
 import numpy as np
 import skimage
 from ipywidgets import interact
+from scipy.signal import windows
+import scipy.ndimage as ndi 
 
+_HAS_TORCH = False 
+if TYPE_CHECKING:
+    # from torch import Tensor
+    import torch 
+else:
+    try: 
+        import torch 
+        _HAS_TORCH = True
+    except: 
+        _HAS_TORCH = False
 
-try:
-    import torch
-    _torch_imported = True
-    from torch import Tensor
-except (ModuleNotFoundError, ImportError) as e:
-    torch = None
-    _torch_imported = False
-    Tensor = None
-
-# if TYPE_CHECKING:
-#     from torch import Tensor
-# else:
-#     Tensor = None
-
+_HAS_CUPY = False 
+if TYPE_CHECKING:
+    import cupy as cp 
+else:
+    try: 
+        import cupy as cp 
+        _HAS_CUPY = True
+    except: 
+        _HAS_CUPY = False
 
 from PyLorentz.visualize.colorwheel import get_cmap, shift_cmap_center
 
@@ -30,13 +41,13 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def show_im(
-    image: np.ndarray,
+    image: np.ndarray|torch.Tensor,
     title: Optional[str] = None,
     scale: Optional[float] = None,
     simple: bool = False,
     save: Optional[str] = None,
-    cmap: str = "gray",
-    figax: Optional[Tuple[plt.Figure, plt.Axes]] = None,
+    cmap: str|Colormap = "gray",
+    figax: Optional[Tuple[Figure, Axes]] = None,
     roi: Optional[dict] = None,
     cbar_title: Optional[str] = None,
     cbar: Optional[bool] = None,
@@ -68,10 +79,13 @@ def show_im(
     try:
         image = np.array(image) # dtype = float64?
     except (TypeError, RuntimeError):
-        if _torch_imported:
-            if isinstance(image, Tensor):
+        if _HAS_CUPY: 
+            if isinstance(image, cp.ndarray): 
+                image = cp.asnumpy(image)  
+        if _HAS_TORCH:
+            if isinstance(image, torch.Tensor):
                 image = image.cpu().detach().numpy()
-        else:
+        if not isinstance(image, np.ndarray):
             raise TypeError(f"Image should be np.ndarray, got {type(image)}")
 
 
@@ -105,11 +119,11 @@ def show_im(
         if simple and title is None:
             fig = plt.figure()
             fig.set_size_inches(size)
-            ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
+            ax = Axes(fig, (0.0, 0.0, 1.0, 1.0))
             fig.add_axes(ax)
         else:
             fig, ax = plt.subplots(figsize=size)
-
+    
     if intensity_range.lower() in ["minmax", "abs", "absolute"]:
         vmin = kwargs.get("vmin", None)
         vmax = kwargs.get("vmax", None)
@@ -145,9 +159,11 @@ def show_im(
         )
 
     cmap = get_cmap(cmap, **kwargs)
-    if kwargs.get("cmap_midpoint") is not None:
+    midpoint = kwargs.get("cmap_midpoint")
+    if midpoint is not None: 
+        assert isinstance(vmin, float) and isinstance(vmax, float) 
         cmap = shift_cmap_center(
-            cmap, midpointval=kwargs.get("cmap_midpoint"), vmin=vmin, vmax=vmax
+            cmap, midpointval=midpoint, vmin=vmin, vmax=vmax
         )
 
     if kwargs.get("white_to_transparent"):
@@ -180,10 +196,11 @@ def show_im(
             if isinstance(scale, (tuple, list, np.ndarray)):
                 assert len(scale) == 2
                 if scale[0] != scale[1]:
-                    raise warnings.warn(
+                    warnings.warn(
                         f"show_im() does not currently support different x/y scales. Using scale[0]"
                     )
                 scale = scale[0]
+            assert isinstance(scale, (float, int))
             ax_ysize_inch = ax.get_position().height * fig.get_size_inches()[1]
             ax_xsize_inch = ax.get_position().width * fig.get_size_inches()[0]
             num_ticks_y = max(round(ax_ysize_inch + 1), 3)
@@ -238,11 +255,11 @@ def show_im(
         bottom = (dy - roi["bottom"] - lw * pad) / dy
         width = (roi["right"] - roi["left"] + 2 * lw * pad) / dx
         height = (roi["bottom"] - roi["top"] + 2 * lw * pad) / dy
-
-        p = plt.Rectangle((left, bottom), width, height, fill=False, edgecolor=color, linewidth=lw)
+        
+        p = Rectangle((left, bottom), width, height, fill=False, edgecolor=color, linewidth=lw)
         if "rotation" in roi.keys():
             transform = (
-                mpl.transforms.Affine2D().rotate_deg_around(0.5, 0.5, -1 * roi["rotation"])
+                Affine2D().rotate_deg_around(0.5, 0.5, -1 * roi["rotation"])
                 + ax.transAxes
             )
         else:
@@ -281,7 +298,7 @@ def show_im(
 
 
 def show_stack(
-    images: List[np.ndarray], titles: Optional[List[str]] = None, scale_each: bool = True, **kwargs
+    images: List[np.ndarray]|np.ndarray, titles: Optional[List[str]] = None, scale_each: bool = True, **kwargs
 ) -> None:
     """
     Display a stack of images interactively using a slider.
@@ -447,7 +464,7 @@ def show_im_peaks(
 
 
 def tick_label_formatter(
-    ticks: np.ndarray, fov: float, scale: float, scale_units: str = None
+    ticks: np.ndarray, fov: float, scale: float, scale_units: str|None = None
 ) -> Tuple[List[str], str]:
     """
     Format tick labels for display.
@@ -490,24 +507,33 @@ def tick_label_formatter(
     return labels, unit
 
 
-def show_fft(fft: np.ndarray, **kwargs) -> None:
+def show_fft(im: np.ndarray, window:bool=True, log=False, alpha=1, gaussian_sigma=0, **kwargs) -> None:
     """
-    Display the FFT of an image with logarithmic scaling.
+    Compute and display the FFT of an image with logarithmic scaling.
 
     Args:
-        fft (np.ndarray): FFT of the image.
-        **kwargs: Additional keyword arguments.
+        im (np.ndarray): the image for which the FFT will be computed and displayed.
+        window (bool): Whether or not to window the image before taking the fft. Default True. 
+        **kwargs: Additional keyword arguments passed to show_im.
 
     Returns:
         None
     """
+    if window: 
+        win = tukey2D(im.shape, alpha=alpha)
+    else:
+        win = np.ones_like(im)
+    fft = np.fft.fft2(win*im) 
     mag = np.abs(np.fft.fftshift(fft))
-    bads = np.where(mag == 0)
-    mag[bads] = 1
-    lg = np.log(mag)
-    lg[bads] = np.min(lg)
+    if gaussian_sigma > 0: 
+        mag = ndi.gaussian_filter(mag, gaussian_sigma)
+    if log: 
+        # bads = np.where(mag == 0)
+        # mag[bads] = 1
+        # mag[bads] = np.min(mag)
+        mag = np.log(mag+1)
 
-    show_im(lg, **kwargs)
+    show_im(mag, **kwargs)
 
 
 def lineplot_im(
@@ -543,7 +569,7 @@ def lineplot_im(
         center = (dy // 2, dx // 2)
     cy, cx = round(center[0]), round(center[1])
 
-    sp, ep = _box_intercepts(im.shape, center, phi, line_len)
+    sp, ep = _box_intercepts((dy, dx), center, phi, line_len)
 
     profile = skimage.measure.profile_line(
         im, sp, ep, linewidth=linewidth, mode="constant", reduce_func=np.mean
@@ -575,13 +601,13 @@ def lineplot_im(
         if linewidth > 1:
             th = np.arctan2((ep[0] - sp[0]), (ep[1] - sp[1]))
             spp, epp = _box_intercepts(
-                im.shape,
+                (dy, dx),
                 (cy + np.cos(th) * linewidth / 2, cx - np.sin(th) * linewidth / 2),
                 phi,
                 line_len,
             )
             spm, epm = _box_intercepts(
-                im.shape,
+                (dy, dx),
                 (cy - np.cos(th) * linewidth / 2, cx + np.sin(th) * linewidth / 2),
                 phi,
                 line_len,
@@ -603,8 +629,8 @@ def lineplot_im(
                 linewidth=1,
             )
 
-        ax1.set_xlim([0, im.shape[1] - 1])
-        ax1.set_ylim([im.shape[0] - 1, 0])
+        ax1.set_xlim((0, dx - 1))
+        ax1.set_ylim((dy - 1, 0))
 
         if save:
             print("saving: ", save)
@@ -686,3 +712,11 @@ def _white_to_transparent(image):
     rgba_image[:, :, :3] = im_scaled[..., None]
     rgba_image[:, :, 3] = 1 - im_scaled
     return rgba_image
+
+
+
+
+def tukey2D(shape:Tuple[int,int], alpha:float=0.5)->np.ndarray: 
+    y = windows.tukey(shape[0], alpha=alpha)
+    x = windows.tukey(shape[1], alpha=alpha)
+    return y[:,None] * x[None,...]

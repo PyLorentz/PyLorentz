@@ -13,8 +13,13 @@ from PyLorentz.utils import metrics
 
 if TYPE_CHECKING:
     from torch import Tensor
+    import cupy as cp 
 else:
-    Tensor = None
+    try: 
+        from torch import Tensor 
+        import cupy as cp 
+    except: 
+        pass 
 
 
 class BasePhaseReconstruction:
@@ -42,7 +47,8 @@ class BasePhaseReconstruction:
         self.name = name
         self._save_name = name
         self._verbose = verbose
-        self.scale = scale
+        if scale is not None: 
+            self.scale = scale
         self._overwrite = False
         self._results = {}
 
@@ -58,7 +64,7 @@ class BasePhaseReconstruction:
             print(*args, **kwargs)
 
     @property
-    def scale(self):
+    def scale(self) -> float:
         """Get the scale factor."""
         return self._scale
 
@@ -72,17 +78,17 @@ class BasePhaseReconstruction:
         self._scale = float(val)
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Get the name."""
         return self._name
 
     @name.setter
-    def name(self, name: str):
+    def name(self, name: str|None):
         """Set the name."""
         if name is not None:
             self._name = str(name)
         else:
-            self._name = None
+            self._name = ""
 
     @property
     def results(self):
@@ -133,7 +139,7 @@ class BasePhaseReconstruction:
         return np.array([self.results["By"], self.results["Bx"]])
 
     @property
-    def save_dir(self):
+    def save_dir(self) -> Path:
         """Get the save directory."""
         return self._save_dir
 
@@ -141,7 +147,7 @@ class BasePhaseReconstruction:
     def save_dir(self, p: Optional[os.PathLike]):
         """Set the save directory."""
         if p is None:
-            self._save_dir = None
+            self._save_dir = Path("./")
         else:
             p = Path(p).absolute()
             if not p.parents[0].exists():
@@ -334,9 +340,11 @@ class BasePhaseReconstruction:
     def _to_numpy(arr: np.ndarray | Tensor):
         module = arr.__class__.__module__
         if module == "torch":
+            assert isinstance(arr, Tensor)
             return arr.cpu().detach().numpy()
         elif module == "cupy":
-            return arr.get()
+            assert isinstance(arr, cp.ndarray)
+            return arr.get() # type:ignore 
         else:
             return np.array(arr)
 

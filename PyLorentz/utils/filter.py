@@ -5,7 +5,7 @@ Functions for filtering individual images.
 import numpy as np
 import scipy.ndimage as ndi
 from PyLorentz.visualize.show import show_im_peaks
-from typing import Optional
+from typing import Optional, Tuple
 
 
 def filter_hotpix(

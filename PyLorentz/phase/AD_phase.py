@@ -2,23 +2,27 @@ import os
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union, Tuple 
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage as ndi
 
-try:
-    import torch
+_HAS_TORCH = False 
+if TYPE_CHECKING:
+    import torch 
+    from torch import Tensor
     import torch.nn.functional as F
     import torchvision.transforms as TvT
-except (ModuleNotFoundError, ImportError) as e:
-    torch = None
-
-if TYPE_CHECKING:
-    from torch import Tensor
 else:
-    Tensor = None
+    try: 
+        import torch
+        from torch import Tensor
+        import torch.nn.functional as F
+        import torchvision.transforms as TvT
+        _HAS_TORCH = True 
+    except: 
+        _HAS_TORCH = False 
 
 
 from matplotlib.ticker import FormatStrFormatter
@@ -60,7 +64,7 @@ class ADPhase(BasePhaseReconstruction):
         device: Union[str, int],
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
-        verbose: bool = 1,
+        verbose: bool = True,
         scope: Optional[Microscope] = None,
         sample_params: dict = {},
         rng_seed: Optional[int] = None,
@@ -104,15 +108,16 @@ class ADPhase(BasePhaseReconstruction):
         self.device = device
         self.inp_ims = torch.tensor(self.dd.images, device=self.device, dtype=torch.float32)
         self.defvals = dd.defvals
-        self.scope = scope
+        if scope is not None: 
+            self.scope = scope  
         self._rng = np.random.default_rng(rng_seed)
         self._noise_frac = noise_frac
         self._scheduler_type = scheduler_type
         self.pad = (0, 0)
 
         # to be set later:
-        self._guess_phase: Optional[Tensor] = None
-        self._runtype: Optional[str] = None
+        self._guess_phase: Tensor = torch.tensor(0)
+        self._runtype: str = ''
         self._recon_amp: Optional[Tensor] = None
         self._recon_phase: Optional[Tensor] = None
         self._use_DIP: Optional[bool] = None
@@ -121,7 +126,7 @@ class ADPhase(BasePhaseReconstruction):
         self._best_phase: Optional[Tensor] = None
         self._best_amp: Optional[Tensor] = None
         self._best_iter: Optional[int] = None
-        self._phase_iterations: List[Tensor] = []
+        self._phase_iterations: List[Tuple[Tensor, int]] = []
         self._amp_iterations: List[Tensor] = []
         self.phase_iterations: Optional[np.ndarray] = None
         self.amp_iterations: Optional[np.ndarray] = None
@@ -155,10 +160,13 @@ class ADPhase(BasePhaseReconstruction):
             self._pad = (int(round(pad[0])), int(round(pad[1])))
 
     def _detach_and_crop(self, im: np.ndarray | Tensor) -> np.ndarray:
-        if torch is not None:
+        if _HAS_TORCH:
             if isinstance(im, torch.Tensor):
                 out = im.cpu().detach().numpy()
+            else: 
+                out = im.copy() 
         else:
+            assert isinstance(im, np.ndarray)
             out = im.copy()
         if self._pad[0] > 0:
             out = out[self._pad[0] : -self._pad[0]]
@@ -407,7 +415,7 @@ class ADPhase(BasePhaseReconstruction):
             self._scope = microscope
 
     @property
-    def device(self) -> str:
+    def device(self) -> str|torch.device:
         """
         Returns the device used for computation.
 
@@ -461,7 +469,7 @@ class ADPhase(BasePhaseReconstruction):
             raise TypeError(f"Device should be int, str, or torch.device. Received {type(dev)}")
 
     @property
-    def guess_phase(self) -> Optional[Tensor]:
+    def guess_phase(self) -> Tensor:
         """
         Returns the guess phase used to pre-train the DIP.
 
@@ -491,12 +499,12 @@ class ADPhase(BasePhaseReconstruction):
         self._guess_phase = im
 
     @property
-    def guess_amp(self) -> Optional[Tensor]:
+    def guess_amp(self) -> Tensor:
         """
         Returns the guess amplitude used to pre-train the DIP or if `solve_amp` is False.
 
         Returns:
-            Optional[Tensor]: Guess amplitude tensor.
+            Tensor: Guess amplitude tensor.
         """
         return self._guess_amp
 
@@ -564,13 +572,13 @@ class ADPhase(BasePhaseReconstruction):
         name: Optional[str] = None,
         save_dir: Optional[os.PathLike] = None,
         noise_frac: Optional[float] = None,
-        guess_phase: Union[str, np.ndarray, None] = "SITIE",
+        guess_phase: Union[str, np.ndarray] = "SITIE",
         input_DIP: str | np.ndarray | None = "SITIE",
         reset: bool = True,
         print_every: int = -1,
         verbose: int = 1,
         store_iters_every: int = -1,
-        qc: Optional[any] = None,
+        qc: Optional[float] = None,
         pad: tuple | None = None,
         **kwargs,  # scheduler params
     ) -> None:
@@ -625,14 +633,18 @@ class ADPhase(BasePhaseReconstruction):
         self._qc = qc
 
         if save:
-            if name is None and self.name is None:
-                now = self._start_time.strftime("%y%m%d-%H%M%S")
-                if len(self.dd) == 1:
-                    mode = "SIPRAD"
-                    self._results["input_image"] = self.dd.images[0]
-                else:
-                    mode = f"N{len(self.dd)}AD"
-            self._check_save_name(save_dir, name=f"{now}_{mode}")
+            if name is None:
+                if self.name is not None: 
+                    name = self.name 
+                else: 
+                    now = self._start_time.strftime("%y%m%d-%H%M%S")
+                    if len(self.dd) == 1:
+                        mode = "SIPRAD"
+                        self._results["input_image"] = self.dd.images[0]
+                    else:
+                        mode = f"N{len(self.dd)}AD"
+                    name = f"{now}_{mode}"
+            self._check_save_name(save_dir, name=name)
 
         self._noise_frac = noise_frac if noise_frac is not None else self._noise_frac
 
@@ -654,6 +666,7 @@ class ADPhase(BasePhaseReconstruction):
             )
 
             if self._use_DIP:
+                assert isinstance(DIP_phase, nn.Module)
                 self._runtype = "DIP"
                 self._set_input_DIP(input_DIP=input_DIP)
                 DIP_phase = DIP_phase.to(self.device)
@@ -662,6 +675,7 @@ class ADPhase(BasePhaseReconstruction):
                 )
                 DIP_phase.apply(weight_reset)
                 if solve_amp:
+                    assert DIP_amp is not None 
                     self._runtype += "-amp"
                     DIP_amp.apply(weight_reset)
                     DIP_amp = DIP_amp.to(self.device)
@@ -686,12 +700,14 @@ class ADPhase(BasePhaseReconstruction):
         # reinitializing optimizer here so have chance to change scheduler, LRs, etc.
         if reset or scheduler_type != "continue":
             if self._use_DIP:
+                assert DIP_phase is not None 
                 DIP_phase = DIP_phase.to(self.device)
                 self.optimizer = torch.optim.Adam(
                     [{"params": DIP_phase.parameters(), "lr": self.LRs["phase"]}],
                 )
 
                 if solve_amp:
+                    assert DIP_amp is not None 
                     self._solve_amp = True
                     DIP_amp = DIP_amp.to(self.device)
                     self.optimizer.add_param_group(
@@ -705,14 +721,16 @@ class ADPhase(BasePhaseReconstruction):
 
             else:
                 DIP_phase = DIP_amp = None
+                assert self._recon_phase is not None 
                 self._recon_phase.requires_grad = True
                 self.optimizer = torch.optim.Adam(
                     [{"params": self._recon_phase, "lr": self.LRs["phase"]}]
                 )
                 if solve_amp:
+                    assert self._recon_amp is not None 
                     self._solve_amp = True
                     self._recon_amp.requires_grad = True
-                    self.optimizer = self.optimizer.add_param_group(
+                    self.optimizer.add_param_group(
                         {"params": self._recon_amp, "lr": self.LRs["amp"]},
                     )
                 else:
@@ -1058,22 +1076,23 @@ class ADPhase(BasePhaseReconstruction):
         )
         return dd2
 
-    def _set_guess_phase(self, guess_phase: str):
+    def _set_guess_phase(self, guess_phase: str|np.ndarray):
         """Setting the guess phase used in AD reconstruction (no DIP?)"""
-        guess_phase = guess_phase.lower()
-        if guess_phase == "none":
-            guess_phase = None
-            self._num_pretrain_iter = 0
-            return
-        elif guess_phase == "uniform":
-            guess_phase = np.zeros(self.shape_full)
-        elif guess_phase == "sitie":
-            sitie = SITIE(self._padded_dd(), verbose=0)
-            sitie.reconstruct(qc=self._qc)
-            if self._verbose >= 2:
-                print("SITIE guess phase:")
-                sitie.visualize(cbar=True)
-            guess_phase = sitie.phase_B
+        if isinstance(guess_phase, str): 
+            guess_phase = guess_phase.lower()
+            # if guess_phase == "none":
+            #     guess_phase = None
+            #     self._num_pretrain_iter = 0
+            #     return
+            if guess_phase == "uniform":
+                guess_phase = np.zeros(self.shape_full)
+            elif guess_phase == "sitie":
+                sitie = SITIE(self._padded_dd(), verbose=0)
+                sitie.reconstruct(qc=self._qc)
+                if self._verbose >= 2:
+                    print("SITIE guess phase:")
+                    sitie.visualize(cbar=True)
+                guess_phase = sitie.phase_B
         self.guess_phase = torch.tensor(guess_phase, dtype=torch.float32)
         return
 
