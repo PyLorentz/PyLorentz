@@ -8,6 +8,7 @@ https://colorcet.holoviz.org/user_guide/Continuous.html#cyclic-colormaps
 Good Colour Maps: How to Design Them, Peter Kovesi (2015) https://arxiv.org/abs/1509.03700
 """
 
+from __future__ import annotations
 import colorsys
 from typing import Optional, Union
 

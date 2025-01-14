@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
@@ -270,7 +271,7 @@ class BaseDataset:
                 self.rect.set_width(x1 - x0)
                 self.rect.set_height(y1 - y0)
                 self.rect.set_xy((x0, y0))
-                ax.figure.canvas.draw()
+                ax.figure.canvas.draw() #type:ignore 
 
             def clear(self):
                 if self.scat is not None:
