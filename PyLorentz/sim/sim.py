@@ -89,10 +89,10 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             device (str, optional): Device to use for computation. Default is 'cpu'.
             multiproc (bool, optional): Whether to use multiprocessing. Default is True.
             **kwargs: Additional arguments for phase computation.
-                For phase_method == "mansuripur":
-                    - sym (bool): Symmetrize magnetizations
-                    - pad (bool or tuple): Shape to pad the magnetizations
-                    - pad_mode (str): passed to np.pad
+            For phase_method == "mansuripur":
+                - sym (bool): Symmetrize magnetizations
+                - pad (bool or tuple): Shape to pad the magnetizations
+                - pad_mode (str): passed to np.pad
         """
         if method is not None or self.phase_method is None:
             self.phase_method = method

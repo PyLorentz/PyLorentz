@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import warnings
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union 
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -47,7 +49,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def show_im(
-    image: np.ndarray | Tensor,
+    image: Union[np.ndarray, Tensor],
     title: str | None = None,
     scale: Optional[float] = None,
     simple: bool = False,

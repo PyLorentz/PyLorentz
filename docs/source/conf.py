@@ -39,6 +39,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
+    "sphinx_autodoc_typehints",
     # "sphinx.ext.autosectionlabel",
 ]
 
@@ -65,6 +66,10 @@ autodoc_mock_imports = [
     "ipywidgets",
     "tifffile",
 ]
+
+# autodoc_type_aliases = {'AgentAssignment': 'AgentAssignment'}
+# autodoc_typehints = "description"
+# autodoc_typehints_format = "fully-qualified"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

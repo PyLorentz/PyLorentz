@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import warnings
 from datetime import datetime, timedelta
@@ -676,7 +677,7 @@ class ADPhase(BasePhaseReconstruction):
                 self._runtype = "DIP"
                 self._set_input_DIP(input_DIP=input_DIP)
                 DIP_phase = DIP_phase.to(self.device)
-                self.optimizer = torch.optim.Adam(
+                self.optimizer = torch.optim.Adam( # type:ignore 
                     [{"params": DIP_phase.parameters(), "lr": self.LRs["phase"]}],
                 )
                 DIP_phase.apply(weight_reset)
@@ -708,7 +709,7 @@ class ADPhase(BasePhaseReconstruction):
             if self._use_DIP:
                 assert DIP_phase is not None
                 DIP_phase = DIP_phase.to(self.device)
-                self.optimizer = torch.optim.Adam(
+                self.optimizer = torch.optim.Adam( # type:ignore 
                     [{"params": DIP_phase.parameters(), "lr": self.LRs["phase"]}],
                 )
 
@@ -729,7 +730,7 @@ class ADPhase(BasePhaseReconstruction):
                 DIP_phase = DIP_amp = None
                 assert self._recon_phase is not None
                 self._recon_phase.requires_grad = True
-                self.optimizer = torch.optim.Adam(
+                self.optimizer = torch.optim.Adam( # type:ignore 
                     [{"params": self._recon_phase, "lr": self.LRs["phase"]}]
                 )
                 if solve_amp:

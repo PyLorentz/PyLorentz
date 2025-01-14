@@ -102,22 +102,22 @@ def get_cmap(cmap: Optional[Union[str, Colormap]] = "linear", **kwargs) -> Color
 
     Args:
         cmap (str | None, optional): String corresponding to a colorcet colormap name,
-            a mpl.colors.LinearSegmentedColormap object, or a
-            mpl.colors.ListedColormap object. Defaults to None -> matplotlib gray.
-            Cmap string options include:
-                - All matplotlib colormap names, e.g. "viridis"
-                  You can see a full list of mpl colormaps by printing out plt.colormaps()
-                - Colorcet string names, e.g. "CET_L09" or "cet_CET_L09"
-                - "linear" -> mpl gray
-                - "diverging" -> mpl coolwarm
-                - "linear_cbl" -> cet CBL1 -- colorblind-safe linear
-                - "diverging_cbl" -> cet CBD1 -- colorblind-safe linear
-                - "cet_rainbow" -> cet R1 -- a good rainbow colormap
-                - "legacy4fold" -> cet C2 -- 4-fold colormap oriented as was the original PyLorentz default
-                - "purehsv" -> mpl hsv -- true hsv
-                - "6fold" or "hsv" -> cet C6 -- an improved hsv wheel
-                - "4fold" -> cet C7
-                - "isoluminant" -> cet C10
+        a mpl.colors.LinearSegmentedColormap object, or a
+        mpl.colors.ListedColormap object. Defaults to None -> matplotlib gray.
+        Cmap string options include:
+            - All matplotlib colormap names, e.g. "viridis"
+                You can see a full list of mpl colormaps by printing out plt.colormaps()
+            - Colorcet string names, e.g. "CET_L09" or "cet_CET_L09"
+            - "linear" -> mpl gray
+            - "diverging" -> mpl coolwarm
+            - "linear_cbl" -> cet CBL1 -- colorblind-safe linear
+            - "diverging_cbl" -> cet CBD1 -- colorblind-safe linear
+            - "cet_rainbow" -> cet R1 -- a good rainbow colormap
+            - "legacy4fold" -> cet C2 -- 4-fold colormap oriented as was the original PyLorentz default
+            - "purehsv" -> mpl hsv -- true hsv
+            - "6fold" or "hsv" -> cet C6 -- an improved hsv wheel
+            - "4fold" -> cet C7
+            - "isoluminant" -> cet C10
 
     Keyword Args:
         shift (float, optional): The amount to shift the colormap by in radians. Defaults to 0.
