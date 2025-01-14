@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,8 +45,8 @@ class BaseSim(object):
             verbose (float | bool, optional): Verbosity level. Default is 1.
         """
         self._mags = mags
-        self._shape_func = None
-        self._flat_shape_func = None
+        self._shape_func = np.array(0)
+        self._flat_shape_func = np.array(0)
         self._scale = scale
         self._zscale = zscale
         self._verbose = verbose
@@ -57,8 +57,8 @@ class BaseSim(object):
         self.beam_energy = None
         self._sample_params = {}
 
-        self._phase_B = None
-        self._phase_E = None
+        self._phase_B = np.array(0)
+        self._phase_E = np.array(0)
 
     def vprint(self, *args, **kwargs) -> None:
         """Print messages if verbose is enabled."""
@@ -81,7 +81,7 @@ class BaseSim(object):
         return self.phase_B + self.phase_E
 
     @property
-    def phase_shape(self) -> Tuple[int, ...]:
+    def phase_shape(self) -> tuple[int, ...]:
         """Get the shape of the B-phase array."""
         return np.shape(self.phase_B)
 
@@ -290,12 +290,12 @@ class BaseSim(object):
         return self._mags
 
     @property
-    def _mags_shape(self) -> Tuple[int, ...]:
+    def _mags_shape(self) -> tuple[int, ...]:
         """Get the shape of the magnetization array."""
         return self.mags.shape[1:]
 
     @property
-    def shape(self) -> Tuple[int, ...]:
+    def shape(self) -> tuple[int, ...]:
         """Get the shape of the magnetization array."""
         return self._mags_shape
 
@@ -314,9 +314,9 @@ class BaseSim(object):
         return self._shape_func
 
     @shape_func.setter
-    def shape_func(self, val: np.ndarray) -> None:
+    def shape_func(self, shape: np.ndarray) -> None:
         """Set the shape function."""
-        val = np.array(val).astype(np.float32)
+        val = np.array(shape).astype(np.float32)
         if val.shape != self._mags_shape:
             raise ValueError(
                 f"Shape function shape, {val.shape} should equal mags shape, {self._mags_shape}"
@@ -368,7 +368,7 @@ class BaseSim(object):
         assert mags.ndim == 4
         assert mags.shape[0] == 3
 
-        shape_func = np.any((mags != 0), axis=0)
+        shape_func: np.ndarray = np.array(np.any((mags != 0), axis=0))
         self.shape_func = shape_func
 
     def _interaction_constant(self) -> float:
@@ -411,7 +411,7 @@ class BaseSim(object):
         """
         scale = self.scale if show_scale else None
         if s3D:
-            show_3D(self.Mx, self.My, self.Mz, title="magnetization", scale=scale, **kwargs)
+            show_3D(self.Mx, self.My, self.Mz, title="magnetization", **kwargs)
         else:
             if xy_only:
                 show_2D(

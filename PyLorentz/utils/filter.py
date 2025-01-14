@@ -2,10 +2,12 @@
 Functions for filtering individual images.
 """
 
+from typing import Optional
+
 import numpy as np
 import scipy.ndimage as ndi
+
 from PyLorentz.visualize.show import show_im_peaks
-from typing import Optional, Tuple
 
 
 def filter_hotpix(
@@ -80,8 +82,8 @@ def filter_hotpix(
             # get mean of area around each bad pixel, not including other bad pixels in the mean
             masked = np.ma.array(image, mask=bads2)
             patches2 = extract_patches(masked, bads, patch_size=ks2)
+            assert isinstance(patches2, np.ma.MaskedArray)
             means = patches2.mean(axis=(1, 2)).data
-
             bad_means = np.all(patches2.mask, axis=(1, 2))  # all masked -> true
             if np.any(bad_means):
                 # for those values, use the median of surrounding pixels
@@ -125,7 +127,9 @@ def filter_hotpix(
     return filtered
 
 
-def extract_patches(array: np.ndarray, indices: np.ndarray, patch_size: int = 3) -> np.ndarray:
+def extract_patches(
+    array: np.ndarray | np.ma.MaskedArray, indices: np.ndarray | tuple, patch_size: int = 3
+) -> np.ndarray | np.ma.MaskedArray:
     """
     Extract patches from an array around the given indices.
 

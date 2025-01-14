@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, List, Optional, Union
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 from scipy import ndimage as ndi
@@ -7,15 +8,20 @@ from skimage import exposure
 from skimage.restoration import estimate_sigma
 from skimage.util import random_noise as skrandom_noise
 
-try:
-    import torch
-except (ImportError, ModuleNotFoundError) as e:
-    torch = np
+_HAS_TORCH = False
 if TYPE_CHECKING:
+    # from torch import Tensor
+    import torch
     from torch import Tensor
 else:
-    Tensor = None
-from pathlib import Path
+    try:
+        import torch
+        from torch import Tensor
+
+        _HAS_TORCH = True
+    except:
+        _HAS_TORCH = False
+        Tensor = None
 
 
 class ImageNoiser:
@@ -68,14 +74,15 @@ class ImageNoiser:
         Returns:
             Union[np.ndarray, torch.Tensor]: Noised image.
         """
-        if isinstance(image, torch.Tensor):
+        inp_shape = image.shape
+        if isinstance(image, Tensor):
             inp_torch = True
-            inp_shape = image.shape
             device = image.device
             image = image.cpu().detach().numpy()
         else:
             inp_torch = False
-            inp_shape = image.shape
+            device = "cpu"
+            image = np.array(image)
 
         image = image.squeeze()
         if np.ndim(image) != 2:
@@ -131,7 +138,7 @@ class ImageNoiser:
         ptp = np.ptp(image)
         im = (image - offset) / ptp  # norm image
         noisy = np.random.poisson(im * self.poisson / im.size)
-        return (noisy /self.poisson * im.size * ptp) + offset
+        return (noisy / self.poisson * im.size * ptp) + offset
 
     def apply_salt_and_pepper(self, image: np.ndarray) -> np.ndarray:
         """
@@ -176,7 +183,7 @@ class ImageNoiser:
         Returns:
             np.ndarray: Jittered image.
         """
-        shift_arr = stats.poisson.rvs(self.jitter, loc=0, size=self.h)
+        shift_arr = np.array(stats.poisson.rvs(self.jitter, loc=0, size=self.h))
         im_jitter = np.array([np.roll(row, z) for row, z in zip(image, shift_arr)])
         return im_jitter
 
@@ -191,8 +198,10 @@ class ImageNoiser:
             np.ndarray: Image with adjusted contrast.
         """
         if self.contrast == 0:
-            self.contrast == None
-        return exposure.adjust_gamma(image, self.contrast)
+            contrast = None
+        else:
+            contrast = self.contrast
+        return exposure.adjust_gamma(image, contrast)  # type:ignore
 
     def apply_bkg(self, image: np.ndarray) -> np.ndarray:
         """
@@ -257,10 +266,10 @@ def get_percent_noise(
     Returns:
         float: Percent noise in the image.
     """
-    if isinstance(noisy, torch.Tensor):
+    if isinstance(noisy, Tensor):
         noisy = noisy.cpu().detach().numpy()
-        if isinstance(truth, torch.Tensor):
-            truth = truth.cpu().detach().numpy()
+    if isinstance(truth, Tensor):
+        truth = truth.cpu().detach().numpy()
 
     if truth is None:
         if noisy.ndim == 3:
@@ -268,7 +277,7 @@ def get_percent_noise(
                 estimate_sigma(noisy, channel_axis=0) / (np.mean(noisy, axis=(-2, -1))) * 200
             )
         elif noisy.ndim == 2:
-            return estimate_sigma(noisy) / (np.mean(noisy)) * 200
+            return estimate_sigma(noisy) / noisy.mean() * 200
         else:
             raise NotImplementedError(f"Unsupported dimension for noisy image: {noisy.shape}")
     else:

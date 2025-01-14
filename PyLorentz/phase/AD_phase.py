@@ -2,29 +2,11 @@ import os
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Union, Tuple 
+from typing import TYPE_CHECKING, Optional, Self, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage as ndi
-
-_HAS_TORCH = False 
-if TYPE_CHECKING:
-    import torch 
-    from torch import Tensor
-    import torch.nn.functional as F
-    import torchvision.transforms as TvT
-else:
-    try: 
-        import torch
-        from torch import Tensor
-        import torch.nn.functional as F
-        import torchvision.transforms as TvT
-        _HAS_TORCH = True 
-    except: 
-        _HAS_TORCH = False 
-
-
 from matplotlib.ticker import FormatStrFormatter
 from torch import nn
 from tqdm import tqdm
@@ -37,6 +19,23 @@ from PyLorentz.visualize import show_2D, show_im
 
 from .DIP_NN import weight_reset
 from .sitie import SITIE
+
+_HAS_TORCH = False
+if TYPE_CHECKING:
+    import torch
+    import torch.nn.functional as F
+    import torchvision.transforms as TvT
+    from torch import Tensor
+else:
+    try:
+        import torch
+        import torch.nn.functional as F
+        import torchvision.transforms as TvT
+        from torch import Tensor
+
+        _HAS_TORCH = True
+    except:
+        _HAS_TORCH = False
 
 
 class ADPhase(BasePhaseReconstruction):
@@ -61,7 +60,7 @@ class ADPhase(BasePhaseReconstruction):
     def __init__(
         self,
         dd: DefocusedDataset,
-        device: Union[str, int],
+        device: Union[str, int, torch.device],
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
         verbose: bool = True,
@@ -108,30 +107,30 @@ class ADPhase(BasePhaseReconstruction):
         self.device = device
         self.inp_ims = torch.tensor(self.dd.images, device=self.device, dtype=torch.float32)
         self.defvals = dd.defvals
-        if scope is not None: 
-            self.scope = scope  
+        if scope is not None:
+            self.scope = scope
         self._rng = np.random.default_rng(rng_seed)
         self._noise_frac = noise_frac
         self._scheduler_type = scheduler_type
         self.pad = (0, 0)
 
         # to be set later:
-        self._guess_phase: Tensor = torch.tensor(0)
-        self._runtype: str = ''
-        self._recon_amp: Optional[Tensor] = None
-        self._recon_phase: Optional[Tensor] = None
+        # self._guess_phase: Tensor = torch.tensor(0)
+        self._runtype: str = ""
+        self._recon_amp: Tensor = torch.tensor(0)
+        self._recon_phase: Tensor = torch.tensor(0)
         self._use_DIP: Optional[bool] = None
         self._solve_amp: Optional[bool] = None
         self._solve_amp_scale: Optional[bool] = None
-        self._best_phase: Optional[Tensor] = None
-        self._best_amp: Optional[Tensor] = None
+        self._best_phase: Tensor = torch.tensor(0)
+        self._best_amp: Tensor = torch.tensor(0)
         self._best_iter: Optional[int] = None
-        self._phase_iterations: List[Tuple[Tensor, int]] = []
-        self._amp_iterations: List[Tensor] = []
-        self.phase_iterations: Optional[np.ndarray] = None
-        self.amp_iterations: Optional[np.ndarray] = None
-        self.loss_iterations = []
-        self.LR_iterations = []
+        self._phase_iterations: list[tuple[Tensor, int]] = []
+        self._amp_iterations: list[tuple[Tensor, int]] = []
+        self.phase_iterations: list[tuple[np.ndarray, int]] = []
+        self.amp_iterations: list[tuple[np.ndarray, int]] = []
+        self.loss_iterations: list | np.ndarray = []  # TODO clean this up with property
+        self.LR_iterations: list | np.ndarray = []
 
         self.gaussian_sigma = gaussian_sigma
         self._TFs = self.get_TFs()
@@ -163,8 +162,8 @@ class ADPhase(BasePhaseReconstruction):
         if _HAS_TORCH:
             if isinstance(im, torch.Tensor):
                 out = im.cpu().detach().numpy()
-            else: 
-                out = im.copy() 
+            else:
+                out = im.copy()
         else:
             assert isinstance(im, np.ndarray)
             out = im.copy()
@@ -175,7 +174,7 @@ class ADPhase(BasePhaseReconstruction):
         return out
 
     @property
-    def recon_phase(self) -> Optional[np.ndarray]:
+    def recon_phase(self) -> np.ndarray:
         """
         Returns the reconstructed phase after applying Gaussian filter.
         This is the cropped recon phase without padding.
@@ -183,16 +182,16 @@ class ADPhase(BasePhaseReconstruction):
         Returns:
             Optional[np.ndarray]: Reconstructed phase image.
         """
-        if self._recon_phase is not None:
+        if self._recon_phase.ndim == 0:
+            raise AttributeError(f"recon_phase has not yet been set")
+        else:
             ph = self._detach_and_crop(self._recon_phase)
             ph = ndi.gaussian_filter(ph, self._gaussian_sigma)
             ph -= ph.min()
             return ph
-        else:
-            return None
 
     @property
-    def recon_phase_full(self) -> Optional[np.ndarray]:
+    def recon_phase_full(self) -> np.ndarray:
         """
         Returns the reconstructed phase after applying Gaussian filter.
         This includes any padding.
@@ -200,47 +199,47 @@ class ADPhase(BasePhaseReconstruction):
         Returns:
             Optional[np.ndarray]: Reconstructed phase image.
         """
-        if self._recon_phase is not None:
+        if self._recon_phase.ndim == 0:
+            raise AttributeError(f"recon_phase has not yet been set")
+        else:
             ph = self._recon_phase.cpu().detach().numpy()
             ph = ndi.gaussian_filter(ph, self._gaussian_sigma)
             ph -= ph.min()
             return ph
-        else:
-            return None
 
     @property
-    def best_phase(self) -> Optional[np.ndarray]:
+    def best_phase(self) -> np.ndarray:
         """
         Returns the best phase after applying Gaussian filter.
         This is the cropped best phase without padding.
 
         Returns:
-            Optional[np.ndarray]: Best phase image.
+            np.ndarray: Best phase image.
         """
-        if self._best_phase is not None:
+        if self._best_phase.ndim == 0:
+            raise AttributeError(f"best_phase has not yet been set")
+        else:
             ph = self._detach_and_crop(self._best_phase)
             ph = ndi.gaussian_filter(ph, self._gaussian_sigma)
             ph -= ph.min()
             return ph
-        else:
-            return None
 
     @property
-    def best_phase_full(self) -> Optional[np.ndarray]:
+    def best_phase_full(self) -> np.ndarray:
         """
         Returns the best phase after applying Gaussian filter.
         This is the full phase with any padding.
 
         Returns:
-            Optional[np.ndarray]: Best phase image.
+            np.ndarray: Best phase image.
         """
-        if self._best_phase is not None:
+        if self._best_phase.ndim == 0:
+            raise AttributeError(f"best_phase has not yet been set")
+        else:
             ph = self._best_phase.cpu().detach().numpy()
             ph = ndi.gaussian_filter(ph, self._gaussian_sigma)
             ph -= ph.min()
             return ph
-        else:
-            return None
 
     @property
     def phase_B_full(self) -> Optional[np.ndarray]:
@@ -260,7 +259,7 @@ class ADPhase(BasePhaseReconstruction):
         self.phase_B = self.best_phase
 
     @property
-    def recon_amp(self) -> Optional[np.ndarray]:
+    def recon_amp(self) -> np.ndarray:
         """
         Returns the reconstructed amplitude after applying Gaussian filter.
         This is the cropped recon amplitude.
@@ -268,15 +267,15 @@ class ADPhase(BasePhaseReconstruction):
         Returns:
             Optional[np.ndarray]: Reconstructed amplitude image.
         """
-        if self._recon_amp is not None:
+        if self._recon_amp.ndim == 0:
+            raise AttributeError(f"recon_amp has not yet been set")
+        else:
             amp = self._detach_and_crop(self._recon_amp)
             amp = ndi.gaussian_filter(amp, self._gaussian_sigma)
             return amp
-        else:
-            return None
 
     @property
-    def recon_amp_full(self) -> Optional[np.ndarray]:
+    def recon_amp_full(self) -> np.ndarray:
         """
         Returns the reconstructed amplitude after applying Gaussian filter.
         This is the full recon amplitude with any padding.
@@ -284,44 +283,44 @@ class ADPhase(BasePhaseReconstruction):
         Returns:
             Optional[np.ndarray]: Reconstructed amplitude image.
         """
-        if self._recon_amp is not None:
+        if self._recon_amp.ndim == 0:
+            raise AttributeError(f"recon_amp has not yet been set")
+        else:
             amp = self._recon_amp.cpu().detach().numpy()
             amp = ndi.gaussian_filter(amp, self._gaussian_sigma)
             return amp
-        else:
-            return None
 
     @property
-    def best_amp(self) -> Optional[np.ndarray]:
+    def best_amp(self) -> np.ndarray:
         """
         Returns the best amplitude after applying Gaussian filter.
         This is the cropped best amplitude without padding.
 
         Returns:
-            Optional[np.ndarray]: Best amplitude image.
+            np.ndarray: Best amplitude image.
         """
-        if self._best_amp is not None:
+        if self._best_amp.ndim == 0:
+            raise AttributeError(f"best_amp has not yet been set")
+        else:
             amp = self._detach_and_crop(self._best_amp)
             amp = ndi.gaussian_filter(amp, self._gaussian_sigma)
             return amp
-        else:
-            return None
 
     @property
-    def best_amp_full(self) -> Optional[np.ndarray]:
+    def best_amp_full(self) -> np.ndarray:
         """
         Returns the best amplitude after applying Gaussian filter.
         This is the full amplitude with padding.
 
         Returns:
-            Optional[np.ndarray]: Best amplitude image.
+            np.ndarray: Best amplitude image.
         """
-        if self._best_amp is not None:
+        if self._best_amp.ndim == 0:
+            raise AttributeError(f"best_amp has not yet been set")
+        else:
             amp = self._best_amp.cpu().detach().numpy()
             amp = ndi.gaussian_filter(amp, self._gaussian_sigma)
             return amp
-        else:
-            return None
 
     @property
     def gaussian_sigma(self) -> float:
@@ -355,8 +354,11 @@ class ADPhase(BasePhaseReconstruction):
         else:
             self._blurrer = TvT.GaussianBlur(kernel_size=(9, 9), sigma=(val, val))
             self._gaussian_sigma = val
-        if self.best_phase is not None:
-            self.phase_B = self.best_phase
+        try:
+            if self.best_phase is not None:
+                self.phase_B = self.best_phase
+        except AttributeError:
+            pass
         self._set_recon_iterations()
 
     @property
@@ -387,13 +389,15 @@ class ADPhase(BasePhaseReconstruction):
         self.transfer_functions = arr
 
     @property
-    def scope(self) -> Optional[Microscope]:
+    def scope(self) -> Microscope:
         """
         Returns the microscope object.
 
         Returns:
             Optional[Microscope]: Microscope object.
         """
+        if self._scope is None:
+            raise AttributeError(f"self.scope has not been set and is None")
         return self._scope
 
     @scope.setter
@@ -415,7 +419,7 @@ class ADPhase(BasePhaseReconstruction):
             self._scope = microscope
 
     @property
-    def device(self) -> str|torch.device:
+    def device(self) -> str | torch.device:
         """
         Returns the device used for computation.
 
@@ -425,7 +429,7 @@ class ADPhase(BasePhaseReconstruction):
         return self._device
 
     @device.setter
-    def device(self, dev: Union[int, str]) -> None:
+    def device(self, dev: Union[int, str, torch.device]) -> None:
         """
         Sets the device for computation.
 
@@ -476,6 +480,8 @@ class ADPhase(BasePhaseReconstruction):
         Returns:
             Optional[Tensor]: Guess phase tensor.
         """
+        if self._guess_phase.ndim == 0:
+            raise AttributeError(f"recon_amp has not yet been set")
         return self._guess_phase
 
     @guess_phase.setter
@@ -561,7 +567,7 @@ class ADPhase(BasePhaseReconstruction):
     def reconstruct(
         self,
         num_iter: int,
-        model: Optional[Union[nn.Module, List[nn.Module]]] = None,
+        model: Optional[Union[nn.Module, list[nn.Module]]] = None,
         num_pretrain_iter: int = 0,
         solve_amp: bool = False,
         solve_amp_scale: bool = True,
@@ -581,13 +587,13 @@ class ADPhase(BasePhaseReconstruction):
         qc: Optional[float] = None,
         pad: tuple | None = None,
         **kwargs,  # scheduler params
-    ) -> None:
+    ) -> Self:
         """
         Performs the reconstruction process.
 
         Args:
             num_iter (int): Number of iterations for reconstruction.
-            model (Optional[Union[nn.Module, List[nn.Module]]], optional): Model or list of models for DIP.
+            model (Optional[Union[nn.Module, list[nn.Module]]], optional): Model or list of models for DIP.
             num_pretrain_iter (int, optional): Number of pretraining iterations.
             solve_amp (bool, optional): Whether to solve for amplitude.
             solve_amp_scale (bool, optional): Whether to solve amplitude scale.
@@ -634,9 +640,9 @@ class ADPhase(BasePhaseReconstruction):
 
         if save:
             if name is None:
-                if self.name is not None: 
-                    name = self.name 
-                else: 
+                if self.name is not None:
+                    name = self.name
+                else:
                     now = self._start_time.strftime("%y%m%d-%H%M%S")
                     if len(self.dd) == 1:
                         mode = "SIPRAD"
@@ -675,7 +681,7 @@ class ADPhase(BasePhaseReconstruction):
                 )
                 DIP_phase.apply(weight_reset)
                 if solve_amp:
-                    assert DIP_amp is not None 
+                    assert DIP_amp is not None
                     self._runtype += "-amp"
                     DIP_amp.apply(weight_reset)
                     DIP_amp = DIP_amp.to(self.device)
@@ -700,14 +706,14 @@ class ADPhase(BasePhaseReconstruction):
         # reinitializing optimizer here so have chance to change scheduler, LRs, etc.
         if reset or scheduler_type != "continue":
             if self._use_DIP:
-                assert DIP_phase is not None 
+                assert DIP_phase is not None
                 DIP_phase = DIP_phase.to(self.device)
                 self.optimizer = torch.optim.Adam(
                     [{"params": DIP_phase.parameters(), "lr": self.LRs["phase"]}],
                 )
 
                 if solve_amp:
-                    assert DIP_amp is not None 
+                    assert DIP_amp is not None
                     self._solve_amp = True
                     DIP_amp = DIP_amp.to(self.device)
                     self.optimizer.add_param_group(
@@ -721,13 +727,12 @@ class ADPhase(BasePhaseReconstruction):
 
             else:
                 DIP_phase = DIP_amp = None
-                assert self._recon_phase is not None 
+                assert self._recon_phase is not None
                 self._recon_phase.requires_grad = True
                 self.optimizer = torch.optim.Adam(
                     [{"params": self._recon_phase, "lr": self.LRs["phase"]}]
                 )
                 if solve_amp:
-                    assert self._recon_amp is not None 
                     self._solve_amp = True
                     self._recon_amp.requires_grad = True
                     self.optimizer.add_param_group(
@@ -796,6 +801,9 @@ class ADPhase(BasePhaseReconstruction):
             save (bool): Whether to save the best reconstruction.
             store_iters_every (int): Frequency of storing intermediate iterations.
         """
+        assert isinstance(self.input_DIP, Tensor)
+        assert isinstance(self.loss_iterations, list)
+        assert isinstance(self.LR_iterations, list)
         stime = self._start_time
         for a0 in tqdm(range(num_iter)):
             if self._noise_frac >= 0:
@@ -811,6 +819,7 @@ class ADPhase(BasePhaseReconstruction):
                         self._apply_amp_constraints()
 
             loss = self._compute_loss()
+            assert isinstance(loss, Tensor)  # remove ned by make a compute_loss_sep function
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -825,9 +834,9 @@ class ADPhase(BasePhaseReconstruction):
                 stime = datetime.now()
 
             if (a0 == 0 or (a0 + 1) % store_iters_every == 0) and store_iters_every > 0:
-                self._phase_iterations.append([self._recon_phase.detach().clone(), a0 + 1])
+                self._phase_iterations.append((self._recon_phase.detach().clone(), a0 + 1))
                 if self._solve_amp:
-                    self._amp_iterations.append([self._recon_amp.detach().clone(), a0 + 1])
+                    self._amp_iterations.append((self._recon_amp.detach().clone(), a0 + 1))
                 if self._verbose >= 2 and a0 != 0:
                     self.show_final()
 
@@ -842,7 +851,7 @@ class ADPhase(BasePhaseReconstruction):
                     raise NotImplementedError
 
             if self.scheduler is not None:
-                if hasattr(self.scheduler, "cooldown"):  # is plateau
+                if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                     self.scheduler.step(loss.item())
                 else:
                     self.scheduler.step()
@@ -951,17 +960,19 @@ class ADPhase(BasePhaseReconstruction):
         Update phase_iterations and amp_iterations with filtered tensors converted to np arrays.
         """
         if len(self._phase_iterations) > 0:
-            self.phase_iterations = []
+            phase_iterations = []
             for iter in self._phase_iterations:
                 ph = ndi.gaussian_filter(iter[0].cpu().detach().numpy(), self._gaussian_sigma)
                 ph -= ph.min()
-                self.phase_iterations.append((ph, iter[1]))
+                phase_iterations.append((ph, iter[1]))
+            self.phase_iterations = phase_iterations
 
         if len(self._amp_iterations) > 0:
-            self.amp_iterations = []
+            amp_iterations = []
             for iter in self._amp_iterations:
                 amp = ndi.gaussian_filter(iter[0].cpu().detach().numpy(), self._gaussian_sigma)
-                self.amp_iterations.append((amp, iter[1]))
+                amp_iterations.append((amp, iter[1]))
+            self.amp_iterations = amp_iterations
 
     def _get_amp2phi_scale(self) -> float:
         """
@@ -970,6 +981,8 @@ class ADPhase(BasePhaseReconstruction):
         Returns:
             float: The scale factor.
         """
+        if self.scope is None:
+            raise AttributeError(f"self.scope has not been set and is None")
         return self.sample_params["dirt_V0"] * self.scope.sigma * self.sample_params["dirt_xip0"]
 
     def _pretrain_DIP(self, DIP_phase: nn.Module, DIP_amp: nn.Module | None):
@@ -994,6 +1007,7 @@ class ADPhase(BasePhaseReconstruction):
                     title=f"Recon phase after pre-training DIP for {self._num_pretrain_iter} iters",
                 )
                 if self._solve_amp:
+                    assert DIP_amp is not None
                     show_im(
                         DIP_amp.forward(self.input_DIP).squeeze().cpu().detach().numpy(),
                         title=f"Recon amp after pre-training DIP for {self._num_pretrain_iter} iters",
@@ -1004,6 +1018,7 @@ class ADPhase(BasePhaseReconstruction):
         pred_phase = DIP_phase.forward(self.input_DIP).squeeze()
         loss = torch.mean((pred_phase - self.guess_phase) ** 2)
         if self._solve_amp:
+            assert DIP_amp is not None
             pred_amp = DIP_amp.forward(self.input_DIP).squeeze()
             loss += torch.mean((pred_amp - self.guess_amp) ** 2)
         return loss
@@ -1076,9 +1091,9 @@ class ADPhase(BasePhaseReconstruction):
         )
         return dd2
 
-    def _set_guess_phase(self, guess_phase: str|np.ndarray):
+    def _set_guess_phase(self, guess_phase: str | np.ndarray):
         """Setting the guess phase used in AD reconstruction (no DIP?)"""
-        if isinstance(guess_phase, str): 
+        if isinstance(guess_phase, str):
             guess_phase = guess_phase.lower()
             # if guess_phase == "none":
             #     guess_phase = None
@@ -1106,20 +1121,20 @@ class ADPhase(BasePhaseReconstruction):
             if input_DIP.lower() == "sitie":
                 sitie = SITIE(self._padded_dd(), verbose=0)
                 sitie.reconstruct(qc=self._qc)
-                input_DIP = sitie.phase_B
+                inp = sitie.phase_B
             elif input_DIP.lower() in ["random", "rand"]:
-                input_DIP = self._rng.random(self.shape_full) * 2 - 1
+                inp = self._rng.random(self.shape_full) * 2 - 1
             else:
                 raise ValueError(
                     f"Input mode string should be 'SITIE' or 'random'. Got {input_DIP}"
                 )
         elif isinstance(input_DIP, np.ndarray):
-            input_DIP = np.squeeze(input_DIP)
+            inp = np.squeeze(input_DIP)
         else:
             raise TypeError(f"input_DIP should be str or np.ndarray, got {type(input_DIP)}")
 
         self.input_DIP = torch.tensor(
-            input_DIP[None, ...], device=self.device, dtype=torch.float32, requires_grad=False
+            inp[None, ...], device=self.device, dtype=torch.float32, requires_grad=False
         )
 
     def get_TFs(self):
@@ -1192,7 +1207,7 @@ class ADPhase(BasePhaseReconstruction):
 
         pred_image = self._sim_images().squeeze()
 
-        fig, axs = plt.subplots(ncols=3, figsize=(12,4))
+        fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
         show_im(
             self.inp_ims,
             title="Input image",
@@ -1211,7 +1226,6 @@ class ADPhase(BasePhaseReconstruction):
             figax=(fig, axs[2]),
             ticks_off=True,
         )
-
 
         plt.tight_layout()
         plt.show()
@@ -1298,7 +1312,7 @@ class ADPhase(BasePhaseReconstruction):
 
             lns = l1 + l2
             labs = [l.get_label() for l in lns]
-            ax4.legend(lns, labs, loc=0)
+            ax4.legend(lns, labs, loc=0)  # type:ignore
             ax4.set_ylabel("LR")
             ax4.yaxis.set_major_formatter(FormatStrFormatter("%.2e"))
         else:
@@ -1318,7 +1332,7 @@ class ADPhase(BasePhaseReconstruction):
 
             lns = l1 + l2
             labs = [l.get_label() for l in lns]
-            ax4.legend(lns, labs, loc=0)
+            ax4.legend(lns, labs, loc=0)  # type:ignore
             ax4.set_ylabel("LR")
             ax4.yaxis.set_major_formatter(FormatStrFormatter("%.2e"))
 
@@ -1331,7 +1345,7 @@ class ADPhase(BasePhaseReconstruction):
 
     def save_results(
         self,
-        iter_ind: int = None,
+        iter_ind: int | None = None,
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
         overwrite: bool = False,
@@ -1353,8 +1367,9 @@ class ADPhase(BasePhaseReconstruction):
             self._check_save_name(save_dir, name=name, default_name=False)
 
         if iter_ind is not None:
+            assert len(self.phase_iterations) > 0
             phase, iter = self.phase_iterations[iter_ind]
-            By, Bx = self.induction_from_phase(phase)
+            By, Bx = self.induction_from_phase(np.array(phase))
         else:
             iter = self._best_iter
             phase = self.best_phase

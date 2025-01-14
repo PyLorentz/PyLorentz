@@ -2,7 +2,6 @@ import os
 import warnings
 from pathlib import Path
 from typing import Optional, Union
-import copy
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -12,7 +11,7 @@ from matplotlib.backend_bases import MouseButton
 from matplotlib.patches import Rectangle
 
 from PyLorentz.io.read import read_image, read_json
-from PyLorentz.io.write import format_defocus, write_json
+from PyLorentz.io.write import format_defocus
 from PyLorentz.utils.filter import bandpass_filter
 
 # Remapping keybindings for interactive matplotlib figures
@@ -55,8 +54,8 @@ class BaseDataset:
             scale (float | None, optional): Scale factor for the dataset. Default is None.
             verbose (int | bool, optional): Verbosity level. Default is 1.
         """
-        self._shape = imshape
-        self._orig_shape = imshape
+        self._shape2D = imshape
+        self._orig_shape2D = imshape
         self.scale = scale
         self._transforms = {
             "rotation": 0,
@@ -136,9 +135,21 @@ class BaseDataset:
         return mdata
 
     @property
-    def shape(self):
-        """Get the shape of the image."""
-        return self._shape
+    def shape(self) -> tuple[int, int]:
+        """
+        overwritten by higher level classes
+        get the shape of the image (y,x).
+        """
+        return self.orig_shape2D
+
+    @property
+    def orig_shape2D(self) -> tuple[int, int]:
+        """
+        Get the original (uncropped/rotated/etc.) 2D shape of the image(s) (y,x).
+        """
+        if self._orig_shape2D is None:
+            raise AttributeError(f"_orig_shape2D has not yet been set")
+        return tuple(self._orig_shape2D)
 
     @property
     def data_dir(self):
@@ -157,8 +168,10 @@ class BaseDataset:
             self._data_dir = p
 
     @property
-    def scale(self):
+    def scale(self) -> float:
         """Get the scale factor."""
+        if self._scale is None:
+            raise AttributeError(f"scale has not been set, is None")
         return self._scale
 
     @scale.setter
@@ -186,8 +199,8 @@ class BaseDataset:
         """
         vprint = print if verbose >= 1 else lambda *a, **k: None
         assert (
-            image.shape == self._shape
-        ), f"Incorrect image shape: expected {self._shape} received {image.shape}"
+            image.shape == self._shape2D
+        ), f"Incorrect image shape: expected {self._shape2D} received {image.shape}"
 
         if print_instructions and verbose:
             instructions = (
@@ -207,7 +220,7 @@ class BaseDataset:
             print(instructions)
 
         fig, ax = plt.subplots()
-        dy, dx = self._shape
+        dy, dx = self.orig_shape2D
 
         start_rotation = self._transforms["rotation"]
         points = np.array(
@@ -260,8 +273,9 @@ class BaseDataset:
                 ax.figure.canvas.draw()
 
             def clear(self):
-                self.scat.remove()
-                self.scat = None
+                if self.scat is not None:
+                    self.scat.remove()
+                    self.scat = None
 
         def on_click(event):
             if event.button is MouseButton.RIGHT:
@@ -338,8 +352,8 @@ class BaseDataset:
             elif event.key == "n":
                 points[0, 0] = max(0, points[0, 0] - 1)
                 points[0, 1] = max(0, points[0, 1] - 1)
-                points[1, 0] = min(self._shape[0], points[1, 0] + 1)
-                points[1, 1] = min(self._shape[1], points[1, 1] + 1)
+                points[1, 0] = min(self.orig_shape2D[0], points[1, 0] + 1)
+                points[1, 1] = min(self.orig_shape2D[1], points[1, 1] + 1)
                 p.plot(points)
                 if np.all(points >= 0):
                     p.plotrect(points)
@@ -348,8 +362,8 @@ class BaseDataset:
             elif event.key == "N":
                 points[0, 0] = max(0, points[0, 0] - 20)
                 points[0, 1] = max(0, points[0, 1] - 20)
-                points[1, 0] = min(self._shape[0], points[1, 0] + 20)
-                points[1, 1] = min(self._shape[1], points[1, 1] + 20)
+                points[1, 0] = min(self.orig_shape2D[0], points[1, 0] + 20)
+                points[1, 1] = min(self.orig_shape2D[1], points[1, 1] + 20)
                 p.plot(points)
                 if np.all(points >= 0):
                     p.plotrect(points)
@@ -385,7 +399,7 @@ class BaseDataset:
                 p.print_update(self._temp_rotation)
 
             elif event.key == "shift+down":
-                points[1, 0] = min(self._shape[0], points[1, 0] + 20)
+                points[1, 0] = min(self.orig_shape2D[0], points[1, 0] + 20)
                 points[0, 0] = min(points[1, 0] - 1, points[0, 0] + 20)
                 p.plot(points)
                 if np.all(points >= 0):
@@ -401,7 +415,7 @@ class BaseDataset:
                 p.print_update(self._temp_rotation)
 
             elif event.key == "shift+right":
-                points[1, 1] = min(self._shape[1], points[1, 1] + 20)
+                points[1, 1] = min(self.orig_shape2D[1], points[1, 1] + 20)
                 points[0, 1] = min(points[1, 1] - 1, points[0, 1] + 20)
                 p.plot(points)
                 if np.all(points >= 0):
@@ -417,7 +431,7 @@ class BaseDataset:
                 p.print_update(self._temp_rotation)
 
             elif event.key == "down":
-                points[1, 0] = min(self._shape[0], points[1, 0] + 1)
+                points[1, 0] = min(self.orig_shape2D[0], points[1, 0] + 1)
                 points[0, 0] = min(points[1, 0] - 1, points[0, 0] + 1)
                 p.plot(points)
                 if np.all(points >= 0):
@@ -433,7 +447,7 @@ class BaseDataset:
                 p.print_update(self._temp_rotation)
 
             elif event.key == "right":
-                points[1, 1] = min(self._shape[1], points[1, 1] + 1)
+                points[1, 1] = min(self.orig_shape2D[1], points[1, 1] + 1)
                 points[0, 1] = min(points[1, 1] - 1, points[0, 1] + 1)
                 p.plot(points)
                 if np.all(points >= 0):
@@ -456,8 +470,8 @@ class BaseDataset:
             elif event.key == "F":
                 points[0, 0] = 0
                 points[0, 1] = 0
-                points[1, 0] = self._shape[0]
-                points[1, 1] = self._shape[1]
+                points[1, 0] = self.orig_shape2D[0]
+                points[1, 1] = self.orig_shape2D[1]
                 self._temp_rotation = 0
 
                 p.plot_image(self._temp_rotation)
@@ -481,7 +495,7 @@ class BaseDataset:
 
             elif event.key == "c":
                 "center"
-                cy, cx = self._shape[0] // 2, self._shape[1] // 2
+                cy, cx = self.orig_shape2D[0] // 2, self.orig_shape2D[1] // 2
                 dimy = points[1, 0] - points[0, 0]
                 dimx = points[1, 1] - points[0, 1]
                 points[0, 0] = cy - dimy // 2
@@ -523,9 +537,9 @@ class BaseDataset:
         print("Resetting ROI to unrotated full image.")
         self._transforms["rotation"] = 0
         self._transforms["left"] = 0
-        self._transforms["right"] = self._shape[1]
+        self._transforms["right"] = self.orig_shape2D[1]
         self._transforms["top"] = 0
-        self._transforms["bottom"] = self._shape[0]
+        self._transforms["bottom"] = self.orig_shape2D[0]
         self._transforms_modified = True
 
     @property
@@ -546,19 +560,19 @@ class BaseDataset:
                 self._transforms["rotation"] = val
             elif key_lower in ["top", "t"]:
                 if val < 0:
-                    val = self._orig_shape[0] + val
+                    val = self.orig_shape2D[0] + val
                 self._transforms["top"] = val
             elif key_lower in ["bottom", "bot", "b"]:
                 if val < 0:
-                    val = self._orig_shape[0] + val
+                    val = self.orig_shape2D[0] + val
                 self._transforms["bottom"] = val
             elif key_lower in ["left", "l"]:
                 if val < 0:
-                    val = self._orig_shape[1] + val
+                    val = self.orig_shape2D[1] + val
                 self._transforms["left"] = val
             elif key_lower in ["right", "r"]:
                 if val < 0:
-                    val = self._orig_shape[1] + val
+                    val = self.orig_shape2D[1] + val
                 self._transforms["right"] = val
             else:
                 s = (

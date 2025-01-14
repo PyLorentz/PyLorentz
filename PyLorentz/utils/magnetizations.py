@@ -1,12 +1,16 @@
 """
 Functions for generating magnetization configurations of spin textures.
 """
+
+from typing import Optional, Tuple, Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import gaussian_filter
-from typing import Optional, Tuple, Union
-from PyLorentz.visualize.show import show_im
+
 from PyLorentz.utils.utils import circ4, dist4
+from PyLorentz.visualize.show import show_im
+
 
 def hopfion(
     dim: int = 128,
@@ -16,7 +20,7 @@ def hopfion(
     wr: Optional[float] = None,
     wh: Optional[float] = None,
     type: str = "bloch",
-    Q: int = 1
+    Q: int = 1,
 ) -> np.ndarray:
     """
     Magnetization pattern for a hopfion with Hopf index +/- 1.
@@ -105,6 +109,8 @@ def hopfion(
                 1 + rp**2 + zp**2
             ) ** 2
             mz = 1 - (8 * (rp**2)) / (1 + rp**2 + zp**2) ** 2
+    else:
+        raise ValueError(f"Hopfion type should be 'bloch' or 'neel', got {type}")
 
     mags = np.sqrt(mx**2 + my**2 + mz**2)
     assert np.allclose(mags, np.ones_like(mags))
@@ -116,7 +122,7 @@ def hopfion_cylinder(
     L: int = 32,
     dim: Optional[Tuple[int, int, int]] = None,
     pad: Optional[int] = None,
-    background: str = "none"
+    background: str = "none",
 ) -> np.ndarray:
     """
     Create a Hopfion cylinder magnetization pattern.
@@ -194,7 +200,7 @@ def lillihook(
     Q: int = 1,
     gamma: float = 1.5708,
     P: int = 1,
-    show: bool = False
+    show: bool = False,
 ) -> np.ndarray:
     """
     Define a skyrmion magnetization.
@@ -271,7 +277,7 @@ def bloch(
     show: bool = False,
     bkg: str = "pos",
     sigma: Optional[float] = None,
-    empty_bkg: bool = False
+    empty_bkg: bool = False,
 ) -> np.ndarray:
     """
     Create a Bloch vortex magnetization structure.
@@ -307,7 +313,7 @@ def bloch(
     # mask
     x, y = np.ogrid[:dim, :dim]
     r2 = (x - cx) ** 2 + (y - cy) ** 2
-    circmask = (r2 <= rad ** 2) & (r2 >= ir ** 2)
+    circmask = (r2 <= rad**2) & (r2 >= ir**2)
 
     # making the magnetizations
     a = np.arange(dim)
@@ -372,7 +378,7 @@ def neel(
     chirality: str = "io",
     pad: Union[bool, int] = True,
     ir: float = 0,
-    show: bool = False
+    show: bool = False,
 ) -> np.ndarray:
     """
     Create a Neel magnetization structure.
@@ -451,7 +457,7 @@ def blochII(
     show: bool = False,
     sigma: Optional[float] = None,
     cp1: Optional[int] = None,
-    cp2: Optional[int] = None
+    cp2: Optional[int] = None,
 ) -> np.ndarray:
     """
     Create a type II Bloch bubble.
@@ -486,7 +492,7 @@ def blochII(
     # mask
     x, y = np.ogrid[:dim, :dim]
     r2 = (x - cx) ** 2 + (y - cy) ** 2
-    circmask = (r2 <= rad ** 2) & (r2 >= ir ** 2)
+    circmask = (r2 <= rad**2) & (r2 >= ir**2)
 
     # making the magnetizations
     a = np.arange(dim)

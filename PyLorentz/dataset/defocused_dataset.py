@@ -1,6 +1,7 @@
+import copy
 import os
 from pathlib import Path
-from typing import Optional, Union, List
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,7 +13,6 @@ from PyLorentz.utils.filter import filter_hotpix
 from PyLorentz.visualize import show_im
 
 from .base_dataset import BaseDataset
-import copy
 
 
 class DefocusedDataset(BaseDataset):
@@ -32,19 +32,19 @@ class DefocusedDataset(BaseDataset):
     def __init__(
         self,
         images: np.ndarray,
-        scale: Optional[float] = None,
-        defvals: Optional[np.ndarray] = None,
-        beam_energy: Optional[float] = None,
-        data_files: List[os.PathLike] = [],
+        scale: float | None = None,
+        defvals: np.ndarray | list | None = None,
+        beam_energy: float | None = None,
+        data_files: list[os.PathLike] = [],
         simulated: bool = False,
-        verbose: Union[int, bool] = 1,
+        verbose: int | bool = 1,
     ):
         images = np.array(images).astype(np.float64)
         if np.ndim(images) == 2:
             images = images[None,]
         if isinstance(defvals, (float, int)):
             defvals = np.array([defvals])
-        if isinstance(data_files, (list, np.ndarray)) and np.size(data_files) > 0:
+        if isinstance(data_files, (list, np.ndarray)) and len(data_files) > 0:
             self.data_files = [Path(f).absolute() for f in data_files]
             self.data_dirs = [f.parents[0] for f in self.data_files]
         elif isinstance(data_files, (os.PathLike, str)):
@@ -62,12 +62,13 @@ class DefocusedDataset(BaseDataset):
         )
 
         self.images = images
-        self._orig_images = images.copy()
+        self._orig_images: np.ndarray = images.copy()
         self._orig_shape = images.shape[1:]
-        self._orig_images_preprocessed = None
+        self._orig_images_preprocessed = images.copy()
         self._images_cropped = None
         self._images_filtered = None
-        self.defvals = defvals
+        if defvals is not None:
+            self.defvals = defvals
         self.beam_energy = beam_energy
         self._simulated = simulated
         self._verbose = verbose
@@ -76,6 +77,18 @@ class DefocusedDataset(BaseDataset):
         self._preprocessed = False
         self._cropped = False
         self._filtered = False
+
+    @property
+    def images_filtered(self) -> np.ndarray:
+        if self._images_filtered is None:
+            raise AttributeError("images_filtered has not yet been set")
+        return self._images_filtered
+
+    @property
+    def images_cropped(self) -> np.ndarray:
+        if self._images_cropped is None:
+            raise AttributeError("images_cropped has not yet been set")
+        return self._images_cropped
 
     @classmethod
     def from_TFS(cls):
@@ -87,7 +100,7 @@ class DefocusedDataset(BaseDataset):
     @classmethod
     def load(
         cls,
-        images: Union[np.ndarray, os.PathLike, List[os.PathLike]],
+        images: Union[np.ndarray, os.PathLike, list[os.PathLike]],
         metadata: Optional[Union[os.PathLike, dict]] = None,
         **kwargs,
     ) -> "DefocusedDataset":
@@ -109,16 +122,17 @@ class DefocusedDataset(BaseDataset):
         if isinstance(images, (list, np.ndarray)):
             if isinstance(images[0], (os.PathLike, str)):
                 raise NotImplementedError(
-                    "write method for reading list of files and collecting defocus values"
+                    "need to write method for reading list of files and collecting defocus values"
                 )
             else:
                 if metadata is not None:
                     mdata = cls._parse_mdata(metadata)
                 else:
                     mdata = {}
+            images_np = np.array(images)
 
         elif isinstance(images, (os.PathLike, str)):
-            images, mdata = read_image(images)
+            images_np, mdata = read_image(images)
             if metadata is not None:
                 if isinstance(metadata, dict):
                     mdata_l = metadata
@@ -134,7 +148,7 @@ class DefocusedDataset(BaseDataset):
 
         filepaths = mdata.get("data_files", mdata.get("filepath"))
         dd = cls(
-            images=images,
+            images=images_np,
             scale=kwargs.pop("scale", mdata.get("scale")),
             defvals=defvals,
             beam_energy=kwargs.pop("beam_energy", mdata.get("beam_energy")),
@@ -170,9 +184,11 @@ class DefocusedDataset(BaseDataset):
         return self._defvals
 
     @defvals.setter
-    def defvals(self, dfs: np.ndarray) -> None:
+    def defvals(self, dfs: np.ndarray | list) -> None:
         if isinstance(dfs, (float, int)):
             dfs = np.array([dfs])
+        else:
+            dfs = np.array(dfs)
         if hasattr(self, "_images"):
             if len(dfs) != len(self.images):
                 raise ValueError(
@@ -184,8 +200,8 @@ class DefocusedDataset(BaseDataset):
         return len(self.images)
 
     @property
-    def shape(self) -> tuple:
-        return self.images.shape[1:]
+    def shape(self) -> tuple[int, int]:
+        return self.images.shape[1:]  # type:ignore # numpy 1.26 vs 2.x
 
     @property
     def energy(self) -> Optional[float]:
@@ -208,28 +224,28 @@ class DefocusedDataset(BaseDataset):
             image (Optional[np.ndarray]): Specific image to use for ROI selection.
         """
         if image is not None:
-            image = np.array(image)
-            if image.shape != self._orig_shape:
+            roi_im = np.array(image)
+            if roi_im.shape != self._orig_shape:
                 raise ValueError(
-                    f"Shape of image for choosing ROI, {image.shape}, must match "
+                    f"Shape of image for choosing ROI, {roi_im.shape}, must match "
                     + f"orig_images shape, {self._orig_shape}"
                 )
         else:
             if self._preprocessed:
-                image = self._orig_images_preprocessed[idx]
+                roi_im = self._orig_images_preprocessed[idx]
             else:
-                image = self._orig_images[idx]
+                roi_im = self._orig_images[idx]
 
             if self._filtered:
-                image = self._bandpass_filter(
-                    image,
+                roi_im = self._bandpass_filter(
+                    roi_im,
                     self._filters["q_lowpass"],
                     self._filters["q_highpass"],
                     self._filters["filter_type"],
                     self._filters["butterworth_order"],
                 )
 
-        self._select_ROI(image)
+        self._select_ROI(roi_im)
 
     def apply_transforms(self) -> None:
         """
@@ -358,7 +374,7 @@ class DefocusedDataset(BaseDataset):
         q_highpass: Optional[float] = None,
         filter_type: str = "butterworth",
         butterworth_order: int = 2,
-        idx: Optional[Union[int, List[int]]] = None,
+        idx: Optional[Union[int, list[int]]] = None,
         show: bool = False,
         v: Optional[int] = None,
     ) -> None:
@@ -387,6 +403,7 @@ class DefocusedDataset(BaseDataset):
             indices = idx
 
         if self._cropped:
+            assert isinstance(self._images_cropped, np.ndarray)
             input_ims = self._images_cropped[indices].copy()
         elif self._preprocessed:
             input_ims = self._orig_images_preprocessed[indices].copy()

@@ -1,8 +1,12 @@
-from typing import Optional, Tuple
+import os
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
+from matplotlib.axes import Axes
+from matplotlib.colors import Colormap
+from matplotlib.figure import Figure
 
 from .colorwheel import color_im, get_cmap
 from .show import show_im
@@ -16,15 +20,16 @@ def show_2D(
     arrow_size: Optional[float] = None,
     arrow_width: Optional[float] = None,
     title: Optional[str] = None,
+    simple: bool = False,
     color: bool = True,
-    cmap: str = "hsv",
+    cmap: str | Colormap = "hsv",
     origin: str = "upper",
-    save: Optional[str] = None,
-    figax: Optional[Tuple[plt.Figure, plt.Axes]] = None,
+    save: str | os.PathLike | None = None,
+    figax: Optional[tuple[Figure, Axes]] = None,
     rad: Optional[int] = None,
     scale: Optional[float] = None,
     **kwargs,
-) -> plt.Figure:
+) -> None:
     """
     Display a 2D vector field with arrows and optional color mapping.
 
@@ -72,8 +77,7 @@ def show_2D(
         sz_inches = sz_inches[0]  # Aspect ratio depends on rad, use one value
     if color:
         if rad is None:
-            rad = Vx.shape[0] // 16
-            rad = max(rad, 16)
+            rad = max(Vx.shape[0] // 16, 16)
             pad = 10  # pixels
             width = np.shape(Vy)[1] + 2 * rad + pad
             aspect = dimy / width
@@ -88,12 +92,15 @@ def show_2D(
         aspect = dimy / dimx
 
     if figax is None:
-        fig = plt.figure()
-        size = (sz_inches, sz_inches * aspect)
-        fig.set_size_inches(size)
-        ax = plt.Axes(fig, [0.0, 0.0, 1.0, 1.0])
-        fig.add_axes(ax)
-        ax.set_aspect(aspect)
+        if simple and title is None:
+            fig = plt.figure()
+            size = (sz_inches, sz_inches * aspect)
+            fig.set_size_inches(size)
+            ax = Axes(fig, (0.0, 0.0, 1.0, 1.0))
+            fig.add_axes(ax)
+            ax.set_aspect(aspect)
+        else:
+            fig, ax = plt.subplots()
     else:
         fig, ax = figax
 
@@ -108,15 +115,14 @@ def show_2D(
             **kwargs,
         )
 
-        show_bbox = kwargs.pop("show_bbox", None)
-        if show_bbox is None:
-            show_bbox = title is not None
+        show_bbox = kwargs.pop("show_bbox", False)
         show_im(
             cim,
             cmap=cmap,
             origin=origin,
             ticks_off=scale is None or kwargs.pop("ticks_off", False),
             scale=scale,
+            simple=simple,
             figax=(fig, ax),
             title=title,
             show_bbox=show_bbox,
@@ -166,10 +172,12 @@ def show_3D(
     num_arrows: int = 15,
     ay: Optional[int] = None,
     num_arrows_z: int = 15,
-    arrow_size: Optional[float] = None,
+    arrow_size: float | None = None,
     show_all: bool = True,
+    title: str | None = None,
 ) -> None:
     """
+    -- semi deprecated --
     Display a 3D vector field with arrows, using color to represent vector direction.
 
     Arrow color is determined by direction, with in-plane mapping to an HSV
@@ -192,6 +200,7 @@ def show_3D(
 
     if arrow_size is None:
         arrow_size = Vx.shape[1] / (2 * bmax * num_arrows)
+    assert isinstance(arrow_size, float)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
@@ -203,6 +212,7 @@ def show_3D(
         else:
             az = ((dimz - 1) // num_arrows_z) + 1
     else:
+        az = 1
         dimy, dimx = Vx.shape
         dimz = 1
 
@@ -250,7 +260,7 @@ def show_3D(
         arrow_colors = colors.hsv_to_rgb(arrow_colors)
 
         ax.set_facecolor("black")
-        for axs in [ax.xaxis, ax.yaxis, ax.zaxis]:
+        for axs in [ax.xaxis, ax.yaxis, ax.zaxis]:  # type:ignore
             axs.set_pane_color((0, 0, 0, 1.0))
             axs.pane.set_edgecolor(tcolor)
             [t.set_color(tcolor) for t in axs.get_ticklines()]
@@ -266,9 +276,9 @@ def show_3D(
     ax.set_xlim(0, dim)
     ax.set_ylim(0, dimy)
     if az >= dimz:
-        ax.set_zlim(-dim // 2, dim // 2)
+        ax.set_zlim(-dim // 2, dim // 2)  # type:ignore
     else:
-        ax.set_zlim(0, dim)
+        ax.set_zlim(0, dim)  # type:ignore
         Z += (dim - dimz) // 2
 
     ax.quiver(
@@ -284,7 +294,9 @@ def show_3D(
         normalize=False,
     )
 
+    if title is not None:
+        ax.set_title(title)
     ax.set_xlabel("x", c=tcolor)
     ax.set_ylabel("y", c=tcolor)
-    ax.set_zlabel("z", c=tcolor)
+    ax.set_zlabel("z", c=tcolor)  # type:ignore
     plt.show()

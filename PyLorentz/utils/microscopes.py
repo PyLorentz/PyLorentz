@@ -1,7 +1,8 @@
+import textwrap
+
 import numpy as np
 import scipy.constants as physcon
 import scipy.ndimage as ndimage
-import textwrap
 
 
 class Microscope(object):
@@ -40,7 +41,7 @@ class Microscope(object):
         Ca=0.0e6,
         phi_a=0,
         def_spr=120.0,
-        scale=None,
+        scale: float | None = None,
         verbose=False,
     ):
         """Constructs the Microscope object.
@@ -57,8 +58,8 @@ class Microscope(object):
         self.def_spr = def_spr
         self.defocus = 0.0  # nm
         self.aperture = 1.0
-        self._qq = None
-        self.scale = scale
+        self._qq = np.array(0)
+        self._scale = scale
 
         # properties that are derived and cannot be changed directly.
         epsilon = 0.5 * physcon.e / physcon.m_e / physcon.c**2
@@ -94,6 +95,17 @@ class Microscope(object):
             """
                 )
             )
+
+    @property
+    def scale(self) -> float:
+        if self._scale is None:
+            raise AttributeError(f"Microscope scale has not been set, is currently None")
+        else:
+            return self._scale
+
+    @scale.setter
+    def scale(self, val: float) -> None:
+        self._scale = float(val)
 
     def get_scherzer_defocus(self):
         """Calculate the Scherzer defocus"""
@@ -281,6 +293,7 @@ class Microscope(object):
         if symmetrize:
             object_wave = self._symmetrize(object_wave)
 
+        py, px = 0, 0
         if padded_shape:
             if np.any((np.array(padded_shape) - np.array(object_wave.shape)) < 0):
                 raise ValueError(
@@ -296,7 +309,9 @@ class Microscope(object):
                     object_wave, ((py, py), (px, px)), mode="reflect", reflect_type="odd"
                 )
             else:
-                object_wave = np.pad(object_wave, ((py, py), (px, px)), mode=pad_mode)
+                object_wave = np.pad(
+                    object_wave, ((py, py), (px, px)), mode=pad_mode  # type:ignore
+                )
 
         self._get_qq(object_wave.shape)
         ImgWave = self._propagate_wave(object_wave)

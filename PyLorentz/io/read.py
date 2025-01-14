@@ -1,17 +1,16 @@
+import io
+import json
 import os
 from pathlib import Path
-import textwrap
-from scipy.ndimage import median_filter
-from tifffile import TiffFile
+from typing import Union
+
+import numpy as np
 import tifffile
 from ncempy.io import dm as ncempy_dm
 from ncempy.io.emdVelox import fileEMDVelox
-from itertools import takewhile
+from scipy.ndimage import median_filter
 from skimage import io as skio
-import numpy as np
-import io
-import sys
-import json
+from tifffile import TiffFile
 
 
 def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
@@ -38,7 +37,7 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
     f = Path(f)
     if not f.exists():
         raise FileNotFoundError(str(f.absolute()))
-    metadata = {
+    metadata: dict[str, Union[str, float, None]] = {
         "filepath": str(f.absolute()),
         "filename": f.stem + "".join(f.suffixes),
     }
@@ -55,9 +54,9 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
                     scale = res[1] / res[0]  # to nm/pixel
                 if tif.imagej_metadata["unit"] == "nm":
                     pass
-                elif tif.imagej_metadata["unit"] in ["um", "µm", "micron"]:
+                elif tif.imagej_metadata["unit"] in ["um", "µm", "micron"] and scale is not None:
                     scale *= 1e3
-                elif tif.imagej_metadata["unit"] in ["mm", "millimeter"]:
+                elif tif.imagej_metadata["unit"] in ["mm", "millimeter"] and scale is not None:
                     scale *= 1e6
                 else:
                     print(f'unknown scale type: {tif.imagej_metadata["unit"]}')
@@ -66,9 +65,7 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
                 scale = None
 
             if len(tif.series) != 1:
-                raise NotImplementedError(
-                    "Not sure how to deal with multi-series stack"
-                )
+                raise NotImplementedError("Not sure how to deal with multi-series stack")
             if len(tif.pages) > 1:  # load as stack
                 out_im = []
                 for page in tif.pages:
@@ -77,9 +74,7 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
             elif len(tif.pages) == 1:  # single image
                 out_im = tif.pages[0].asarray()
             else:
-                raise RuntimeError(
-                    f"Found an unexpected number of pages: {len(tif.pages)}"
-                )
+                raise RuntimeError(f"Found an unexpected number of pages: {len(tif.pages)}")
 
     elif f.suffix in [".dm3", ".dm4", ".dm5"]:
         with ncempy_dm.fileDM(f) as im:
@@ -95,12 +90,12 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
                 assert dset["pixelUnit"][2] == dset["pixelUnit"][1]
                 assert dset["pixelSize"][2] == dset["pixelSize"][1]
                 pixel_unit = dset["pixelUnit"][1]
-                pixel_size = dset['pixelSize'][1]
+                pixel_size = float(dset["pixelSize"][1])
             elif len(out_im.shape) == 2:
                 assert dset["pixelUnit"][0] == dset["pixelUnit"][1]
                 assert dset["pixelSize"][0] == dset["pixelSize"][1]
                 pixel_unit = dset["pixelUnit"][0]
-                pixel_size = dset['pixelSize'][0]
+                pixel_size = float(dset["pixelSize"][0])
             else:
                 raise ValueError(f"don't know how to handle shape {out_im.shape}")
 
@@ -112,13 +107,13 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
                 print(f"unknown scale type {pixel_unit}")
                 raise NotImplementedError
 
-            if 'Microscope Info Voltage' in mdata:
-                beam_energy = mdata['Microscope Info Voltage']
+            if "Microscope Info Voltage" in mdata:
+                beam_energy = float(mdata["Microscope Info Voltage"])
 
     elif f.suffix in [".emd"]:  # TODO test but make this for dmx as well?
         with fileEMDVelox(f) as emd:
             out_im, mdata = emd.get_dataset(0)
-            defocus = float(emd.metaDataJSON["Optics"]["Defocus"]) * 1e9  # nm
+            defocus = float(emd.metaDataJSON["Optics"]["Defocus"]) * 1e9  # nm #type:ignore
             defocus_unit = "nm"
             metadata["AcquisitionTime"] = str(mdata["AcquisitionTime"].time())
             metadata["AcquisitionDate"] = str(mdata["AcquisitionTime"].date())

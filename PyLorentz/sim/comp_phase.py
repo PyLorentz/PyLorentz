@@ -1,6 +1,6 @@
 import time
 import warnings
-from typing import Optional, Union
+from typing import TYPE_CHECKING
 
 import numba
 import numpy as np
@@ -10,10 +10,17 @@ from tqdm import tqdm
 
 from .base_sim import BaseSim
 
-try:
+_HAS_CUPY = False
+if TYPE_CHECKING:
     import cupy as cp
-except (ImportError, ModuleNotFoundError):
-    cp = np
+else:
+    try:
+        import cupy as cp
+
+        _HAS_CUPY = True
+    except (ImportError, ModuleNotFoundError):
+        cp = np
+        _HAS_CUPY = False
 
 
 class LinsupPhase(BaseSim):
@@ -78,8 +85,9 @@ class LinsupPhase(BaseSim):
         stime = time.time()
         self.vprint(f"Beginning linsup phase calculation for {nelems:g} voxels.")
         if device == "gpu":
-            device = cp.cuda.Device()
-            _free_mem, total_mem = device.mem_info
+            assert _HAS_CUPY
+            device = cp.cuda.Device()  # TODO make possible to specify GPU
+            _free_mem, total_mem = device.mem_info  # type:ignore
             _dimz, dimy, dimx = self.shape
             batch_size = kwargs.get("batch_size", (total_mem) // (dimy * dimx * dimy))
             self.vprint(f"Running on GPU with batch_size = {batch_size}")
@@ -124,9 +132,10 @@ class LinsupPhase(BaseSim):
         phase_E = (np.fft.ifftshift(np.fft.ifft2(phase_E_k))).real * self._pre_E()
         phase_B = (np.fft.ifftshift(np.fft.ifft2(phase_B_k))).real * self._pre_B()
 
+        print("dvice: ", device)
         if device != "cpu":
-            phase_B = phase_B.get()
-            phase_E = phase_E.get()
+            phase_B = cp.asnumpy(phase_B)
+            phase_E = cp.asnumpy(phase_E)
         return phase_B, phase_E
 
     def _linsup_compute_arrays(
@@ -221,7 +230,7 @@ class MansuripurPhase(BaseSim):
 
     def _calc_phase_mansuripur(
         self,
-        pad: Optional[Union[list, bool]] = False,
+        pad: list | bool | tuple[int, int] = False,
         pad_mode: str = "mean",
         symmetrize=False,
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -249,12 +258,15 @@ class MansuripurPhase(BaseSim):
                     pad = (dimy * 4, dimx * 4)
                 else:
                     pad = (dimy * 2, dimx * 2)
+            elif isinstance(pad, (int, float)):
+                pad = (int(pad), int(pad))
 
         if symmetrize:
             MZ = self._symmetrize(MZ)
             MY = self._symmetrize(MY)
             MX = self._symmetrize(MX)
             pdimy, pdimx = MY.shape
+        py, px = 0, 0
         if pad:
             if np.any((np.array(pad) - np.array(MX.shape)) < 0):
                 raise ValueError(
@@ -265,9 +277,9 @@ class MansuripurPhase(BaseSim):
             dimy2, dimx2 = MX.shape
             py = (pdimy - dimy2) // 2
             px = (pdimx - dimx2) // 2
-            MZ = np.pad(MZ, ((py, py), (px, px)), mode=pad_mode)
-            MY = np.pad(MY, ((py, py), (px, px)), mode=pad_mode)
-            MX = np.pad(MX, ((py, py), (px, px)), mode=pad_mode)
+            MZ = np.pad(MZ, ((py, py), (px, px)), mode=pad_mode)  # type:ignore # cuz pad_mode
+            MY = np.pad(MY, ((py, py), (px, px)), mode=pad_mode)  # type:ignore # cuz pad_mode
+            MX = np.pad(MX, ((py, py), (px, px)), mode=pad_mode)  # type:ignore # cuz pad_mode
 
         sY, sX, KK, zeros = self._mans_compute_arrays((pdimy, pdimx))
 
@@ -308,7 +320,7 @@ class MansuripurPhase(BaseSim):
 
     def _mans_compute_arrays(
         self, shape: tuple
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple]:
         """
         Compute arrays for the Mansuripur method.
 
@@ -337,7 +349,7 @@ class MansuripurPhase(BaseSim):
 
     @staticmethod
     def _rotate_vector(
-        Tx: float = 0, Ty: float = 0, Tz: float = 0, v: list = [0, 0, 1]
+        Tx: float = 0, Ty: float = 0, Tz: float = 0, v: list | np.ndarray = [0, 0, 1]
     ) -> np.ndarray:
         """
         Rotate the input vector around x, y, and z axes.

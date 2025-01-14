@@ -1,25 +1,25 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import scipy.constants as physcon
 
 from PyLorentz.io.write import format_defocus, write_tif
+from PyLorentz.utils import metrics
 from PyLorentz.visualize import show_2D, show_im
 from PyLorentz.visualize.colorwheel import color_im
-from PyLorentz.utils import metrics
 
 if TYPE_CHECKING:
+    import cupy as cp
     from torch import Tensor
-    import cupy as cp 
 else:
-    try: 
-        from torch import Tensor 
-        import cupy as cp 
-    except: 
-        pass 
+    try:
+        import cupy as cp
+        from torch import Tensor
+    except:
+        Tensor = np.ndarray
 
 
 class BasePhaseReconstruction:
@@ -29,7 +29,7 @@ class BasePhaseReconstruction:
 
     def __init__(
         self,
-        save_dir: Optional[os.PathLike] = None,
+        save_dir: Optional[os.PathLike | str] = None,
         name: Optional[str] = None,
         scale: Optional[float] = None,
         verbose: Union[int, bool] = 1,
@@ -47,7 +47,7 @@ class BasePhaseReconstruction:
         self.name = name
         self._save_name = name
         self._verbose = verbose
-        if scale is not None: 
+        if scale is not None:
             self.scale = scale
         self._overwrite = False
         self._results = {}
@@ -83,7 +83,7 @@ class BasePhaseReconstruction:
         return self._name
 
     @name.setter
-    def name(self, name: str|None):
+    def name(self, name: str | None):
         """Set the name."""
         if name is not None:
             self._name = str(name)
@@ -144,7 +144,7 @@ class BasePhaseReconstruction:
         return self._save_dir
 
     @save_dir.setter
-    def save_dir(self, p: Optional[os.PathLike]):
+    def save_dir(self, p: Optional[os.PathLike | str]):
         """Set the save directory."""
         if p is None:
             self._save_dir = Path("./")
@@ -297,7 +297,9 @@ class BasePhaseReconstruction:
             **kwargs,
         )
 
-    def calc_phase_metrics(self, t_phase: np.ndarray, r_phase: np.ndarray) -> dict:
+    def calc_phase_metrics(
+        self, t_phase: np.ndarray | Tensor, r_phase: np.ndarray | Tensor
+    ) -> dict:
         """
         Calculate the correlational accuracy, SSRI, PSNR for a reconstructed and ground truth phase
 
@@ -337,19 +339,18 @@ class BasePhaseReconstruction:
         return results
 
     @staticmethod
-    def _to_numpy(arr: np.ndarray | Tensor):
+    def _to_numpy(arr: Any) -> np.ndarray:
         module = arr.__class__.__module__
         if module == "torch":
             assert isinstance(arr, Tensor)
             return arr.cpu().detach().numpy()
         elif module == "cupy":
-            assert isinstance(arr, cp.ndarray)
-            return arr.get() # type:ignore 
+            return cp.asnumpy(arr)
         else:
             return np.array(arr)
 
     @staticmethod
-    def _fmt_defocus(defval: Union[float, int], digits: int = 3, spacer=""):
+    def _fmt_defocus(defval: Union[float, int], digits: int = 3, spacer="") -> str:
         """
         Format defocus value for display.
 

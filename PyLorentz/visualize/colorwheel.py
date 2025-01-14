@@ -11,16 +11,16 @@ Good Colour Maps: How to Design Them, Peter Kovesi (2015) https://arxiv.org/abs/
 import colorsys
 from typing import Optional, Union
 
-import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
 from matplotlib.colors import Colormap
-import matplotlib.pyplot as plt
 
 try:
     import colorcet as cc
 except ModuleNotFoundError:
-    cc = None 
+    cc = None
+
 
 def roll_cmap(
     cmap: Union[Colormap, str],
@@ -48,6 +48,7 @@ def roll_cmap(
         out = 1 - out
     new_cmap = colors.LinearSegmentedColormap.from_list(f"{n}_s", cmap(out))
     return new_cmap
+
 
 def shift_cmap_center(
     cmap: Union[Colormap, str],
@@ -94,7 +95,8 @@ def shift_cmap_center(
     new_cmap = colors.LinearSegmentedColormap.from_list(f"{cmap.name}_s", cmap(out))
     return new_cmap
 
-def get_cmap(cmap: Optional[Union[str, Colormap]] = 'linear', **kwargs) -> Colormap:
+
+def get_cmap(cmap: Optional[Union[str, Colormap]] = "linear", **kwargs) -> Colormap:
     """
     Take a colormap or string input and return a Colormap object.
 
@@ -129,7 +131,7 @@ def get_cmap(cmap: Optional[Union[str, Colormap]] = 'linear', **kwargs) -> Color
     """
     shift = kwargs.get("shift", 0)
     invert = kwargs.get("invert", False)
-            
+
     if isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(cmap, colors.ListedColormap):
         return cmap
     elif isinstance(cmap, str):
@@ -143,11 +145,11 @@ def get_cmap(cmap: Optional[Union[str, Colormap]] = 'linear', **kwargs) -> Color
             else:
                 splits = ["CET", cmap[3:]]
             # doesn't work for all, but parses many
-            cm2 = f"cet_CET_{splits[1].upper()}_{'_'.join(splits[2:])}".strip('_')
+            cm2 = f"cet_CET_{splits[1].upper()}_{'_'.join(splits[2:])}".strip("_")
             if cm2 in cc.colormaps():
                 cmap_out = plt.get_cmap(cm2)
             elif "0" in cm2:
-                cm3 = cm2.replace("0","")
+                cm3 = cm2.replace("0", "")
                 if cm3 in cc.colormaps():
                     cmap_out = plt.get_cmap(cm3)
         if isinstance(cmap, str):  # unable to find so far
@@ -169,16 +171,26 @@ def get_cmap(cmap: Optional[Union[str, Colormap]] = 'linear', **kwargs) -> Color
                     cmap_out = plt.get_cmap("hsv")
                     invert = not invert
                     shift += np.pi / 2
-                elif cmap in ["cet_c6", "c6", "cet_6", "6fold", "6-fold", "sixfold", "hsv", "cyclic"] and cc is not None:
+                elif (
+                    cmap
+                    in ["cet_c6", "c6", "cet_6", "6fold", "6-fold", "sixfold", "hsv", "cyclic"]
+                    and cc is not None
+                ):
                     cmap_out = cc.cm["CET_C6"]
                     invert = not invert
                     shift += np.pi / 2
-                elif cmap in ["cet_c7", "c7", "cet_7", "4fold", "fourfold", "4-fold"] and cc is not None:
+                elif (
+                    cmap in ["cet_c7", "c7", "cet_7", "4fold", "fourfold", "4-fold"]
+                    and cc is not None
+                ):
                     cmap_out = cc.cm["CET_C7"]
                     invert = not invert
                 elif cmap in ["cet_c8", "c8", "cet_8"] and cc is not None:
                     cmap_out = cc.cm["CET_C8"]
-                elif cmap in ["cet_c10", "c10", "cet_10", "isolum", "isoluminant", "iso"] and cc is not None:
+                elif (
+                    cmap in ["cet_c10", "c10", "cet_10", "isolum", "isoluminant", "iso"]
+                    and cc is not None
+                ):
                     cmap_out = cc.cm["CET_C10"]
                 elif cmap in ["cet_c11", "c11", "cet_11"] and cc is not None:
                     cmap_out = cc.cm["CET_C11"]
@@ -196,13 +208,16 @@ def get_cmap(cmap: Optional[Union[str, Colormap]] = 'linear', **kwargs) -> Color
                 shift -= np.pi / 2
 
     else:
-        raise TypeError(f"Unknown input type {type(cmap)}, please input a matplotlib colormap or valid string")
+        raise TypeError(
+            f"Unknown input type {type(cmap)}, please input a matplotlib colormap or valid string"
+        )
 
     if shift != 0:  # given as radian convert to [0,1]
         shift = shift % (2 * np.pi) / (2 * np.pi)
     if shift != 0 or invert:
         cmap_out = roll_cmap(cmap_out, shift, invert)
     return cmap_out
+
 
 def color_im(
     vx: np.ndarray,
@@ -301,7 +316,6 @@ def color_im(
         mags = raw_inp_mags - np.min(raw_inp_mags)
         mags = mags / np.max(mags)  # normalize [0,1]
 
-
     cutoff = kwargs.get("mag_cutoff")
     if cutoff:
         if not isinstance(cutoff, float):
@@ -325,10 +339,10 @@ def color_im(
     dimx = np.shape(vy)[1] + 2 * rad + pad
     cimage = np.zeros((dimy, dimx, 3))
 
-    mod = kwargs.get("modulo", False) 
-    if mod: 
+    mod = kwargs.get("modulo", False)
+    if mod:
         azimuth = np.mod((np.arctan2(vx, vy) + np.pi), mod) / mod
-    else: 
+    else:
         azimuth = (np.arctan2(vx, vy) + np.pi) / (2 * np.pi)
 
     # apply colormap to angle
@@ -359,8 +373,8 @@ def color_im(
                 pos = np.where((np.sin(theta) > 0) & (mags == 0), 0, 1)
                 neg = np.where((np.sin(theta) < 0) & (mags == 0), 0, 1)
             else:
-                neg = np.where(theta < 0, np.cos(theta)**2, 1)
-                pos = np.where(theta > 0, np.cos(theta)**2, 1)
+                neg = np.where(theta < 0, np.cos(theta) ** 2, 1)
+                pos = np.where(theta > 0, np.cos(theta) ** 2, 1)
             for i in range(3):
                 imrgb[:, :, i] = 1 - (1 - imrgb[:, :, i]) * pos
                 imrgb[:, :, i] *= neg
@@ -373,9 +387,7 @@ def color_im(
         cimage[:, : -2 * rad - pad, :] = imrgb
         if vz is None:
             wbkg = "black" if background == "white" else "white"
-            wheel = make_colorwheel(
-                rad, cmap, background=wbkg, core=background, **kwargs
-            )
+            wheel = make_colorwheel(rad, cmap, background=wbkg, core=background, **kwargs)
             if background == "black":  # have white sidebar
                 cimage[:, dimx - 2 * rad - pad :] = 1
 
@@ -390,6 +402,7 @@ def color_im(
             :,
         ] = wheel
         return cimage
+
 
 def make_colorwheel(
     rad: int,
@@ -418,13 +431,13 @@ def make_colorwheel(
     cmap = get_cmap(cmap)
     background = background.lower()
     X, Y = np.mgrid[-rad:rad, -rad:rad]
-    
+
     mod = kwargs.get("modulo", False)
     if mod:
         azimuth = np.mod((np.arctan2(Y, X) + np.pi), mod) / mod
     else:
         azimuth = (np.arctan2(Y, X) + np.pi) / (2 * np.pi)
-        
+
     imrgb = cmap(azimuth)[..., :3]
     rr = dist4(rad * 2)
     mask = np.where(rr < rad, 1, 0)
@@ -453,6 +466,7 @@ def make_colorwheel(
             imrgb[:, :, i] = 1 - (1 - imrgb[:, :, i]) * mask
 
     return imrgb
+
 
 def make_colorwheelz(
     rad: int,
@@ -519,11 +533,11 @@ def make_colorwheelz(
             else:
                 for i in range(3):
                     imrgb[:, :, i] += 1 - mask
-            inner = outer = 1 # for pylance 
+            inner = outer = 1  # for pylance
 
         else:
-            inner = np.where(theta < 0, np.cos(theta)**2, 1)
-            outer = np.where(theta > 0, np.cos(theta)**2, 1)
+            inner = np.where(theta < 0, np.cos(theta) ** 2, 1)
+            outer = np.where(theta > 0, np.cos(theta) ** 2, 1)
     if not HSL:
         for i in range(3):
             if outside == "black":
@@ -535,17 +549,19 @@ def make_colorwheelz(
                 imrgb[:, :, i] = 1 - (1 - imrgb[:, :, i]) * mask
     return imrgb
 
+
 def dist4(dim, shifted=True) -> np.ndarray:
     """
     4-fold symmetric distance map (center is 0) even at small radii
     centered in the middle (i.e. fft shifted) by default
     """
-    d = np.fft.fftfreq(dim, 1/dim)
-    d = np.abs(d + 0.5)-0.5 if dim % 2 == 0 else d
+    d = np.fft.fftfreq(dim, 1 / dim)
+    d = np.abs(d + 0.5) - 0.5 if dim % 2 == 0 else d
     if shifted:
         d = np.fft.fftshift(d)
-    rr = np.sqrt(d[None,]**2 + d[...,None]**2)
+    rr = np.sqrt(d[None,] ** 2 + d[..., None] ** 2)
     return rr
+
 
 def _white_to_transparent_vec(image, magz=None):
     rgba_image = np.ones((image.shape[0], image.shape[1], 4), dtype=float)
@@ -553,8 +569,8 @@ def _white_to_transparent_vec(image, magz=None):
     if magz is not None:
         alpha = np.where(magz > 0, 1 - magz**10, 1)
     else:
-        print(rgba_image[:,:,:2].sum(axis=2).min(), rgba_image[:,:,:2].sum(axis=2).max())
-        alpha = np.where(rgba_image[:,:,:2].sum(axis=2)==0, 0, 1).astype('float')
+        print(rgba_image[:, :, :2].sum(axis=2).min(), rgba_image[:, :, :2].sum(axis=2).max())
+        alpha = np.where(rgba_image[:, :, :2].sum(axis=2) == 0, 0, 1).astype("float")
         # alpha = rgba_image[:,:,:2].sum(axis=2)
         # return alpha
     rgba_image[:, :, 3] = alpha

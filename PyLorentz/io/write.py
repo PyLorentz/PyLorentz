@@ -2,7 +2,7 @@ import json
 import os
 import warnings
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import numpy as np
 import tifffile
@@ -14,10 +14,10 @@ def write_tif(
     data: np.ndarray,
     path: os.PathLike,
     scale: float,
-    v: Optional[float] = 1,
-    unit: Optional[str] = "nm",
-    overwrite: Optional[bool] = True,
-    color: Optional[bool] = False,
+    v: float = 1,
+    unit: str = "nm",
+    overwrite: bool = True,
+    color: bool = False,
 ):
     """
     scale in nm/pixel default,
@@ -56,9 +56,7 @@ save_tif = write_tif  # alias
 write_tiff = write_tif  # alias
 
 
-def overwrite_rename(
-    filepath: os.PathLike, spacer: Optional[bool] = "_", incr_number: Optional[str] = True
-):
+def overwrite_rename(filepath: os.PathLike | str, spacer: str = "_", incr_number: bool = True):
     """Given a filepath, check if file exists already. If so, add numeral 1 to end,
     if already ends with a numeral increment by 1.
 
@@ -69,9 +67,9 @@ def overwrite_rename(
         Path: [description]
     """
 
-    filepath = str(filepath)
-    file, ext = os.path.splitext(filepath)
-    if os.path.isfile(filepath):
+    file_str = str(filepath)
+    file, ext = os.path.splitext(file_str)
+    if os.path.isfile(file_str):
         if file[-1].isnumeric() and incr_number:
             file, num = splitnum(file)
             nname = file + str(int(num) + 1) + ext
@@ -79,10 +77,10 @@ def overwrite_rename(
         else:
             return overwrite_rename(file + spacer + "1" + ext, incr_number=True)
     else:
-        return Path(filepath)
+        return Path(file_str)
 
 
-def overwrite_rename_dir(dirpath: os.PathLike, spacer: Optional[str] = "_"):
+def overwrite_rename_dir(dirpath: os.PathLike, spacer: str = "_"):
     """Given a filepath, check if file exists already. If so, add numeral 1 to end,
     if already ends with a numeral increment by 1.
 
@@ -115,7 +113,7 @@ def splitnum(s: str):
     return head, tail
 
 
-def prep_dict_for_json(d: any):
+def prep_dict_for_json(d: dict):
     """
     still plenty of things it doesn't handle
     """
@@ -131,7 +129,7 @@ def prep_dict_for_json(d: any):
             for i in range(len(val)):
                 val[i] = _json_serializable(val[i])
             return val
-        elif isinstance(val, dict): #
+        elif isinstance(val, dict):  #
             return prep_dict_for_json(val)
         # elif: ## as things come up will need to add
         else:
@@ -143,7 +141,7 @@ def prep_dict_for_json(d: any):
     return d
 
 
-def write_json(d: dict, path: os.PathLike, overwrite: Optional[bool] = True, v: Optional[int] = 1):
+def write_json(d: dict, path: os.PathLike, overwrite: bool = True, v: int = 1):
     path = Path(path)
     d2 = prep_dict_for_json(d.copy())
     if not path.suffix.lower() in [".json", ".txt"]:

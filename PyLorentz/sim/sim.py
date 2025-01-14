@@ -1,7 +1,7 @@
 import copy
 import os
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 from warnings import warn
 
 import numpy as np
@@ -118,14 +118,16 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
 
     def sim_images(
         self,
-        defocus_values: Union[float, List[float]],  # single defocus value or list of them
+        defocus_values: Union[
+            float, list[int], list[float]
+        ],  # single defocus value or list of them
         scope: Microscope,
         flip: bool = False,
         thk_E_filter_sigma: float = 1,
         amorphous_bkg: Optional[Union[bool, float]] = None,
-        pad: Optional[Union[tuple, bool]] = False,
-        pad_mode: Optional[str] = "edge",
-        symmetrize: Optional[bool] = False,
+        pad: tuple[int, int] | int | None = None,
+        pad_mode: str = "edge",
+        symmetrize: bool = False,
         verbose: Optional[int] = None,
     ) -> DefocusedDataset:
         """
@@ -148,13 +150,15 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         if verbose is not None:
             self._verbose = verbose
 
-        if pad:
+        if pad is not None:
             if isinstance(pad, bool):
                 py, px = self.phase_B.shape
                 if symmetrize:
                     pad = (py * 4, px * 4)
                 else:
                     pad = (py * 2, px * 2)
+            elif isinstance(pad, (int, float)):
+                pad = (int(pad), int(pad))
 
         object_wave = self._generate_object_wave(thk_E_filter_sigma, amorphous_bkg, flip=flip)
         self._object_wave = object_wave
@@ -184,21 +188,21 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
             beam_energy=scope.E,
             simulated=True,
             verbose=self._verbose,
-            data_files=self._ovf_file,
+            data_files=[self._ovf_file] if self._ovf_file is not None else [],
         )
 
         return dd
 
     def sim_TFS(
         self,
-        defocus_values: Union[float, List[float]],  # single defocus value or list of them
+        defocus_values: Union[float, list[float]],  # single defocus value or list of them
         scope: Microscope,
         flip: bool = False,
         thk_E_filter_sigma: float = 1,
         amorphous_bkg: Optional[Union[bool, float]] = None,
-        pad: Optional[Union[tuple, bool]] = False,
-        pad_mode: Optional[str] = "edge",
-        symmetrize: Optional[bool] = False,
+        pad: tuple[int, int] | int | None = None,
+        pad_mode: str = "edge",
+        symmetrize: bool = False,
         verbose: Optional[int] = None,
     ) -> ThroughFocalSeries:
         """
@@ -228,18 +232,23 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         if isinstance(defocus_values, (float, int)):
             full_defvals = [-1 * abs(defocus_values), 0, abs(defocus_values)]
         else:
-            defocus_values = np.sort(np.unique(np.abs(defocus_values)))
-            if defocus_values[0] == 0:
-                defocus_values = defocus_values[1:]
-            full_defvals = np.concatenate([-1 * defocus_values[::-1], [0], defocus_values])
+            sorted_defvals = np.sort(np.unique(np.abs(defocus_values)))
+            if sorted_defvals[0] == 0:
+                sorted_defvals = sorted_defvals[1:]
+            full_defvals = np.concatenate([-1 * sorted_defvals[::-1], [0], sorted_defvals])
 
-        if pad:
+        if pad is not None:
             if isinstance(pad, bool):
                 py, px = self.phase_B.shape
                 if symmetrize:
                     pad = (py * 4, px * 4)
                 else:
                     pad = (py * 2, px * 2)
+            elif isinstance(pad, (float, int)):
+                if pad == 0:
+                    pad = None
+                else:
+                    pad = (int(pad), int(pad))
 
         self.vprint(
             f"Simulating images for defocus values: "
@@ -248,10 +257,11 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         if flip:
             self.vprint("Will simulate a TFS for both unflip and flip orientations.")
 
-        seed = np.random.randint(1e9)
+        seed = np.random.randint(int(1e9))
         object_wave = self._generate_object_wave(
             thk_E_filter_sigma, amorphous_bkg, flip=False, seed=seed
         )
+        object_wave_flip = np.array(0)
         if flip:
             object_wave_flip = self._generate_object_wave(
                 thk_E_filter_sigma, amorphous_bkg, flip=True, seed=seed
@@ -261,6 +271,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
         scope.scale = self.scale
         for defval in full_defvals:
             scope.defocus = defval
+            a = pad
             imstack.append(
                 scope.compute_image(
                     object_wave, padded_shape=pad, pad_mode=pad_mode, symmetrize=symmetrize
@@ -277,8 +288,8 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
                 )
 
         tfs = ThroughFocalSeries(
-            imstack=imstack,
-            flipstack=flipstack,
+            imstack=np.array(imstack),
+            flipstack=np.array(flipstack),
             flip=flip,
             scale=self.scale,
             defvals=full_defvals,
@@ -325,7 +336,7 @@ class SimLTEM(MansuripurPhase, LinsupPhase, BaseSim):
                 bkg_amount = 0.01
             else:
                 bkg_amount = amorphous_bkg / 1000
-            seed = np.random.randint(1e9) if seed is None else seed
+            seed = np.random.randint(int(1e9)) if seed is None else seed
             rng = np.random.default_rng(seed=seed)
             random_phase = rng.uniform(low=-1 * bkg_amount, high=bkg_amount, size=phase_t.shape)
             random_phase = ndi.gaussian_filter(random_phase, 5 / self.scale, mode="wrap")

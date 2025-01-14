@@ -1,6 +1,7 @@
 import os
 import warnings
 from pathlib import Path
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +10,6 @@ from PyLorentz.dataset.through_focal_series import ThroughFocalSeries
 from PyLorentz.io.write import write_json
 from PyLorentz.phase.base_tie import BaseTIE
 from PyLorentz.visualize import show_2D, show_im
-from typing import Optional, Union, List
 
 
 class TIE(BaseTIE):
@@ -63,7 +63,7 @@ class TIE(BaseTIE):
         self._results["dIdZ_B"] = None
         self._results["dIdZ_E"] = None
         self._recon_defval = None
-        self._recon_defval_index = None
+        self._recon_defval_index = 0
 
         if not self.tfs._preprocessed:
             if not self.tfs._simulated:
@@ -76,11 +76,11 @@ class TIE(BaseTIE):
         self,
         index: Optional[int] = None,
         name: Optional[str] = None,
-        sym: Optional[bool] = False,
-        pad: Optional[Union[bool, int]] = False,
+        sym: bool = False,
+        pad: Union[bool, int, tuple[int, int]] = False,
         qc: Optional[float] = None,
         flip: Optional[bool] = None,
-        save_mode: Union[bool, str, List[str]] = False,
+        save_mode: Union[bool, str, list[str]] = False,
         save_dir: Optional[os.PathLike] = None,
         verbose: Union[int, bool] = 1,
         pbcs: Optional[bool] = None,
@@ -151,6 +151,8 @@ class TIE(BaseTIE):
         if pad:
             if isinstance(pad, bool):
                 pad = (dimy * 2, dimx * 2)
+            elif isinstance(pad, (int, float)):
+                pad = (pad, pad)
             py2 = (pad[0] - dimy) // 2
             px2 = (pad[1] - dimx) // 2
             dimy, dimx = pad
@@ -168,6 +170,8 @@ class TIE(BaseTIE):
                 constant_values=infocus_im.mean(),
             )
             self.vprint(f"Reconstructing with padded shape {pad}")
+        else:
+            py2, px2 = 0, 0
 
         self._make_qi((dimy, dimx))
 
@@ -208,7 +212,7 @@ class TIE(BaseTIE):
 
     def save_results(
         self,
-        save_mode: Union[bool, str, List[str]] = True,
+        save_mode: Union[bool, str, list[str]] = True,
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
         overwrite: bool = False,
@@ -242,8 +246,12 @@ class TIE(BaseTIE):
                     save_keys.append("phase_E")
             elif save_mode.lower() == "all":
                 save_keys = list(self.results.keys())
+            else:
+                raise ValueError(f"Unknown save_mode {save_mode}")
         elif hasattr(save_mode, "__iter__"):
             save_keys = [str(k) for k in save_mode]
+        else:
+            raise ValueError(f"Unknown save_mode {save_mode}")
 
         self.save_dir.mkdir(exist_ok=True)
         self._save_keys(save_keys, self.recon_defval, overwrite)
@@ -374,15 +382,15 @@ class TIE(BaseTIE):
         return len(self.tfs.defvals_index)
 
     @property
-    def recon_defval(self) -> Optional[float]:
+    def recon_defval(self) -> float:
         """
         Get the defocus value used for reconstruction.
 
         Returns:
-            Optional[float]: Defocus value.
+            float: Defocus value.
         """
         if self._recon_defval is None:
-            print("defval is None or has not yet been specified with an index")
+            raise AttributeError("defval is None or has not yet been specified with an index")
         return self._recon_defval
 
     @property
@@ -421,7 +429,8 @@ class TIE(BaseTIE):
         if self.flip:
             return self.results["phase_E"]
         elif self.results["phase_E"] is not None:
-            self.vprint("Returning old phase_E as currently flip=False")
+            warnings.warn("Returning old phase_E as currently flip=False")
+            return self.results["phase_E"]
         else:
             raise ValueError("phase_E does not exist because flip=False")
 

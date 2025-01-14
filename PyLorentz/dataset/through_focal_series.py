@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Optional, Union, List
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -61,15 +61,15 @@ class ThroughFocalSeries(BaseDataset):
         self,
         imstack: np.ndarray,
         flipstack: Optional[np.ndarray] = None,
-        flip: Optional[bool] = False,
+        flip: bool = False,
         scale: Optional[float] = None,
-        defvals: Optional[np.ndarray] = None,
+        defvals: np.ndarray | list | None = None,
         beam_energy: Optional[float] = None,
         use_mask: Optional[bool] = True,
         simulated: Optional[bool] = False,
         data_dir: Optional[os.PathLike] = None,
-        data_files: List[os.PathLike] = [],
-        verbose: Optional[int] = 1,
+        data_files: list[os.PathLike] = [],
+        verbose: int | bool = 1,
     ):
         imstack = np.array(imstack)
         assert np.ndim(imstack) == 3, f"Bad input shape {imstack.shape}"
@@ -82,7 +82,8 @@ class ThroughFocalSeries(BaseDataset):
         if flip and len(self.flipstack) == 0:
             raise ValueError("Flipstack provided, but no flipstack data available.")
         self.flip = flip
-        self.defvals = defvals
+        if defvals is not None:
+            self.defvals = defvals
         self.beam_energy = beam_energy
         self._simulated = simulated
         self.data_files = data_files
@@ -93,15 +94,15 @@ class ThroughFocalSeries(BaseDataset):
 
         self._orig_imstack = self.imstack.copy()
         self._orig_flipstack = self.flipstack.copy()
-        self._orig_imstack_preprocessed = None
-        self._orig_flipstack_preprocessed = None
-        self._imstack_crop = None
-        self._flipstack_crop = None
-        self._imstack_filtered = None
-        self._flipstack_filtered = None
+        self._orig_imstack_preprocessed: np.ndarray = np.array(0)
+        self._orig_flipstack_preprocessed: np.ndarray = np.array(0)
+        self._imstack_crop: np.ndarray = np.array(0)
+        self._flipstack_crop: np.ndarray = np.array(0)
+        self._imstack_filtered: np.ndarray = np.array(0)
+        self._flipstack_filtered: np.ndarray = np.array(0)
         self._orig_shape = self._orig_imstack.shape[1:]
-        self.mask = None
-        self._orig_mask = None
+        self.mask: np.ndarray = np.array(0)
+        self._orig_mask: np.ndarray = np.array(0)
         self._make_mask(self._use_mask)
 
         if scale is None:
@@ -115,17 +116,17 @@ class ThroughFocalSeries(BaseDataset):
     def from_files(
         cls,
         aligned_file: Union[str, os.PathLike],
-        aligned_flip_file: Optional[Union[str, os.PathLike]] = None,
-        metadata_file: Optional[Union[str, os.PathLike]] = None,
-        flip: Optional[bool] = False,
+        aligned_flip_file: os.PathLike | str | None = None,
+        metadata_file: os.PathLike | str | None = None,
+        flip: bool = False,
         scale: Optional[float] = None,
-        defocus_values: Optional[List[float]] = None,
+        defocus_values: Optional[list[float]] = None,
         beam_energy: Optional[float] = None,
         dump_metadata: Optional[bool] = True,
         use_mask: Optional[bool] = True,
-        legacy_data_loc: Optional[Union[str, os.PathLike]] = None,
-        legacy_fls_filename: Optional[Union[str, os.PathLike]] = None,
-        verbose: Optional[Union[int, bool]] = True,
+        legacy_data_loc: os.PathLike | str | None = None,
+        legacy_fls_filename: os.PathLike | str | None = None,
+        verbose: int | bool = 1,
     ) -> "ThroughFocalSeries":
         """
         Create a ThroughFocalSeries instance from files.
@@ -134,7 +135,7 @@ class ThroughFocalSeries(BaseDataset):
             aligned_file (Union[str, os.PathLike]): Path to the aligned image stack.
             aligned_flip_file (Optional[Union[str, os.PathLike]]): Path to the flip image stack.
             metadata_file (Optional[Union[str, os.PathLike]]): Path to metadata file.
-            flip (Optional[bool]): Indicates if the dataset includes flipped images.
+            flip (bool): Indicates if the dataset includes flipped images.
             scale (Optional[float]): The scale of the images.
             defocus_values (Optional[List[float]]): Defocus values.
             beam_energy (Optional[float]): Beam energy used during imaging.
@@ -158,6 +159,10 @@ class ThroughFocalSeries(BaseDataset):
             loaded_energy = mdata["beam_energy"]
             data_files.append(metadata_file)
         elif legacy_data_loc is not None:
+            if legacy_fls_filename is None:
+                raise ValueError(
+                    f"legacy_data_loc is given but legacy_fls_filename is not specefied"
+                )
             loaded_scale, loaded_defvals = legacy_load(legacy_data_loc, legacy_fls_filename)
             loaded_energy = None
         else:
@@ -184,8 +189,13 @@ class ThroughFocalSeries(BaseDataset):
             else:
                 vprint(
                     f"Overwriting loaded defocus values:\n\t{loaded_defvals}"
-                    + f"with user-set value:\n\t{defvals}"
+                    + f"with user-set value:\n\t{defocus_values}"
                 )
+                defvals = np.array(defocus_values)
+        else:
+            if defocus_values is None:
+                raise ValueError(f"Unable to determine defocus values?")
+            else:
                 defvals = np.array(defocus_values)
 
         if loaded_energy is not None:
@@ -314,7 +324,7 @@ class ThroughFocalSeries(BaseDataset):
         return np.array(dfs)[::-1]
 
     @defvals.setter
-    def defvals(self, vals: Union[float, List[float], np.ndarray]):
+    def defvals(self, vals: Union[float, list[float], np.ndarray]):
         if not isinstance(vals, (np.ndarray, list, tuple)):
             raise TypeError(f"defvals type should be list or ndarray, found {type(vals)}")
         if len(vals) != len(self.imstack):
@@ -373,6 +383,8 @@ class ThroughFocalSeries(BaseDataset):
         inf_index = self.len_tfs // 2
         if self.flip:
             if self._preprocessed:
+                assert self._orig_imstack_preprocessed is not None
+                assert self._orig_flipstack_preprocessed is not None
                 ave_infocus = (
                     self._orig_imstack_preprocessed[inf_index]
                     + self._orig_flipstack_preprocessed[inf_index]
@@ -382,6 +394,7 @@ class ThroughFocalSeries(BaseDataset):
             return ave_infocus
         else:
             if self._preprocessed:
+                assert self._orig_imstack_preprocessed is not None
                 return self._orig_imstack_preprocessed[inf_index]
             else:
                 return self._orig_imstack[inf_index]
@@ -401,18 +414,18 @@ class ThroughFocalSeries(BaseDataset):
 
     def preprocess(
         self,
-        hotpix: Optional[bool] = True,
-        median_filter_size: Optional[int] = None,
-        fast: Optional[bool] = True,
+        hotpix: bool = True,
+        median_filter_size: int | None = None,
+        fast: bool = True,
         **kwargs,
     ) -> None:
         """
         Preprocess the images by filtering hot pixels and applying a median filter.
 
         Args:
-            hotpix (Optional[bool]): Whether to filter hot pixels.
+            hotpix (bool): Whether to filter hot pixels.
             median_filter_size (Optional[int]): Size of the median filter.
-            fast (Optional[bool]): Whether to use a fast filtering method.
+            fast (bool): Whether to use a fast filtering method.
         """
         self._make_mask(self._use_mask)
         self.imstack = self._orig_imstack.copy()
@@ -466,6 +479,7 @@ class ThroughFocalSeries(BaseDataset):
         """
         v = self._verbose if v is None else v
 
+        input_flipstack = None
         if self._cropped:
             input_imstack = self._imstack_crop.copy()
             if self.flip:
@@ -486,6 +500,7 @@ class ThroughFocalSeries(BaseDataset):
                 input_imstack[i], q_lowpass, q_highpass, filter_type, butterworth_order
             )
             if self.flip:
+                assert input_flipstack is not None
                 filtered_flipstack[i] = self._bandpass_filter(
                     input_flipstack[i], q_lowpass, q_highpass, filter_type, butterworth_order
                 )
@@ -641,21 +656,21 @@ class ThroughFocalSeries(BaseDataset):
             inf_ind = self.len_tfs // 2
             if self.flip:
                 if self._preprocessed:
-                    image = (
+                    roi_im = (
                         self._orig_imstack_preprocessed[inf_ind]
                         + self._orig_flipstack_preprocessed[inf_ind]
                     )
                 else:
-                    image = self._orig_imstack[inf_ind] + self._orig_flipstack[inf_ind]
+                    roi_im = self._orig_imstack[inf_ind] + self._orig_flipstack[inf_ind]
             else:
                 if self._preprocessed:
-                    image = self._orig_imstack_preprocessed[inf_ind]
+                    roi_im = self._orig_imstack_preprocessed[inf_ind]
                 else:
-                    image = self._orig_imstack[inf_ind]
+                    roi_im = self._orig_imstack[inf_ind]
 
             if self._filtered:
-                image = self._bandpass_filter(
-                    image,
+                roi = self._bandpass_filter(
+                    roi_im,
                     self._filters["q_lowpass"],
                     self._filters["q_highpass"],
                     self._filters["filter_type"],
@@ -667,9 +682,9 @@ class ThroughFocalSeries(BaseDataset):
                     f"Shape of image for choosing ROI, {image.shape}, must match "
                     + f"orig_images shape, {self._orig_shape}"
                 )
-            image = np.array(image)
+            roi_im = np.array(image)
 
-        self._select_ROI(image)
+        self._select_ROI(roi_im)
 
     def show_tfs(self, **kwargs) -> None:
         """

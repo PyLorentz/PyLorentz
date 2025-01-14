@@ -23,7 +23,7 @@ class BaseTIE(BasePhaseReconstruction):
 
     def __init__(
         self,
-        save_dir: Optional[os.PathLike] = None,
+        save_dir: Optional[os.PathLike | str] = None,
         scale: Optional[float] = None,
         beam_energy: Optional[float] = None,
         name: Optional[str] = None,
@@ -46,7 +46,6 @@ class BaseTIE(BasePhaseReconstruction):
         super().__init__(save_dir, name, scale, verbose)
         self._sym = sym
         self._qc = qc
-        self._qi = None
         self._pbcs = True
         self.beam_energy = beam_energy
 
@@ -104,7 +103,9 @@ class BaseTIE(BasePhaseReconstruction):
         qi[0, 0] = 0
         self._qi = qi  # saves the freq dist
 
-    def _reconstruct_phase(self, infocus: np.ndarray, dIdZ: np.ndarray, defval: float) -> np.ndarray:
+    def _reconstruct_phase(
+        self, infocus: np.ndarray, dIdZ: np.ndarray, defval: float
+    ) -> np.ndarray:
         """
         Reconstruct the phase using the Transport of Intensity Equation (TIE).
 
@@ -157,12 +158,12 @@ class BaseTIE(BasePhaseReconstruction):
 
         return phase
 
-    def _pre_Lap(self, def_step=1) -> float:
+    def _pre_Lap(self, defocus: float) -> float:
         """
         Calculate the scaling prefactor used in the TIE reconstruction.
 
         Args:
-            def_step (float, optional): Defocus value for the reconstruction. Default is 1.
+            defocus (float, optional): Defocus value for the reconstruction. Default is 1.
 
         Returns:
             float: Numerical prefactor.
@@ -176,7 +177,7 @@ class BaseTIE(BasePhaseReconstruction):
             / np.sqrt(2.0 * physcon.m_e * physcon.e)
             / np.sqrt(self._beam_energy + epsilon * self._beam_energy**2)
         )
-        return -1 * self.scale**2 / (16 * np.pi**3 * lam * def_step)
+        return -1 * self.scale**2 / (16 * np.pi**3 * lam * defocus)
 
     @property
     def beam_energy(self):
@@ -187,9 +188,7 @@ class BaseTIE(BasePhaseReconstruction):
     def beam_energy(self, val: Optional[float]):
         """Set the beam energy."""
         if val is None:
-            warnings.warn(
-                "BaseTIE has beam_energy=None, this must be set before reconstructing"
-            )
+            warnings.warn("BaseTIE has beam_energy=None, this must be set before reconstructing")
             self._beam_energy = None
         else:
             if not isinstance(val, (float, int)):
@@ -198,7 +197,7 @@ class BaseTIE(BasePhaseReconstruction):
                 raise ValueError(f"energy must be > 0, not {val}")
             self._beam_energy = float(val)
 
-    def _symmetrize(self, imstack: np.ndarray, mode="even") -> np.ndarray:
+    def _symmetrize(self, imstack: np.ndarray | list, mode="even") -> np.ndarray:
         """
         Make the even symmetric extension of an image (4x as large).
 
@@ -215,8 +214,7 @@ class BaseTIE(BasePhaseReconstruction):
             d2 = True
         else:
             assert imstack.ndim == 3, (
-                "symmetrize only supports 2D images or 3D stacks, "
-                + f"not {imstack.ndim} arrays"
+                "symmetrize only supports 2D images or 3D stacks, " + f"not {imstack.ndim} arrays"
             )
             d2 = False
         dimz, dimy, dimx = imstack.shape
@@ -232,7 +230,7 @@ class BaseTIE(BasePhaseReconstruction):
             raise ValueError(f"`mode` should be `even` or `odd`, not `{mode}`")
         return imi[0] if d2 else imi
 
-    def _unsymmetrize(self, imstack:np.ndarray):
+    def _unsymmetrize(self, imstack: np.ndarray):
         """
         Crop the first quarter of an image, undoing the effects of _symmetrize.
 
@@ -248,13 +246,12 @@ class BaseTIE(BasePhaseReconstruction):
             d2 = True
         else:
             assert imstack.ndim == 3, (
-                "symmetrize only supports 2D images or 3D stacks, "
-                + f"not {imstack.ndim} arrays"
+                "symmetrize only supports 2D images or 3D stacks, " + f"not {imstack.ndim} arrays"
             )
             d2 = False
 
         dimz, dimy, dimx = imstack.shape
-        if dimy %2 != 0 or dimx%2 != 0:
+        if dimy % 2 != 0 or dimx % 2 != 0:
             raise ValueError(f"Input stack must have even dimy and dimx, got ({dimy}, {dimx})")
-        imi = imstack[:, :dimy//2, :dimx//2]
+        imi = imstack[:, : dimy // 2, : dimx // 2]
         return imi[0] if d2 else imi

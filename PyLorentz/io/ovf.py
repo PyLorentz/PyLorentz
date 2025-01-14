@@ -3,11 +3,14 @@ import os
 import sys
 import textwrap
 from itertools import takewhile
+from pathlib import Path
 
 import numpy as np
 
 
-def read_ovf(file=None, mode="norm", B0=1e4, v=1):
+def read_ovf(
+    file: os.PathLike, mode: str = "norm", v: int | bool = 1
+) -> tuple[np.ndarray, float, float]:
     """Load a .ovf or .omf file of magnetization values.
 
     This function takes magnetization output files from OOMMF or Mumax, pulls
@@ -60,6 +63,8 @@ def read_ovf(file=None, mode="norm", B0=1e4, v=1):
 
     dtype = None
     header_length = 0
+    xsize = ysize = zsize = None
+    xscale = yscale = zscale = None
     for line in header:
         header_length += len(line)
         if line.startswith("# xnodes"):
@@ -140,9 +145,7 @@ def read_ovf(file=None, mode="norm", B0=1e4, v=1):
         print("Unkown datatype given. Exiting.")
         sys.exit(1)
 
-    data = data.reshape(
-        (zsize, ysize, xsize, 3)
-    )  # binary data not always shaped nicely
+    data = data.reshape((zsize, ysize, xsize, 3))  # binary data not always shaped nicely
 
     if mode.lower() == "raw":
         vprint("Not scaling datafile.")
@@ -172,20 +175,19 @@ def read_ovf(file=None, mode="norm", B0=1e4, v=1):
     return (mags, scale, zscale)
 
 
-
 def write_ovf(
-    f: str,
+    file: os.PathLike,
     mags: np.ndarray,
     del_px: float,
     zscale: float,
-    title: str = None,
+    title: str | None = None,
     units="norm",
-    overwrite = False,
-):
+    overwrite=False,
+) -> Path:
     """Write an ovf file from a numpy array
 
     Args:
-        f (str): File to write.
+        file (str): File to write.
         mags (np.ndarray): Numpy vector arrays to write. Should have dimensions
             (3, dimz, dimy, dimx) with the vector components being (z, y, x) along the
             first axis.
@@ -197,9 +199,9 @@ def write_ovf(
             portion of the .ovf header with arg. Defaults to 'norm'.
 
     Returns:
-        f (str): filepath that was written
+        f (Path): filepath that was written
     """
-    f = str(f)
+    f = str(file)
     if os.path.exists(f) and not overwrite:
         raise FileExistsError(f"File already exists at: {f}")
     if not f.endswith(".ovf"):
@@ -254,9 +256,7 @@ def write_ovf(
         """
     ).strip()
 
-    mags = mags[
-        ::-1,
-    ]  # zyx to xyz
+    mags = mags[::-1,]  # zyx to xyz
     mags = np.rollaxis(mags, 0, 4)  # (3, dimz, dimy, dimx) -> (dimz, dimy, dimx, 3)
     data = mags.reshape(dimz * dimy * dimx, 3)
 
@@ -272,8 +272,7 @@ def write_ovf(
         fmt = "%.11f"
     elif units.lower() in ["g", "gauss"]:
         fmt = "%.3f"
-    np.savetxt(
-        f, data.astype("float32"), header=header, footer=footer, comments="", fmt=fmt
-    )
-    return f
-
+    else:
+        fmt = "%.8f"
+    np.savetxt(f, data.astype("float32"), header=header, footer=footer, comments="", fmt=fmt)
+    return Path(f)

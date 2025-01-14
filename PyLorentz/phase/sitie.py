@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,7 +19,7 @@ class SITIE(BaseTIE):
     def __init__(
         self,
         dd: DefocusedDataset,
-        save_dir: Optional[os.PathLike] = None,
+        save_dir: Optional[os.PathLike | str] = None,
         name: Optional[str] = None,
         sym: bool = False,
         qc: Optional[float] = None,
@@ -64,7 +64,7 @@ class SITIE(BaseTIE):
         cls,
         image: np.ndarray,
         scale: Union[float, int, None] = None,
-        defval: Optional[List[float]] = None,
+        defval: Optional[list[float]] = None,
         beam_energy: Optional[float] = None,
         name: Optional[str] = None,
         sym: bool = False,
@@ -117,7 +117,7 @@ class SITIE(BaseTIE):
         name: Optional[str] = None,
         sym: bool = False,
         qc: Optional[float] = None,
-        save: Union[bool, str, List[str]] = False,
+        save: Union[bool, str, list[str]] = False,
         save_dir: Optional[os.PathLike] = None,
         verbose: Optional[int] = None,
         pbcs: Optional[bool] = None,
@@ -196,13 +196,13 @@ class SITIE(BaseTIE):
         self._results["Bx"] = Bx
 
         if save:
-            self.save_results(save, overwrite)
+            self.save_results(save_mode=save, overwrite=overwrite)
 
         return self  # self or None?
 
     def save_results(
         self,
-        save_mode: Union[bool, str, List[str]] = True,
+        save_mode: Union[bool, str, list[str]] = True,
         save_dir: Optional[os.PathLike] = None,
         name: Optional[str] = None,
         overwrite: bool = False,
@@ -233,8 +233,12 @@ class SITIE(BaseTIE):
             elif save_mode.lower() == "all":
                 # save_keys = list(self.results.keys()) # doesnt have color
                 save_keys = ["phase_B", "Bx", "By", "color", "input_image"]
+            else:
+                raise ValueError(f"Unknown save_mode {save_mode}")
         elif hasattr(save_mode, "__iter__"):
             save_keys = [str(k) for k in save_mode]
+        else:
+            raise ValueError(f"Unknown save_mode {save_mode}")
 
         self.save_dir.mkdir(exist_ok=True)
         self._save_keys(save_keys, self.recon_defval, overwrite)
@@ -277,15 +281,15 @@ class SITIE(BaseTIE):
         return len(self.dd.images)
 
     @property
-    def recon_defval(self) -> Optional[float]:
+    def recon_defval(self) -> float:
         """
         Get the defocus value used for reconstruction.
 
         Returns:
-            Optional[float]: Defocus value.
+            float: Defocus value.
         """
         if self._recon_defval is None:
-            print("defval is None or has not yet been specified with an index")
+            raise AttributeError("defval is None or has not yet been specified with an index")
         return self._recon_defval
 
     def visualize(self, cbar: bool = False, plot_scale: Union[bool, str] = True) -> "SITIE":
