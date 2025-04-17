@@ -6,9 +6,10 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
+import matplotlib.pyplot as plt 
 import scipy.ndimage as ndi
 
-from PyLorentz.visualize.show import show_im_peaks
+from PyLorentz.visualize.show import show_im_peaks, show_im
 
 
 def filter_hotpix(
@@ -169,6 +170,7 @@ def bandpass_filter(
     q_highpass: Optional[float] = None,
     filter_type: str = "butterworth",  # butterworth or gaussian
     butterworth_order: int = 2,
+    show:bool=False, 
 ) -> np.ndarray:
     """
     Apply a bandpass filter to an image.
@@ -216,5 +218,11 @@ def bandpass_filter(
     mean = image.mean()
     fft = np.fft.fft2(image - mean)
     filtered_im = np.real(np.fft.ifft2(fft * bp_filter)) + mean
+    
+    if show: 
+        fig, axs = plt.subplots(ncols=3, figsize=(12,4))
+        show_im(filtered_im, scale=1/sampling, title="Filtered image", figax=(fig, axs[0]))
+        show_im(image - filtered_im, title="Image - Filtered", show_ticks=False, figax=(fig,axs[1]))
+        show_im(np.fft.fftshift(bp_filter), title="Filter", show_ticks=False, figax=(fig,axs[2]))
 
     return filtered_im

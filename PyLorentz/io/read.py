@@ -1,15 +1,11 @@
 from __future__ import annotations
-import io
 import json
 import os
 from pathlib import Path
-from typing import Union
 
 import numpy as np
-import tifffile
 from ncempy.io import dm as ncempy_dm
 from ncempy.io.emdVelox import fileEMDVelox
-from scipy.ndimage import median_filter
 from skimage import io as skio
 from tifffile import TiffFile
 
@@ -38,7 +34,7 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
     f = Path(f)
     if not f.exists():
         raise FileNotFoundError(str(f.absolute()))
-    metadata: dict[str, Union[str, float, None]] = {
+    metadata: dict[str, str| float| None] = {
         "filepath": str(f.absolute()),
         "filename": f.stem + "".join(f.suffixes),
     }
@@ -87,16 +83,17 @@ def read_image(f: os.PathLike) -> tuple[np.ndarray, dict]:
 
             out_im = dset["data"]
 
-            if len(out_im.shape) == 3:
-                assert dset["pixelUnit"][2] == dset["pixelUnit"][1]
-                assert dset["pixelSize"][2] == dset["pixelSize"][1]
-                pixel_unit = dset["pixelUnit"][1]
-                pixel_size = float(dset["pixelSize"][1])
-            elif len(out_im.shape) == 2:
-                assert dset["pixelUnit"][0] == dset["pixelUnit"][1]
-                assert dset["pixelSize"][0] == dset["pixelSize"][1]
-                pixel_unit = dset["pixelUnit"][0]
-                pixel_size = float(dset["pixelSize"][0])
+            if len(out_im.shape) in [2,3]:
+                if dset["pixelUnit"][-2] != dset["pixelUnit"][-1]: 
+                    print(f"Pixel units  y/x do not match: {dset['pixelUnit'][-2]} != {dset['pixelUnit'][-1]}")
+                    print(f"Using pixel units {dset['pixelUnit'][-1]}")
+                if dset["pixelSize"][-2] != dset["pixelSize"][-1]: 
+                    dif_percent = (dset['pixelSize'][-2] - dset['pixelSize'][-1]) / dset['pixelSize'][-2]
+                    print(f"Pixelsize  y/x do not match: {dset['pixelSize'][-2]} != {dset['pixelSize'][-1]} | difference of {dif_percent*100:.1f}%")
+                    dset['pixelSize'][-1] = 0.5 * (dset['pixelSize'][-1] + dset['pixelSize'][-2])
+                    print(f"Using average pixelsize {dset['pixelSize'][-1]} {dset['pixelUnit'][0]}/pix")
+                pixel_unit = dset["pixelUnit"][-1]
+                pixel_size = float(dset["pixelSize"][-1])
             else:
                 raise ValueError(f"don't know how to handle shape {out_im.shape}")
 
