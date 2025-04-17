@@ -32,7 +32,7 @@ def norm_image(image: np.ndarray | list) -> np.ndarray:
     return im
 
 
-def Tukey2D(shape: tuple[int, int], alpha: float = 0.5, sym: bool = True) -> np.ndarray:
+def tukey2d(shape, alpha=0.5, sym=True, shrink=0, shifted=False):
     """
     Create a 2D Tukey window.
 
@@ -40,14 +40,26 @@ def Tukey2D(shape: tuple[int, int], alpha: float = 0.5, sym: bool = True) -> np.
         shape: Shape of the window (height, width).
         alpha: Shape parameter of the Tukey window.
         sym: If True, makes the window symmetric.
+        shrink: N pix extra to shrink the window on each side (default 0)
+        shifted: If True, will corner-center the window with fftshift
 
     Returns:
         2D Tukey window.
+
+
+    shrink = N pix to extra shrink the window on each side
     """
     dimy, dimx = shape
+    assert shrink >= 0
+    dimy -= 2*shrink
+    dimx -= 2*shrink
     ty = tukey(dimy, alpha=alpha, sym=sym)
     filt_y = np.tile(ty.reshape(dimy, 1), (1, dimx))
     tx = tukey(dimx, alpha=alpha, sym=sym)
     filt_x = np.tile(tx, (dimy, 1))
     output = filt_x * filt_y
+    if shrink > 0:
+        output = np.pad(output, shrink, mode='constant')
+    if shifted:
+        output = np.fft.fftshift(output)
     return output
