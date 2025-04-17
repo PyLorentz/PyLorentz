@@ -81,7 +81,7 @@ def overwrite_rename(filepath: os.PathLike | str, spacer: str = "_", incr_number
         return Path(file_str)
 
 
-def overwrite_rename_dir(dirpath: os.PathLike, spacer: str = "_"):
+def overwrite_rename_dir(dirpath: os.PathLike, spacer: str = "_v"):
     """Given a filepath, check if file exists already. If so, add numeral 1 to end,
     if already ends with a numeral increment by 1.
 
@@ -98,9 +98,14 @@ def overwrite_rename_dir(dirpath: os.PathLike, spacer: str = "_"):
             return dirpath
         dirname = dirpath.stem
         if dirname[-1].isnumeric():  # TODO add check for if is date format
-            dirname, num = splitnum(dirname)
-            nname = dirname + str(int(num) + 1) + "/"
-            return overwrite_rename_dir(dirpath.parents[0] / nname)
+            splits = dirname.split(spacer)
+            if len(splits) > 1:
+                name = spacer.join(splits[:-1])
+                num = int(splitnum(splits[-1])[-1])
+                new_num = name + spacer + str(num + 1) + "/"
+                return overwrite_rename_dir(dirpath.parents[0] / new_num)
+            else: 
+                return overwrite_rename_dir(dirpath.parents[0] / (dirname + spacer + "1/"))
         else:
             return overwrite_rename_dir(dirpath.parents[0] / (dirname + spacer + "1/"))
     else:

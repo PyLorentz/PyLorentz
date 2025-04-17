@@ -106,7 +106,7 @@ def show_im(
     if ndim == 2:
         pass
     elif ndim == 3:
-        if image.shape[2] not in [3, 4]:
+        if image.shape[2] not in [3, 4] and image.shape[0] not in [3, 4]:
             if image.shape[0] != 1:
                 print("Summing along first axis")
             image = np.sum(image, axis=0)
@@ -196,7 +196,7 @@ def show_im(
         ax.tick_params(direction=kwargs.get("tick_direction", "out"))
         # if scale is None:
         if scale is None:
-            ticks_label = kwargs.get("scale_units", "pixels")
+            ticks_label = kwargs.get("scale_unit", "pixels")
         else:
             if isinstance(scale, (tuple, list, np.ndarray)):
                 assert len(scale) == 2
@@ -221,7 +221,7 @@ def show_im(
                 yticks = yticks[1:]
             ax.set_yticks(yticks - 0.5)
             ylabs, unit = tick_label_formatter(
-                yticks, fov_y, scale, kwargs.get("scale_units", "nm")
+                yticks, fov_y, scale, kwargs.get("scale_unit", "nm")
             )
             ax.set_yticklabels(ylabs)
 
@@ -233,7 +233,7 @@ def show_im(
             xticks = np.linspace(0, floor_fov_x / scale, int(num_ticks_x))[1:]
             ax.set_xticks(xticks - 0.5)
             xlabs, unit = tick_label_formatter(
-                xticks, fov_y, scale, kwargs.get("scale_units", "nm")
+                xticks, fov_y, scale, kwargs.get("scale_unit", "nm")
             )
             ax.set_xticklabels(xlabs)
 
@@ -256,10 +256,16 @@ def show_im(
         pad = kwargs.get("roi_pad", 0)
         color = kwargs.get("roi_color", "white")
         dy, dx = image.shape
-        left = (roi["left"] - lw * pad) / dx
-        bottom = (dy - roi["bottom"] - lw * pad) / dy
-        width = (roi["right"] - roi["left"] + 2 * lw * pad) / dx
-        height = (roi["bottom"] - roi["top"] + 2 * lw * pad) / dy
+        if isinstance(roi, dict): 
+            left = (roi["left"] - lw * pad) / dx
+            bottom = (dy - roi["bottom"] - lw * pad) / dy
+            width = (roi["right"] - roi["left"] + 2 * lw * pad) / dx
+            height = (roi["bottom"] - roi["top"] + 2 * lw * pad) / dy
+        elif isinstance(roi, (list, tuple)): 
+            top, bottom, left, right = roi 
+            width = right - left 
+            height = bottom - top 
+            roi = {} 
 
         p = Rectangle((left, bottom), width, height, fill=False, edgecolor=color, linewidth=lw)
         if "rotation" in roi.keys():
@@ -469,7 +475,7 @@ def show_im_peaks(
 
 
 def tick_label_formatter(
-    ticks: np.ndarray, fov: float, scale: float, scale_units: str | None = None
+    ticks: np.ndarray, fov: float, scale: float, scale_unit: str | None = None
 ) -> tuple[list[str], str]:
     """
     Format tick labels for display.
@@ -478,14 +484,14 @@ def tick_label_formatter(
         ticks (np.ndarray): Tick positions.
         fov (float): Field of view.
         scale (float): Scale in nm/pixel.
-        scale_units (str, optional): Units for the scale.
+        scale_unit (str, optional): Units for the scale.
 
     Returns:
         tuple[List[str], str]: Formatted labels and unit.
     """
     labels = None
     unit = None
-    if scale_units is None or scale_units == "nm":
+    if scale_unit is None or scale_unit == "nm":
         if fov < 4:  # if fov < 4 nm use A scale
             unit = r"  Å  "  # extra spaces to pad away from ticks
             ticks *= 10
@@ -498,22 +504,22 @@ def tick_label_formatter(
             unit = "  m  "
             ticks /= 1e9
     else:
-        unit = scale_units
+        unit = scale_unit
 
     labels = [
         f"{v:.0f}" if v > 10 else f"{v:.0f}" if v == 0 else f"{v:.2f}" for v in ticks * scale
     ]
 
     # TODO make centered 0, 0 in middle of frame. origin = "middle" option?
-    # if isinstance(scale_units, str):
-    #     if "rad" in scale_units.lower():
+    # if isinstance(scale_unit, str):
+    #     if "rad" in scale_unit.lower():
     #         labels
 
     return labels, unit
 
 
 def show_fft(
-    im: np.ndarray, window: bool = True, log=False, alpha=1, gaussian_sigma=0, **kwargs
+    im: np.ndarray, window: bool = True, log=False, alpha=1, gaussian_sigma1=0, gaussian_sigma2=0, **kwargs
 ) -> None:
     """
     Compute and display the FFT of an image with logarithmic scaling.
@@ -530,10 +536,12 @@ def show_fft(
         win = tukey2D(im.shape, alpha=alpha)  # type:ignore bug or something np1.26 only?
     else:
         win = np.ones_like(im)
+    if gaussian_sigma1 > 0:
+        im = ndi.gaussian_filter(im, gaussian_sigma1)
     fft = np.fft.fft2(win * im)
     mag = np.abs(np.fft.fftshift(fft))
-    if gaussian_sigma > 0:
-        mag = ndi.gaussian_filter(mag, gaussian_sigma)
+    if gaussian_sigma2 > 0:
+        mag = ndi.gaussian_filter(mag, gaussian_sigma2)
     if log:
         # bads = np.where(mag == 0)
         # mag[bads] = 1
@@ -588,8 +596,13 @@ def lineplot_im(
     if show:
         show_scan = kwargs.get("show_scan", True)
         if show_scan:
-            fig, (ax0, ax1) = plt.subplots(nrows=1, ncols=2)
-            ax0.plot(profile)
+            fig, (ax0, ax1) = plt.subplots(nrows=1, ncols=2, figsize=kwargs.get("figsize"))
+            if kwargs.get("crop"): 
+                crp = kwargs.pop("crop") 
+                p = profile[crp:-crp]
+            else: 
+                p = profile
+            ax0.plot(p)
             ax0.set_aspect(1 / ax0.get_data_ratio(), adjustable="box")
             ax0.set_ylabel("intensity")
             ax0.set_xlabel("pixels")
@@ -638,7 +651,9 @@ def lineplot_im(
 
         ax1.set_xlim((0, dx - 1))
         ax1.set_ylim((dy - 1, 0))
-
+        title = kwargs.get("title")
+        if title is not None: 
+            plt.suptitle(title)
         if save:
             print("saving: ", save)
             dpi = kwargs.get("dpi", 400)
