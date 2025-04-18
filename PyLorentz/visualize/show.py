@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Optional, Union 
+from typing import TYPE_CHECKING, Optional 
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,7 +28,7 @@ else:
         from torch import Tensor
 
         _HAS_TORCH = True
-    except:
+    except:  # noqa: E722
         _HAS_TORCH = False
         Tensor = np.ndarray
 
@@ -40,7 +40,7 @@ else:
         import cupy as cp
 
         _HAS_CUPY = True
-    except:
+    except: # noqa: E722
         _HAS_CUPY = False
 
 
@@ -49,7 +49,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def show_im(
-    image: Union[np.ndarray, Tensor],
+    image: np.ndarray,
     title: str | None = None,
     scale: Optional[float] = None,
     simple: bool = False,
@@ -202,7 +202,7 @@ def show_im(
                 assert len(scale) == 2
                 if scale[0] != scale[1]:
                     warnings.warn(
-                        f"show_im() does not currently support different x/y scales. Using scale[0]"
+                        "show_im() does not currently support different x/y scales. Using scale[0]"
                     )
                 scale = scale[0]
             assert isinstance(scale, (float, int))

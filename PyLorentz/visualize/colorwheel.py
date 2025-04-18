@@ -136,6 +136,7 @@ def get_cmap(cmap: Optional[Union[str, Colormap]] = "linear", **kwargs) -> Color
     if isinstance(cmap, colors.LinearSegmentedColormap) or isinstance(cmap, colors.ListedColormap):
         return cmap
     elif isinstance(cmap, str):
+        cmap_out = None 
         if cmap in plt.colormaps():
             cmap_out = plt.get_cmap(cmap)
         elif cmap.lower().startswith("cet") and cc is not None:
@@ -153,7 +154,7 @@ def get_cmap(cmap: Optional[Union[str, Colormap]] = "linear", **kwargs) -> Color
                 cm3 = cm2.replace("0", "")
                 if cm3 in cc.colormaps():
                     cmap_out = plt.get_cmap(cm3)
-        if isinstance(cmap, str):  # unable to find so far
+        if cmap_out is None:  # unable to find so far
             try:
                 if cmap in ["linear", "lin", "", "default"]:
                     cmap_out = plt.get_cmap("gray")
