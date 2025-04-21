@@ -56,7 +56,8 @@ def show_2D(
     """
     assert Vx.ndim == Vy.ndim
     if Vx.ndim == 3:
-        print("Summing along first axis")
+        if Vx.shape[0] != 1: 
+            print("Summing along first axis")
         Vx = np.sum(Vx, axis=0)
         Vy = np.sum(Vy, axis=0)
         if Vz is not None:

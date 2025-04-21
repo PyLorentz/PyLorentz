@@ -687,7 +687,7 @@ class ThroughFocalSeries(BaseDataset):
 
         self._select_ROI(roi_im)
 
-    def show_tfs(self, **kwargs) -> None:
+    def show_tfs(self, vm_scale_each:bool=True, **kwargs) -> None:
         """
         Display the through-focal series images.
 
@@ -699,8 +699,9 @@ class ThroughFocalSeries(BaseDataset):
         """
         ncols = len(self)
         nrows = 2 if self.flip else 1
-
-        fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(2 * ncols, 2 * nrows))
+        
+        figsize = kwargs.pop("figsize", 2)
+        fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(figsize * ncols, figsize * nrows))
         if not self.flip:
             axs = axs[None,]
 
@@ -710,9 +711,13 @@ class ThroughFocalSeries(BaseDataset):
         vmax_infocus = np.max(ref_image)
 
         for a0, df in enumerate(self.defvals):
-            vmin = vmin_infocus if a0 == inf_idx else None
-            vmax = vmax_infocus if a0 == inf_idx else None
-
+            if vm_scale_each: # still scales infocus relative to over/under focus
+                vmin = vmin_infocus if a0 == inf_idx else None
+                vmax = vmax_infocus if a0 == inf_idx else None
+            else: 
+                vmin = self.imstack.min()
+                vmax = self.imstack.max() 
+            
             im_un = self.imstack[a0]
             show_im(
                 im_un,

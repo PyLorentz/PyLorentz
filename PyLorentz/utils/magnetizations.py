@@ -380,6 +380,7 @@ def neel(
     pad: Union[bool, int] = True,
     ir: float = 0,
     show: bool = False,
+    bkg: str = "pos",
 ) -> np.ndarray:
     """
     Create a Neel magnetization structure.
@@ -434,6 +435,8 @@ def neel(
     if chirality == "oi":
         mag_x *= -1
         mag_y *= -1
+    if bkg != "neg":
+        mag_z *= -1
 
     if show:
         x = np.arange(0, dim, 1)
