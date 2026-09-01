@@ -13,7 +13,7 @@ class BaseSim(object):
     A base class for simulations, providing common attributes and methods.
     """
 
-    _phi0: float = 2.07e7  # Gauss*nm^2 flux quantum
+    _phi0: float = physcon.h / (2 * physcon.e) * 1e22  # Gauss*nm^2 flux quantum
 
     _default_params = {
         "phase_method": "mansuripur",
@@ -398,7 +398,7 @@ class BaseSim(object):
 
     def _pre_B(self) -> float:
         """Compute the pre-factor for the B-phase."""
-        return 2 * np.pi * self.B0 * self.zscale * self.scale / self._phi0
+        return np.pi * self.B0 * self.zscale * self.scale / self._phi0
 
     def _pre_E(self) -> float:
         """Compute the pre-factor for the E-phase."""
